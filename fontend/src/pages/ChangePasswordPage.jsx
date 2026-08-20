@@ -69,7 +69,9 @@ export function ChangePasswordPage() {
           id="new_password"
           type="password"
           autoComplete="new-password"
-          minLength={8}
+          // minLength={8} - TEMPORARILY DISABLED FOR TESTING, matching
+          // backend's AUTH_PASSWORD_VALIDATORS being emptied out. Restore
+          // this before deploying anywhere real.
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           required

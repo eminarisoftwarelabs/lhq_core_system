@@ -130,7 +130,9 @@ export function CreateUserPage() {
           id="password"
           type="password"
           autoComplete="new-password"
-          minLength={8}
+          // minLength={8} - TEMPORARILY DISABLED FOR TESTING, matching
+          // backend's AUTH_PASSWORD_VALIDATORS being emptied out. Restore
+          // this before deploying anywhere real.
           value={form.password}
           onChange={(e) => updateField('password', e.target.value)}
           required
