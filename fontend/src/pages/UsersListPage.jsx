@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { roleLabel } from '../auth/permissions'
 import { usersApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 
@@ -7,9 +8,12 @@ const PAGE_SIZE = 20
 
 export function UsersListPage() {
   const [page, setPage] = useState(1)
+  const [reloadToken, setReloadToken] = useState(0)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [actionError, setActionError] = useState(null)
+  const [pendingId, setPendingId] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -34,7 +38,27 @@ export function UsersListPage() {
     return () => {
       cancelled = true
     }
-  }, [page])
+  }, [page, reloadToken])
+
+  async function handleToggleActive(user) {
+    const deactivating = user.is_active
+    if (deactivating && !window.confirm(`Deactivate ${user.full_name || user.email}?`)) {
+      return
+    }
+
+    setActionError(null)
+    setPendingId(user.id)
+    try {
+      await usersApi.update(user.id, { is_active: !user.is_active })
+      setReloadToken((t) => t + 1)
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError ? err.message : 'Could not update this user. Try again.',
+      )
+    } finally {
+      setPendingId(null)
+    }
+  }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1
 
@@ -53,6 +77,11 @@ export function UsersListPage() {
           {error}
         </p>
       )}
+      {actionError && (
+        <p className="form-error" role="alert">
+          {actionError}
+        </p>
+      )}
 
       {!loading && !error && data && data.results.length === 0 && <p>No users found.</p>}
 
@@ -65,6 +94,7 @@ export function UsersListPage() {
                 <th>Email</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -74,8 +104,14 @@ export function UsersListPage() {
                     <Link to={`/users/${u.id}`}>{u.full_name || '(no name)'}</Link>
                   </td>
                   <td>{u.email}</td>
-                  <td>{u.role}</td>
+                  <td>{roleLabel(u.role)}</td>
                   <td>{u.is_active ? 'Active' : 'Deactivated'}</td>
+                  <td>
+                    <Link to={`/users/${u.id}`}>Edit</Link>{' '}
+                    <button type="button" disabled={pendingId === u.id} onClick={() => handleToggleActive(u)}>
+                      {u.is_active ? 'Deactivate' : 'Reactivate'}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
