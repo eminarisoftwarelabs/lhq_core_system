@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CreateUserPage } from './CreateUserPage'
 
 const mockUseAuth = vi.fn()
@@ -18,6 +18,11 @@ const mockCreate = vi.fn()
 vi.mock('../lib/api', () => ({
   usersApi: { create: (...args) => mockCreate(...args) },
 }))
+
+beforeEach(() => {
+  mockNavigate.mockClear()
+  mockCreate.mockReset()
+})
 
 function renderWithActor(role) {
   mockUseAuth.mockReturnValue({ user: { id: 1, role } })
@@ -86,10 +91,43 @@ describe('CreateUserPage submission', () => {
 
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'johndoe@gmail.com' } })
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'John Doe' } })
+    fireEvent.change(screen.getByLabelText('Starting password'), { target: { value: 'TemporaryPassw0rd!' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create user' }))
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))
     expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true })
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringMatching(/^\/users\/\d+$/), expect.anything())
+  })
+})
+
+describe('CreateUserPage starting password field', () => {
+  it('is required and included in the submitted payload', async () => {
+    mockCreate.mockResolvedValueOnce({ id: 5 })
+    renderWithActor('ADMIN')
+
+    const passwordInput = screen.getByLabelText('Starting password')
+    expect(passwordInput).toBeRequired()
+    expect(passwordInput).toHaveAttribute('type', 'password')
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } })
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'A B' } })
+    fireEvent.change(passwordInput, { target: { value: 'TemporaryPassw0rd!' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create user' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))
+    expect(mockCreate.mock.calls[0][0]).toMatchObject({ password: 'TemporaryPassw0rd!' })
+  })
+
+  it('renders a server-side password validation error', async () => {
+    const { ApiError } = await import('../lib/apiClient')
+    mockCreate.mockRejectedValueOnce(new ApiError(400, { password: ['This password is too common.'] }))
+    renderWithActor('ADMIN')
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } })
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'A B' } })
+    fireEvent.change(screen.getByLabelText('Starting password'), { target: { value: 'password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create user' }))
+
+    expect(await screen.findByText('This password is too common.')).toBeInTheDocument()
   })
 })

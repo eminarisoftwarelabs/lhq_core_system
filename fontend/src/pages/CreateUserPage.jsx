@@ -25,6 +25,7 @@ export function CreateUserPage() {
     email: '',
     full_name: '',
     role: roleOptions[0] || '',
+    password: '',
     phone: '',
     employee_id: '',
     employment_type: '',
@@ -52,6 +53,7 @@ export function CreateUserPage() {
       email: form.email,
       full_name: form.full_name,
       role: form.role,
+      password: form.password,
       phone: form.phone,
       employee_id: form.employee_id || null,
       employment_type: form.employment_type,
@@ -122,6 +124,22 @@ export function CreateUserPage() {
           ))}
         </select>
         <FieldErrors errors={errors} field="role" />
+
+        <label htmlFor="password">Starting password</label>
+        <input
+          id="password"
+          type="password"
+          autoComplete="new-password"
+          minLength={8}
+          value={form.password}
+          onChange={(e) => updateField('password', e.target.value)}
+          required
+        />
+        <p className="form-note">
+          No email is sent yet, so share this password with them directly. They&apos;ll be
+          required to change it the first time they log in.
+        </p>
+        <FieldErrors errors={errors} field="password" />
 
         <label htmlFor="phone">Phone</label>
         <input id="phone" type="text" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />

@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth/useAuth'
 import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { RequirePasswordChange } from './components/RequirePasswordChange'
+import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { CreateUserPage } from './pages/CreateUserPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
@@ -21,14 +23,18 @@ function App() {
       <Route path="/setup-password" element={<SetupPasswordPage />} />
 
       <Route element={<ProtectedRoute />}>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<HomeRedirect />} />
-          <Route path="/me" element={<ProfilePage />} />
+        <Route path="/change-password" element={<ChangePasswordPage />} />
 
-          <Route element={<ProtectedRoute staffOnly />}>
-            <Route path="/users" element={<UsersListPage />} />
-            <Route path="/users/new" element={<CreateUserPage />} />
-            <Route path="/users/:id" element={<UserDetailPage />} />
+        <Route element={<RequirePasswordChange />}>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<HomeRedirect />} />
+            <Route path="/me" element={<ProfilePage />} />
+
+            <Route element={<ProtectedRoute staffOnly />}>
+              <Route path="/users" element={<UsersListPage />} />
+              <Route path="/users/new" element={<CreateUserPage />} />
+              <Route path="/users/:id" element={<UserDetailPage />} />
+            </Route>
           </Route>
         </Route>
       </Route>

@@ -10,6 +10,11 @@ export const authApi = {
       body: { uid, token, new_password: newPassword },
       skipAuth: true,
     }),
+  changePassword: (currentPassword, newPassword) =>
+    apiFetch('/auth/change-password/', {
+      method: 'POST',
+      body: { current_password: currentPassword, new_password: newPassword },
+    }),
 }
 
 export const usersApi = {
