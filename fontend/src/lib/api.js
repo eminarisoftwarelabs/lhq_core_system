@@ -23,4 +23,5 @@ export const usersApi = {
   create: (payload) => apiFetch('/users/create/', { method: 'POST', body: payload }),
   get: (id) => apiFetch(`/users/${id}/`),
   update: (id, payload) => apiFetch(`/users/${id}/`, { method: 'PATCH', body: payload }),
+  delete: (id) => apiFetch(`/users/${id}/`, { method: 'DELETE' }),
 }

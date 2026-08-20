@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { roleLabel } from '../auth/permissions'
+import { useAuth } from '../auth/useAuth'
 import { usersApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 
 const PAGE_SIZE = 20
 
 export function UsersListPage() {
+  const { user: actor } = useAuth()
   const [page, setPage] = useState(1)
   const [reloadToken, setReloadToken] = useState(0)
   const [data, setData] = useState(null)
@@ -54,6 +56,26 @@ export function UsersListPage() {
     } catch (err) {
       setActionError(
         err instanceof ApiError ? err.message : 'Could not update this user. Try again.',
+      )
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  async function handleDelete(user) {
+    const name = user.full_name || user.email
+    if (!window.confirm(`Permanently delete ${name}? This cannot be undone.`)) {
+      return
+    }
+
+    setActionError(null)
+    setPendingId(user.id)
+    try {
+      await usersApi.delete(user.id)
+      setReloadToken((t) => t + 1)
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError ? err.message : 'Could not delete this user. Try again.',
       )
     } finally {
       setPendingId(null)
@@ -110,7 +132,17 @@ export function UsersListPage() {
                     <Link to={`/users/${u.id}`}>Edit</Link>{' '}
                     <button type="button" disabled={pendingId === u.id} onClick={() => handleToggleActive(u)}>
                       {u.is_active ? 'Deactivate' : 'Reactivate'}
-                    </button>
+                    </button>{' '}
+                    {u.id !== actor.id && (
+                      <button
+                        type="button"
+                        className="button-danger"
+                        disabled={pendingId === u.id}
+                        onClick={() => handleDelete(u)}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -11,8 +11,11 @@ export function FieldErrors({ errors, field }) {
 }
 
 export function NonFieldErrors({ errors }) {
+  // errors.detail may be a single string (PermissionDenied etc.) or an
+  // array (an explicit {'detail': [...]} raised from a view) - concat
+  // normalizes either shape into a flat array without double-nesting.
   const messages = errors?.detail
-    ? [errors.detail]
+    ? [].concat(errors.detail)
     : errors?.non_field_errors || []
   if (!messages.length) return null
   return (

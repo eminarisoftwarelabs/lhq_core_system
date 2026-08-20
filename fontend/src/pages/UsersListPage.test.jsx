@@ -5,11 +5,17 @@ import { UsersListPage } from './UsersListPage'
 
 const mockList = vi.fn()
 const mockUpdate = vi.fn()
+const mockDelete = vi.fn()
 vi.mock('../lib/api', () => ({
   usersApi: {
     list: (...args) => mockList(...args),
     update: (...args) => mockUpdate(...args),
+    delete: (...args) => mockDelete(...args),
   },
+}))
+
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({ user: { id: 1, role: 'OWNER' } }),
 }))
 
 const activeTutor = {
@@ -38,6 +44,7 @@ function renderPage() {
 beforeEach(() => {
   mockList.mockReset()
   mockUpdate.mockReset()
+  mockDelete.mockReset()
   mockList.mockResolvedValue({
     count: 2,
     next: null,
@@ -107,5 +114,67 @@ describe('UsersListPage row actions', () => {
 
     expect(await screen.findByText('You do not have permission to edit this user.')).toBeInTheDocument()
     expect(mockList).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('UsersListPage delete', () => {
+  it('renders a Delete button per row, distinct from Deactivate/Reactivate', async () => {
+    renderPage()
+    await screen.findByText('Tam Tutor')
+
+    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
+  })
+
+  it('asks for a strong confirmation, and does nothing if declined', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => false))
+    renderPage()
+    await screen.findByText('Tam Tutor')
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/permanently delete.*cannot be undone/i))
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  it('on confirm, calls usersApi.delete with the id and reloads the list', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    mockDelete.mockResolvedValueOnce(null)
+    renderPage()
+    await screen.findByText('Tam Tutor')
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(2))
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows an error and does not reload if the delete fails (e.g. subjects assigned)', async () => {
+    const { ApiError } = await import('../lib/apiClient')
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    mockDelete.mockRejectedValueOnce(
+      new ApiError(400, { detail: ['Cannot delete: this user has subjects assigned.'] }),
+    )
+    renderPage()
+    await screen.findByText('Tam Tutor')
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+
+    expect(await screen.findByText('Cannot delete: this user has subjects assigned.')).toBeInTheDocument()
+    expect(mockList).toHaveBeenCalledTimes(1)
+  })
+
+  it('never shows a Delete button on the actor\'s own row', async () => {
+    mockList.mockResolvedValue({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [{ id: 1, email: 'me@lhq.test', full_name: 'Me', role: 'OWNER', is_active: true }],
+    })
+    renderPage()
+    await screen.findByText('Me')
+
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
   })
 })

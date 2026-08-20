@@ -87,6 +87,12 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.button-danger {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
 input,
 select {
   font: inherit;
