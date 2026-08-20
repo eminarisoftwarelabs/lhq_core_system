@@ -3,6 +3,18 @@
 
 export const ROLES = ['TUTOR', 'ADMIN', 'OWNER', 'SYS_ADMIN']
 
+// Matches the human-readable labels on backend's Role(TextChoices).
+const ROLE_LABELS = {
+  TUTOR: 'Tutor',
+  ADMIN: 'Admin',
+  OWNER: 'Owner',
+  SYS_ADMIN: 'System Admin',
+}
+
+export function roleLabel(role) {
+  return ROLE_LABELS[role] ?? role
+}
+
 const STAFF_ROLES = new Set(['ADMIN', 'OWNER', 'SYS_ADMIN'])
 
 export function isStaffLevel(role) {

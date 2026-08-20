@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { roleLabel } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
 
 export function NavBar() {
@@ -24,7 +25,9 @@ export function NavBar() {
         </NavLink>
       </nav>
       <div className="nav-bar__user">
-        <span>{user?.full_name || user?.email}</span>
+        <span>
+          {user?.full_name || user?.email} ({roleLabel(user?.role)})
+        </span>
         <button type="button" onClick={handleLogout}>
           Log out
         </button>

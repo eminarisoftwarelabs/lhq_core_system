@@ -7,8 +7,23 @@ import {
   editableFields,
   hasStaffScopeOver,
   isStaffLevel,
+  roleLabel,
   roleOptionsForEdit,
 } from './permissions'
+
+describe('roleLabel', () => {
+  it('formats each role as its backend-matching human label', () => {
+    expect(roleLabel('TUTOR')).toBe('Tutor')
+    expect(roleLabel('ADMIN')).toBe('Admin')
+    expect(roleLabel('OWNER')).toBe('Owner')
+    expect(roleLabel('SYS_ADMIN')).toBe('System Admin')
+  })
+
+  it('falls back to the raw value for an unknown role', () => {
+    expect(roleLabel('BOGUS')).toBe('BOGUS')
+    expect(roleLabel(undefined)).toBe(undefined)
+  })
+})
 
 describe('isStaffLevel', () => {
   it('is true for ADMIN, OWNER, SYS_ADMIN', () => {
