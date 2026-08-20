@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { CreateUserPage } from './CreateUserPage'
@@ -6,6 +6,17 @@ import { CreateUserPage } from './CreateUserPage'
 const mockUseAuth = vi.fn()
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => mockUseAuth(),
+}))
+
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return { ...actual, useNavigate: () => mockNavigate }
+})
+
+const mockCreate = vi.fn()
+vi.mock('../lib/api', () => ({
+  usersApi: { create: (...args) => mockCreate(...args) },
 }))
 
 function renderWithActor(role) {
@@ -65,5 +76,20 @@ describe('CreateUserPage role dropdown gating', () => {
 
     expect(screen.queryByLabelText('Hourly rate')).not.toBeInTheDocument()
     expect(screen.getByLabelText(/also teaches/i)).toBeInTheDocument()
+  })
+})
+
+describe('CreateUserPage submission', () => {
+  it('returns to the users list (not the new user\'s edit page) after a successful create', async () => {
+    mockCreate.mockResolvedValueOnce({ id: 4, email: 'johndoe@gmail.com', full_name: 'John Doe', role: 'TUTOR' })
+    renderWithActor('ADMIN')
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'johndoe@gmail.com' } })
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'John Doe' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create user' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))
+    expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true })
+    expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringMatching(/^\/users\/\d+$/), expect.anything())
   })
 })

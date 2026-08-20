@@ -66,8 +66,8 @@ export function CreateUserPage() {
     }
 
     try {
-      const created = await usersApi.create(payload)
-      navigate(`/users/${created.id}`, { replace: true })
+      await usersApi.create(payload)
+      navigate('/users', { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.data) {
         setErrors(err.data)
