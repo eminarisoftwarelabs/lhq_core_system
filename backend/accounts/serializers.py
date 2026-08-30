@@ -11,7 +11,10 @@ from .models import Role, TutorProfile, User
 class TutorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = TutorProfile
-        fields = ['hourly_rate', 'is_available']
+        # 'id' is read-only by default (it's the PK) - exposed so callers
+        # like academics.Subject's tutor picker can reference this profile,
+        # since Subject.tutor is a TutorProfile id, not a User id.
+        fields = ['id', 'hourly_rate', 'is_available']
 
 
 class UserSerializer(serializers.ModelSerializer):

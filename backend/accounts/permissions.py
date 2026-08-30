@@ -1,4 +1,17 @@
+from rest_framework.permissions import BasePermission
+
 from .models import Role
+
+
+class IsStaffLevel(BasePermission):
+    """Admin/Owner/SYS_ADMIN only. Shared by clients, enquiries, enrollments,
+    and billing — those apps are flatly staff-level-only, no per-row
+    ownership scoping, per onboarding_apps_handover.md."""
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and request.user.is_authenticated and request.user.is_staff_level
+        )
 
 
 def can_create_role(creator, target_role):

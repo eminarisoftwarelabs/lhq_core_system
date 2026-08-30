@@ -16,6 +16,24 @@ export function NavBar() {
       <div className="nav-bar__brand">LHQ Learning Hub</div>
       <nav className="nav-bar__links">
         {isStaffLevel && (
+          <NavLink to="/enquiries" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Enquiries
+          </NavLink>
+        )}
+        {isStaffLevel && (
+          <NavLink to="/students" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Students
+          </NavLink>
+        )}
+        <NavLink to="/subjects" className={({ isActive }) => (isActive ? 'active' : '')}>
+          Subjects
+        </NavLink>
+        {isStaffLevel && (
+          <NavLink to="/invoices" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Invoices
+          </NavLink>
+        )}
+        {isStaffLevel && (
           <NavLink to="/users" className={({ isActive }) => (isActive ? 'active' : '')}>
             Users
           </NavLink>

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import Subject, TutorProfile, User
+from .models import TutorProfile, User
 
 
 @admin.register(User)
@@ -51,10 +51,3 @@ class UserAdmin(DjangoUserAdmin):
 class TutorProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'hourly_rate', 'is_available']
     search_fields = ['user__email', 'user__full_name']
-
-
-@admin.register(Subject)
-class SubjectAdmin(admin.ModelAdmin):
-    list_display = ['name', 'tutor']
-    list_filter = ['tutor']
-    search_fields = ['name']

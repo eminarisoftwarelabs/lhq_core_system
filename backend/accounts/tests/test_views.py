@@ -6,7 +6,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.models import Role, Subject, TutorProfile, User
+from academics.models import Subject
+from accounts.models import Role, TutorProfile, User
 
 
 def make_user(role, email=None, **kwargs):

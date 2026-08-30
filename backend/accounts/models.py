@@ -108,20 +108,3 @@ class TutorProfile(models.Model):
 
     def __str__(self):
         return f'TutorProfile<{self.user.email}>'
-
-
-class Subject(models.Model):
-    name = models.CharField(max_length=100)
-    # null=True so a Subject can exist before anyone is assigned to it.
-    # Exactly one Tutor at a time by design; see accounts_app_handover.md
-    # for why this isn't a ManyToMany.
-    tutor = models.ForeignKey(
-        TutorProfile,
-        on_delete=models.PROTECT,
-        related_name='subjects',
-        null=True,
-        blank=True,
-    )
-
-    def __str__(self):
-        return self.name

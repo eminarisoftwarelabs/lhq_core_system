@@ -1,7 +1,8 @@
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from accounts.models import Role, Subject, TutorProfile, User
+from academics.models import Subject
+from accounts.models import Role, TutorProfile, User
 
 
 class UserManagerTests(TestCase):
@@ -117,28 +118,3 @@ class TutorProfileModelTests(TestCase):
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 profile.delete()
-
-
-class SubjectModelTests(TestCase):
-    def test_subject_can_exist_without_a_tutor(self):
-        subject = Subject.objects.create(name='Unassigned Subject')
-        self.assertIsNone(subject.tutor)
-
-    def test_reassigning_subject_is_a_plain_field_update(self):
-        tutor_a = TutorProfile.objects.create(
-            user=User.objects.create_user(
-                email='a@lhq.test', full_name='A', role=Role.TUTOR
-            )
-        )
-        tutor_b = TutorProfile.objects.create(
-            user=User.objects.create_user(
-                email='b@lhq.test', full_name='B', role=Role.TUTOR
-            )
-        )
-        subject = Subject.objects.create(name='Physics', tutor=tutor_a)
-
-        subject.tutor = tutor_b
-        subject.save()
-        subject.refresh_from_db()
-
-        self.assertEqual(subject.tutor, tutor_b)

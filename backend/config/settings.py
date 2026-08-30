@@ -44,6 +44,11 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'core',
     'accounts',
+    'academics',
+    'clients',
+    'enrollments',
+    'enquiries',
+    'billing',
 ]
 
 MIDDLEWARE = [

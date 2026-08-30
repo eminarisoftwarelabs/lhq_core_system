@@ -5,15 +5,27 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { RequirePasswordChange } from './components/RequirePasswordChange'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { CreateUserPage } from './pages/CreateUserPage'
+import { EnquiriesListPage } from './pages/EnquiriesListPage'
+import { EnquiryCreatePage } from './pages/EnquiryCreatePage'
+import { EnquiryDetailPage } from './pages/EnquiryDetailPage'
+import { EnrollmentCreatePage } from './pages/EnrollmentCreatePage'
+import { InvoiceDetailPage } from './pages/InvoiceDetailPage'
+import { InvoicesListPage } from './pages/InvoicesListPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SetupPasswordPage } from './pages/SetupPasswordPage'
+import { StudentDetailPage } from './pages/StudentDetailPage'
+import { StudentsListPage } from './pages/StudentsListPage'
+import { SubjectCreatePage } from './pages/SubjectCreatePage'
+import { SubjectDetailPage } from './pages/SubjectDetailPage'
+import { SubjectRosterPage } from './pages/SubjectRosterPage'
+import { SubjectsListPage } from './pages/SubjectsListPage'
 import { UserDetailPage } from './pages/UserDetailPage'
 import { UsersListPage } from './pages/UsersListPage'
 
 function HomeRedirect() {
   const { isStaffLevel } = useAuth()
-  return <Navigate to={isStaffLevel ? '/users' : '/me'} replace />
+  return <Navigate to={isStaffLevel ? '/enquiries' : '/subjects'} replace />
 }
 
 function App() {
@@ -30,10 +42,28 @@ function App() {
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/me" element={<ProfilePage />} />
 
+            <Route path="/subjects" element={<SubjectsListPage />} />
+            <Route path="/subjects/:id" element={<SubjectDetailPage />} />
+            <Route path="/subjects/:id/roster" element={<SubjectRosterPage />} />
+
             <Route element={<ProtectedRoute staffOnly />}>
               <Route path="/users" element={<UsersListPage />} />
               <Route path="/users/new" element={<CreateUserPage />} />
               <Route path="/users/:id" element={<UserDetailPage />} />
+
+              <Route path="/subjects/new" element={<SubjectCreatePage />} />
+
+              <Route path="/students" element={<StudentsListPage />} />
+              <Route path="/students/:id" element={<StudentDetailPage />} />
+
+              <Route path="/enrollments/new" element={<EnrollmentCreatePage />} />
+
+              <Route path="/enquiries" element={<EnquiriesListPage />} />
+              <Route path="/enquiries/new" element={<EnquiryCreatePage />} />
+              <Route path="/enquiries/:id" element={<EnquiryDetailPage />} />
+
+              <Route path="/invoices" element={<InvoicesListPage />} />
+              <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             </Route>
           </Route>
         </Route>

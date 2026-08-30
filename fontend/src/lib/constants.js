@@ -1,0 +1,49 @@
+// Mirrors backend TextChoices exactly - keep both sides in sync.
+
+export const ENQUIRY_STAGES = ['INITIAL_CALL', 'MEETING_SET', 'INVOICED', 'ENROLLED']
+
+export const STAGE_LABELS = {
+  INITIAL_CALL: 'Initial call',
+  MEETING_SET: 'Meeting set',
+  INVOICED: 'Invoiced',
+  ENROLLED: 'Enrolled',
+}
+
+// Stages a staff member can manually move an enquiry to via the change-stage
+// endpoint. ENROLLED is deliberately excluded - the backend rejects it
+// outright, it's only ever set automatically by the first payment.
+export const MANUAL_STAGE_OPTIONS = ['INITIAL_CALL', 'MEETING_SET', 'INVOICED']
+
+export const LEARNING_MODES = ['IN_PERSON', 'ONLINE']
+
+export const LEARNING_MODE_LABELS = {
+  IN_PERSON: 'In person',
+  ONLINE: 'Online',
+}
+
+export const ENROLLMENT_STATUS_LABELS = {
+  ACTIVE: 'Active',
+  COMPLETED: 'Completed',
+  WITHDRAWN: 'Withdrawn',
+}
+
+export const INVOICE_STATUS_LABELS = {
+  SENT: 'Sent',
+  PARTIALLY_PAID: 'Partially paid',
+  PAID: 'Paid',
+}
+
+export const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+export function dayLabel(dayOfWeek) {
+  return DAY_LABELS[dayOfWeek] ?? '—'
+}
+
+export function formatTime(value) {
+  return value ? value.slice(0, 5) : ''
+}
+
+export function formatMoney(value) {
+  if (value === null || value === undefined) return '—'
+  return `$${Number(value).toFixed(2)}`
+}
