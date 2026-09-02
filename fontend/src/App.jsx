@@ -1,16 +1,19 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { useAuth } from './auth/useAuth'
 import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { RequirePasswordChange } from './components/RequirePasswordChange'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { CreateUserPage } from './pages/CreateUserPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { EnquiriesListPage } from './pages/EnquiriesListPage'
 import { EnquiryCreatePage } from './pages/EnquiryCreatePage'
 import { EnquiryDetailPage } from './pages/EnquiryDetailPage'
 import { EnrollmentCreatePage } from './pages/EnrollmentCreatePage'
 import { InvoiceDetailPage } from './pages/InvoiceDetailPage'
 import { InvoicesListPage } from './pages/InvoicesListPage'
+import { CookiesPage } from './pages/legal/CookiesPage'
+import { DataPrivacyPage } from './pages/legal/DataPrivacyPage'
+import { LegalNoticePage } from './pages/legal/LegalNoticePage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SetupPasswordPage } from './pages/SetupPasswordPage'
@@ -23,11 +26,6 @@ import { SubjectsListPage } from './pages/SubjectsListPage'
 import { UserDetailPage } from './pages/UserDetailPage'
 import { UsersListPage } from './pages/UsersListPage'
 
-function HomeRedirect() {
-  const { isStaffLevel } = useAuth()
-  return <Navigate to={isStaffLevel ? '/enquiries' : '/subjects'} replace />
-}
-
 function App() {
   return (
     <Routes>
@@ -39,8 +37,12 @@ function App() {
 
         <Route element={<RequirePasswordChange />}>
           <Route element={<AppLayout />}>
-            <Route path="/" element={<HomeRedirect />} />
+            <Route path="/" element={<DashboardPage />} />
             <Route path="/me" element={<ProfilePage />} />
+
+            <Route path="/privacy" element={<DataPrivacyPage />} />
+            <Route path="/legal-notice" element={<LegalNoticePage />} />
+            <Route path="/cookies" element={<CookiesPage />} />
 
             <Route path="/subjects" element={<SubjectsListPage />} />
             <Route path="/subjects/:id" element={<SubjectDetailPage />} />

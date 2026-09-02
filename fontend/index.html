@@ -4,7 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <title>LHQ Learning Hub</title>
+    <script>
+      // Applies a previously chosen theme before first paint so there's no
+      // light/dark flash on load. No stored choice means "follow the OS",
+      // which the CSS prefers-color-scheme query already handles.
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('lhq-theme')
+          if (stored === 'light' || stored === 'dark') {
+            document.documentElement.dataset.theme = stored
+          }
+        } catch {
+          // Storage unavailable - fall back to the OS preference.
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
