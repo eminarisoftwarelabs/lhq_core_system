@@ -854,16 +854,16 @@ fieldset {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
 }
 
 .dashboard-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  min-height: 176px;
-  padding: var(--space-6) var(--space-6) var(--space-8);
+  min-height: 148px;
+  padding: var(--space-4) var(--space-4) var(--space-6);
   border-radius: var(--radius-container-lg);
   border: 1px solid var(--border-default);
   background: var(--bg-surface);
@@ -897,8 +897,8 @@ fieldset {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-container);
   background: var(--bg-surface-muted);
   color: var(--text-nav);
@@ -925,7 +925,7 @@ fieldset {
 
 .dashboard-card__count {
   margin-top: auto;
-  font-size: 44px;
+  font-size: 34px;
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.01em;
@@ -939,6 +939,312 @@ fieldset {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
+}
+
+/* Same shape as .dashboard-card above it (border/radius), but deliberately
+   quieter: a muted/greyed surface instead of the stat cards' white one, no
+   big number, no hover lift - a lower-priority "recent activity" feed, not
+   another KPI. */
+.recent-enrollments {
+  margin-top: var(--space-6);
+  padding: var(--space-6);
+  border-radius: var(--radius-container-lg);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface-muted);
+}
+
+.recent-enrollments__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.recent-enrollments__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.recent-enrollments__title h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.recent-enrollments__status {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Caps at ~5 rows before scrolling internally - the card doesn't grow
+   without bound as more enrollments land. */
+.recent-enrollments__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.recent-enrollments__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  border-radius: var(--radius-input);
+  border-bottom: 1px solid var(--border-default);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.recent-enrollments__list li:last-child .recent-enrollments__row {
+  border-bottom: none;
+}
+
+/* Lighter than the card's own muted background, so a hovered row visibly
+   lifts off the surface instead of disappearing into it. */
+.recent-enrollments__row:hover {
+  background: var(--bg-surface);
+}
+
+.recent-enrollments__row:hover .recent-enrollments__name {
+  color: var(--text-nav-hover);
+}
+
+.recent-enrollments__name {
+  font-weight: 500;
+}
+
+.recent-enrollments__date {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* -- Period toggle (segmented pill control) --------------------------------
+   Overrides the global button/dark-mode rules via matched specificity
+   (class + type selectors) and source order - see the "Buttons" section
+   above, which this deliberately outranks by appearing later in the file. */
+.period-toggle {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--bg-surface-muted);
+  border: 1px solid var(--border-default);
+}
+
+.period-toggle button.period-toggle__option {
+  min-height: 0;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.period-toggle button.period-toggle__option:hover {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.period-toggle button.period-toggle__option--active,
+.period-toggle button.period-toggle__option--active:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px 0 rgba(16, 16, 25, 0.08);
+}
+
+/* Narrow, tall lanes rather than wide short boxes - reads intentional
+   ("this is a pipeline column") instead of leaving dead space in a big box. */
+.onboarding-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(272px, 1fr));
+  gap: var(--space-6);
+  align-items: stretch;
+}
+
+.onboarding-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
+  max-height: 560px;
+  padding: var(--space-6);
+  border-radius: var(--radius-container-lg);
+  /* A tinted "lining" rather than the flat neutral border used elsewhere -
+     a soft wash of the nav accent blended into the default border color. */
+  border: 1px solid color-mix(in srgb, var(--focus-ring) 35%, var(--border-default));
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px 0 rgba(16, 16, 25, 0.04);
+}
+
+.onboarding-section__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.onboarding-section__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-input);
+  background: var(--bg-surface-muted);
+  color: var(--text-nav);
+}
+
+.onboarding-section__header h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onboarding-section__count {
+  flex-shrink: 0;
+  min-width: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--bg-surface-muted);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.onboarding-section__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.onboarding-section__status {
+  margin: auto 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* flex + min-height: 0 lets this shrink below its content size within the
+   card's fixed height (set on .onboarding-section above) instead of pushing
+   the card taller - that's what makes overflow-y actually kick in. */
+.onboarding-section__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.onboarding-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  border-radius: var(--radius-input);
+  border-bottom: 1px solid var(--border-default);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: background var(--transition-fast);
+}
+
+.onboarding-section__list li:last-child .onboarding-row {
+  border-bottom: none;
+}
+
+.onboarding-row:hover {
+  background: var(--bg-surface-muted);
+}
+
+.onboarding-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.onboarding-row__name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onboarding-row__meta,
+.onboarding-row__action {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Age badge + arrow, stacked on the far (right) edge of the row rather than
+   inline with the name/meta/action text - a corner readout, not another
+   line of body copy. */
+.onboarding-row__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.onboarding-row__age {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.onboarding-row__arrow {
+  flex-shrink: 0;
+  color: var(--text-nav);
+  opacity: 0;
+  transform: translate(-4px, 4px);
+  transition: opacity var(--transition-base), transform var(--transition-base), color var(--transition-fast);
+}
+
+.onboarding-row:hover .onboarding-row__arrow {
+  opacity: 1;
+  transform: translate(0, 0);
+  color: var(--text-nav-hover);
 }
 
 /* -- Generic page content -------------------------------------------------- */

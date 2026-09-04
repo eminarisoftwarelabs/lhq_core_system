@@ -69,7 +69,8 @@ export const clientsApi = {
 }
 
 export const enrollmentsApi = {
-  listForStudent: (studentId) => apiFetch(`/enrollments/${toQuery({ student: studentId })}`),
+  list: (params = {}) => apiFetch(`/enrollments/${toQuery(params)}`),
+  listForStudent: (studentId) => enrollmentsApi.list({ student: studentId }),
   create: (payload) => apiFetch('/enrollments/', { method: 'POST', body: payload }),
   withdraw: (id, reason) => apiFetch(`/enrollments/${id}/withdraw/`, { method: 'POST', body: { reason } }),
 }

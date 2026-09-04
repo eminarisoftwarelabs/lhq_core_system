@@ -1,21 +1,46 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EnquiriesListPage } from './EnquiriesListPage'
+import { ApiError } from '../lib/apiClient'
 
 const mockList = vi.fn()
+const mockListInvoices = vi.fn()
 vi.mock('../lib/api', () => ({
   enquiriesApi: {
     list: (...args) => mockList(...args),
   },
+  billingApi: {
+    listInvoices: (...args) => mockListInvoices(...args),
+  },
 }))
 
-const enquiry = {
+const initialCallEnquiry = {
   id: 5,
   student_name: 'Jimmy Doe',
   parent: { full_name: 'Jane Doe' },
   stage: 'INITIAL_CALL',
-  desired_start_date: '2026-02-01',
+  meeting_datetime: null,
+  created_at: '2026-08-01T00:00:00Z',
+  stage_history: [],
+}
+
+const invoicedEnquiry = {
+  id: 9,
+  student_name: 'Ada Lee',
+  parent: { full_name: 'Grace Lee' },
+  stage: 'INVOICED',
+  created_at: '2026-08-01T00:00:00Z',
+  stage_history: [],
+}
+
+function mockByStage({ initialCall, meetingSet, invoiced }) {
+  mockList.mockImplementation(({ stage }) => {
+    if (stage === 'INITIAL_CALL') return Promise.resolve(initialCall)
+    if (stage === 'MEETING_SET') return Promise.resolve(meetingSet)
+    if (stage === 'INVOICED') return Promise.resolve(invoiced)
+    return Promise.reject(new Error(`unexpected stage ${stage}`))
+  })
 }
 
 function renderPage() {
@@ -28,7 +53,7 @@ function renderPage() {
 
 beforeEach(() => {
   mockList.mockReset()
-  mockList.mockResolvedValue({ count: 1, results: [enquiry] })
+  mockListInvoices.mockReset().mockResolvedValue({ count: 0, results: [] })
 })
 
 afterEach(() => {
@@ -36,27 +61,174 @@ afterEach(() => {
 })
 
 describe('EnquiriesListPage', () => {
-  it('loads with no stage filter on mount', async () => {
+  it('fetches each active pipeline stage independently, and never fetches ENROLLED', async () => {
+    mockByStage({
+      initialCall: { count: 1, results: [initialCallEnquiry] },
+      meetingSet: { count: 0, results: [] },
+      invoiced: { count: 1, results: [invoicedEnquiry] },
+    })
     renderPage()
 
     expect(await screen.findByText('Jimmy Doe')).toBeInTheDocument()
-    expect(mockList).toHaveBeenCalledWith({})
+    expect(mockList).toHaveBeenCalledWith({ stage: 'INITIAL_CALL' })
+    expect(mockList).toHaveBeenCalledWith({ stage: 'MEETING_SET' })
+    expect(mockList).toHaveBeenCalledWith({ stage: 'INVOICED' })
+    expect(mockList).not.toHaveBeenCalledWith({ stage: 'ENROLLED' })
+    expect(mockList).toHaveBeenCalledTimes(3)
   })
 
-  it('re-fetches with the selected stage when the filter changes', async () => {
+  it('shows the three stage sections, each with its own heading and count', async () => {
+    mockByStage({
+      initialCall: { count: 1, results: [initialCallEnquiry] },
+      meetingSet: { count: 0, results: [] },
+      invoiced: { count: 1, results: [invoicedEnquiry] },
+    })
     renderPage()
-    await screen.findByText('Jimmy Doe')
-    mockList.mockClear()
 
-    fireEvent.change(screen.getByLabelText('Filter by stage'), { target: { value: 'MEETING_SET' } })
+    expect(await screen.findByRole('heading', { name: 'Initial call' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Meeting set' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Invoiced' })).toBeInTheDocument()
 
-    await waitFor(() => expect(mockList).toHaveBeenCalledWith({ stage: 'MEETING_SET' }))
+    expect(await screen.findAllByText('1')).toHaveLength(2) // Initial call and Invoiced
+    expect(screen.getByText('0')).toBeInTheDocument()
   })
 
   it('links each row to its enquiry detail page', async () => {
+    mockByStage({
+      initialCall: { count: 1, results: [initialCallEnquiry] },
+      meetingSet: { count: 0, results: [] },
+      invoiced: { count: 1, results: [invoicedEnquiry] },
+    })
     renderPage()
-    await screen.findByText('Jimmy Doe')
 
-    expect(screen.getByRole('link', { name: 'Jimmy Doe' })).toHaveAttribute('href', '/enquiries/5')
+    expect(await screen.findByRole('link', { name: /Jimmy Doe/ })).toHaveAttribute('href', '/enquiries/5')
+    expect(screen.getByRole('link', { name: /Ada Lee/ })).toHaveAttribute('href', '/enquiries/9')
+  })
+
+  it('shows the next action for an Initial call enquiry with no meeting scheduled', async () => {
+    mockByStage({
+      initialCall: { count: 1, results: [initialCallEnquiry] },
+      meetingSet: { count: 0, results: [] },
+      invoiced: { count: 0, results: [] },
+    })
+    renderPage()
+
+    expect(await screen.findByText('No meeting scheduled yet')).toBeInTheDocument()
+  })
+
+  it('shows the meeting time as the next action for a Meeting set enquiry', async () => {
+    const enquiry = {
+      id: 6,
+      student_name: 'Chikondi Phiri',
+      parent: { full_name: 'Grace Phiri' },
+      stage: 'MEETING_SET',
+      meeting_datetime: '2099-01-15T14:00:00Z',
+      created_at: '2026-08-01T00:00:00Z',
+      stage_history: [],
+    }
+    mockByStage({
+      initialCall: { count: 0, results: [] },
+      meetingSet: { count: 1, results: [enquiry] },
+      invoiced: { count: 0, results: [] },
+    })
+    renderPage()
+
+    expect(await screen.findByText(/^Meeting /)).toBeInTheDocument()
+  })
+
+  it('shows the invoice due date as the next action for an Invoiced enquiry', async () => {
+    mockByStage({
+      initialCall: { count: 0, results: [] },
+      meetingSet: { count: 0, results: [] },
+      invoiced: { count: 1, results: [invoicedEnquiry] },
+    })
+    mockListInvoices.mockResolvedValue({
+      count: 1,
+      results: [{ id: 20, enquiry: 9, due_date: '2026-09-24', is_overdue: false }],
+    })
+    renderPage()
+
+    expect(await screen.findByText('Awaiting payment — due Sep 24, 2026')).toBeInTheDocument()
+    expect(mockListInvoices).toHaveBeenCalledWith()
+    // Not fetched for the other two stages - only Invoiced needs it.
+    expect(mockListInvoices).toHaveBeenCalledTimes(1)
+  })
+
+  it('flags an overdue invoice for an Invoiced enquiry', async () => {
+    mockByStage({
+      initialCall: { count: 0, results: [] },
+      meetingSet: { count: 0, results: [] },
+      invoiced: { count: 1, results: [invoicedEnquiry] },
+    })
+    mockListInvoices.mockResolvedValue({
+      count: 1,
+      results: [{ id: 20, enquiry: 9, due_date: '2026-08-20', is_overdue: true }],
+    })
+    renderPage()
+
+    expect(await screen.findByText('Overdue — was due Aug 20, 2026')).toBeInTheDocument()
+  })
+
+  it('shows an empty state for a stage with no enquiries', async () => {
+    mockByStage({
+      initialCall: { count: 0, results: [] },
+      meetingSet: { count: 0, results: [] },
+      invoiced: { count: 0, results: [] },
+    })
+    renderPage()
+
+    expect(await screen.findAllByText('No enquiries in this stage.')).toHaveLength(3)
+  })
+
+  it('shows an error for a section that fails to load without breaking the others', async () => {
+    mockList.mockImplementation(({ stage }) => {
+      if (stage === 'MEETING_SET') return Promise.reject(new ApiError(500, { detail: 'Server error.' }))
+      return Promise.resolve({ count: 0, results: [] })
+    })
+    renderPage()
+
+    expect(await screen.findByText('Server error.')).toBeInTheDocument()
+    expect(screen.getAllByText('No enquiries in this stage.')).toHaveLength(2)
+  })
+
+  it('shows time in the current stage counted from creation when the enquiry has never changed stage', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-08-06T00:00:00Z')) // 5 days after created_at
+    mockByStage({
+      initialCall: { count: 1, results: [initialCallEnquiry] }, // created_at 2026-08-01, no stage_history
+      meetingSet: { count: 0, results: [] },
+      invoiced: { count: 0, results: [] },
+    })
+    renderPage()
+
+    expect(await screen.findByText('5d in stage')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('resets the stage clock to the last stage change instead of creation, once a record has moved stages', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-08-12T00:00:00Z'))
+    const movedEnquiry = {
+      id: 7,
+      student_name: 'Thandiwe Zulu',
+      parent: { full_name: 'Nomsa Zulu' },
+      stage: 'MEETING_SET',
+      meeting_datetime: null,
+      created_at: '2026-08-01T00:00:00Z', // 11 days ago - would read "11d" if creation were used
+      stage_history: [
+        { from_stage: null, to_stage: 'INITIAL_CALL', changed_at: '2026-08-01T00:00:00Z' },
+        { from_stage: 'INITIAL_CALL', to_stage: 'MEETING_SET', changed_at: '2026-08-10T00:00:00Z' }, // 2 days ago
+      ],
+    }
+    mockByStage({
+      initialCall: { count: 0, results: [] },
+      meetingSet: { count: 1, results: [movedEnquiry] },
+      invoiced: { count: 0, results: [] },
+    })
+    renderPage()
+
+    expect(await screen.findByText('2d in stage')).toBeInTheDocument()
+    expect(screen.queryByText('11d in stage')).not.toBeInTheDocument()
+    vi.useRealTimers()
   })
 })
