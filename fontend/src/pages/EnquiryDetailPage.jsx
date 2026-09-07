@@ -11,11 +11,18 @@ import {
   LEARNING_MODES,
   MANUAL_STAGE_OPTIONS,
   STAGE_LABELS,
+  YEAR_GROUPS,
+  yearGroupLabel,
 } from '../lib/constants'
+import { usePageTitle } from '../lib/usePageTitle'
 
 function EditFieldsForm({ enquiry, subjects, onSaved }) {
   const [studentName, setStudentName] = useState(enquiry.student_name)
-  const [studentGrade, setStudentGrade] = useState(enquiry.student_grade)
+  const [studentYearGroup, setStudentYearGroup] = useState(enquiry.student_year_group ?? '')
+  const [studentSchool, setStudentSchool] = useState(enquiry.student_school ?? '')
+  const [studentPhone, setStudentPhone] = useState(enquiry.student_phone ?? '')
+  const [studentEmail, setStudentEmail] = useState(enquiry.student_email ?? '')
+  const [studentGrade, setStudentGrade] = useState(enquiry.student_grade ?? '')
   const [subjectIds, setSubjectIds] = useState(enquiry.interested_subjects.map((s) => s.id))
   const [durationWeeks, setDurationWeeks] = useState(enquiry.duration_weeks ?? '')
   const [learningMode, setLearningMode] = useState(enquiry.learning_mode ?? '')
@@ -34,6 +41,10 @@ function EditFieldsForm({ enquiry, subjects, onSaved }) {
     try {
       const updated = await enquiriesApi.update(enquiry.id, {
         student_name: studentName,
+        student_year_group: studentYearGroup ? Number(studentYearGroup) : null,
+        student_school: studentSchool,
+        student_phone: studentPhone,
+        student_email: studentEmail,
         student_grade: studentGrade,
         interested_subjects: subjectIds,
         duration_weeks: durationWeeks ? Number(durationWeeks) : null,
@@ -58,6 +69,33 @@ function EditFieldsForm({ enquiry, subjects, onSaved }) {
       <label htmlFor="student_name">Student name</label>
       <input id="student_name" type="text" value={studentName} onChange={(e) => setStudentName(e.target.value)} />
       <FieldErrors errors={errors} field="student_name" />
+
+      <label htmlFor="student_year_group">Year / class</label>
+      <select
+        id="student_year_group"
+        value={studentYearGroup}
+        onChange={(e) => setStudentYearGroup(e.target.value)}
+      >
+        <option value="">Select year</option>
+        {YEAR_GROUPS.map((year) => (
+          <option key={year} value={year}>
+            {yearGroupLabel(year)}
+          </option>
+        ))}
+      </select>
+      <FieldErrors errors={errors} field="student_year_group" />
+
+      <label htmlFor="student_school">School</label>
+      <input id="student_school" type="text" value={studentSchool} onChange={(e) => setStudentSchool(e.target.value)} />
+      <FieldErrors errors={errors} field="student_school" />
+
+      <label htmlFor="student_phone">Student phone</label>
+      <input id="student_phone" type="text" value={studentPhone} onChange={(e) => setStudentPhone(e.target.value)} />
+      <FieldErrors errors={errors} field="student_phone" />
+
+      <label htmlFor="student_email">Student email</label>
+      <input id="student_email" type="email" value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} />
+      <FieldErrors errors={errors} field="student_email" />
 
       <label htmlFor="student_grade">Student grade</label>
       <input
@@ -230,6 +268,7 @@ export function EnquiryDetailPage() {
   const [invoices, setInvoices] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  usePageTitle(enquiry?.student_name)
 
   async function loadAll() {
     setLoading(true)
@@ -265,13 +304,8 @@ export function EnquiryDetailPage() {
 
   return (
     <div className="page">
-      <div className="page__header">
-        <h1>{enquiry.student_name}</h1>
-        <span>{STAGE_LABELS[enquiry.stage]}</span>
-      </div>
-
       <p>
-        Parent: {enquiry.parent.full_name} · {enquiry.parent.phone}
+        <span>{STAGE_LABELS[enquiry.stage]}</span> · Parent: {enquiry.parent.full_name} · {enquiry.parent.phone}
         {enquiry.parent.email && ` · ${enquiry.parent.email}`}
       </p>
 

@@ -4,6 +4,7 @@ import { useAuth } from '../auth/useAuth'
 import { UserEditForm } from '../components/UserEditForm'
 import { usersApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function UserDetailPage() {
   const { id } = useParams()
@@ -11,6 +12,7 @@ export function UserDetailPage() {
   const [target, setTarget] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  usePageTitle(target?.full_name || target?.email)
 
   useEffect(() => {
     let cancelled = false
@@ -47,7 +49,6 @@ export function UserDetailPage() {
 
   return (
     <div className="page">
-      <h1>{target.full_name || target.email}</h1>
       <UserEditForm actor={actor} target={target} onSaved={setTarget} />
     </div>
   )

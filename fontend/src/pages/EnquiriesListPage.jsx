@@ -6,6 +6,7 @@ import { ApiError } from '../lib/apiClient'
 import { formatDateTime } from '../lib/dateWindow'
 import { getNextAction } from '../lib/onboardingNextAction'
 import { formatStageAge, getStageEnteredAt } from '../lib/stageAge'
+import { usePageTitle } from '../lib/usePageTitle'
 
 // The active onboarding pipeline only - ENROLLED is a terminal, auto-set
 // stage (see constants.MANUAL_STAGE_OPTIONS), not something staff is still
@@ -18,11 +19,20 @@ const ONBOARDING_STAGES = [
   { stage: 'INVOICED', label: 'Invoiced', icon: Receipt },
 ]
 
+// Touch screens have no real hover, so the CSS :hover reveal never fires
+// (or fires only for the instant before a tap navigates away) - this lets a
+// tap on the student's name open the popover instead of following the link,
+// while tapping anywhere else in the row still navigates as normal.
+function isTouchPointer() {
+  return typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches
+}
+
 function StageSection({ stage, label, icon: Icon }) {
   const [data, setData] = useState(null)
   const [invoicesByEnquiryId, setInvoicesByEnquiryId] = useState({})
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [openParentId, setOpenParentId] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -86,8 +96,28 @@ function StageSection({ stage, label, icon: Icon }) {
                 <li key={enquiry.id}>
                   <Link to={`/enquiries/${enquiry.id}`} className="onboarding-row">
                     <span className="onboarding-row__text">
-                      <span className="onboarding-row__name">{enquiry.student_name}</span>
-                      <span className="onboarding-row__meta">{enquiry.parent.full_name}</span>
+                      <span
+                        className={`onboarding-row__name-wrap${openParentId === enquiry.id ? ' onboarding-row__name-wrap--open' : ''}`}
+                        onClick={(event) => {
+                          if (!isTouchPointer()) return
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setOpenParentId((current) => (current === enquiry.id ? null : enquiry.id))
+                        }}
+                      >
+                        <span className="onboarding-row__name">{enquiry.student_name}</span>
+                        <span className="onboarding-row__parent-popover" role="tooltip">
+                          <span className="onboarding-row__parent-popover-name">
+                            <span className="onboarding-row__parent-popover-label">Parent:</span> {enquiry.parent.full_name}
+                          </span>
+                          {enquiry.parent.phone && (
+                            <span className="onboarding-row__parent-popover-detail">{enquiry.parent.phone}</span>
+                          )}
+                          {enquiry.parent.email && (
+                            <span className="onboarding-row__parent-popover-detail">{enquiry.parent.email}</span>
+                          )}
+                        </span>
+                      </span>
                       <span className="onboarding-row__action">
                         {getNextAction(stage, enquiry, invoicesByEnquiryId[enquiry.id])}
                       </span>
@@ -114,10 +144,11 @@ function StageSection({ stage, label, icon: Icon }) {
 }
 
 export function EnquiriesListPage() {
+  usePageTitle('Onboarding')
+
   return (
-    <div className="page">
-      <div className="page__header">
-        <h1>Onboarding</h1>
+    <div className="page page--onboarding">
+      <div className="page-toolbar">
         <Link className="button" to="/enquiries/new">
           New enquiry
         </Link>

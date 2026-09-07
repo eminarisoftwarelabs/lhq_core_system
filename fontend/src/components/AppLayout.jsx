@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { Header } from './layout/Header'
+import { PageHeaderProvider } from './layout/PageHeaderProvider'
 import { Sidebar } from './layout/Sidebar'
 
 const SIDEBAR_COLLAPSED_KEY = 'lhq-sidebar-collapsed'
@@ -60,15 +61,17 @@ export function AppLayout() {
         onToggleCollapse={toggleSidebarCollapsed}
       />
       <div className="app-shell__main">
-        <Header
-          user={user}
-          onLogout={handleLogout}
-          onOpenMenu={() => setIsMobileNavOpen(true)}
-          isMobileNavOpen={isMobileNavOpen}
-        />
-        <main className="app-shell__content">
-          <Outlet />
-        </main>
+        <PageHeaderProvider>
+          <Header
+            user={user}
+            onLogout={handleLogout}
+            onOpenMenu={() => setIsMobileNavOpen(true)}
+            isMobileNavOpen={isMobileNavOpen}
+          />
+          <main className="app-shell__content">
+            <Outlet />
+          </main>
+        </PageHeaderProvider>
       </div>
     </div>
   )

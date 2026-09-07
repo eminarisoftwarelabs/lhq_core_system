@@ -1,13 +1,19 @@
+import { BookOpen, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { SubjectMultiSelect } from '../components/SubjectMultiSelect'
 import { FieldErrors, NonFieldErrors } from '../components/FieldErrors'
+import { useToast } from '../components/toast/useToast'
+import { DatePickerField } from '../components/ui/DatePickerField'
 import { academicsApi, clientsApi, enrollmentsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { LEARNING_MODE_LABELS, LEARNING_MODES } from '../lib/constants'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function EnrollmentCreatePage() {
+  usePageTitle('New enrollment')
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [searchParams] = useSearchParams()
   const preselectedStudentId = searchParams.get('student')
 
@@ -63,6 +69,7 @@ export function EnrollmentCreatePage() {
 
     try {
       const enrollment = await enrollmentsApi.create(payload)
+      showToast('Enrollment created')
       navigate(`/students/${enrollment.student}`, { replace: true })
     } catch (err) {
       setErrors(err instanceof ApiError && err.data ? err.data : { detail: 'Could not create the enrollment.' })
@@ -73,85 +80,115 @@ export function EnrollmentCreatePage() {
 
   return (
     <div className="page">
-      <h1>New enrollment</h1>
-      <p className="form-note">For a returning student. No enquiry is created.</p>
+      <div className="form-card">
+        {!student && (
+          <fieldset className="student-search">
+            <legend>
+              <span className="icon-badge">
+                <Search size={16} strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              Find student
+            </legend>
+            <p className="form-note">For a returning student. No enquiry is created.</p>
 
-      {!student && (
-        <>
-          <label htmlFor="student_search">Find student</label>
-          <input
-            id="student_search"
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Name or student number"
-          />
-          {candidates.length > 0 && (
-            <ul>
-              {candidates.map((c) => (
-                <li key={c.id}>
-                  <button type="button" onClick={() => setStudent(c)}>
-                    {c.full_name} ({c.student_number})
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
+            <div className="field field--full">
+              <label htmlFor="student_search">Name or student number</label>
+              <input
+                id="student_search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Start typing to search"
+              />
+            </div>
 
-      {student && (
-        <form className="form" onSubmit={handleSubmit}>
-          <NonFieldErrors errors={errors} />
-          <p>
-            Enrolling <strong>{student.full_name}</strong> ({student.student_number}){' '}
-            {!preselectedStudentId && (
-              <button type="button" onClick={() => setStudent(null)}>
-                Change
-              </button>
+            {candidates.length > 0 && (
+              <ul className="student-search__results">
+                {candidates.map((c) => (
+                  <li key={c.id}>
+                    <button type="button" className="student-search__result" onClick={() => setStudent(c)}>
+                      <span className="student-search__result-name">{c.full_name}</span>
+                      <span className="student-search__result-number">{c.student_number}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-          </p>
+          </fieldset>
+        )}
 
-          <SubjectMultiSelect subjects={subjects} selectedIds={subjectIds} onChange={setSubjectIds} />
-          <FieldErrors errors={errors} field="subjects" />
+        {student && (
+          <form className="form" onSubmit={handleSubmit}>
+            <NonFieldErrors errors={errors} />
 
-          <label htmlFor="start_date">Start date</label>
-          <input
-            id="start_date"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            required
-          />
-          <FieldErrors errors={errors} field="start_date" />
+            <div className="student-search__selected">
+              <span>
+                Enrolling <strong>{student.full_name}</strong> ({student.student_number})
+              </span>
+              {!preselectedStudentId && (
+                <button type="button" className="button button--secondary" onClick={() => setStudent(null)}>
+                  Change
+                </button>
+              )}
+            </div>
 
-          <label htmlFor="duration_weeks">Duration (weeks)</label>
-          <input
-            id="duration_weeks"
-            type="number"
-            min="1"
-            value={durationWeeks}
-            onChange={(e) => setDurationWeeks(e.target.value)}
-            required
-          />
-          <FieldErrors errors={errors} field="duration_weeks" />
-          <FieldErrors errors={errors} field="end_date" />
+            <fieldset>
+              <legend>
+                <span className="icon-badge">
+                  <BookOpen size={16} strokeWidth={1.75} aria-hidden="true" />
+                </span>
+                Enrollment details
+              </legend>
 
-          <label htmlFor="learning_mode">Learning mode</label>
-          <select id="learning_mode" value={learningMode} onChange={(e) => setLearningMode(e.target.value)}>
-            {LEARNING_MODES.map((mode) => (
-              <option key={mode} value={mode}>
-                {LEARNING_MODE_LABELS[mode]}
-              </option>
-            ))}
-          </select>
-          <FieldErrors errors={errors} field="learning_mode" />
+              <SubjectMultiSelect subjects={subjects} selectedIds={subjectIds} onChange={setSubjectIds} />
+              <FieldErrors errors={errors} field="subjects" />
 
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Enrolling…' : 'Enroll'}
-          </button>
-        </form>
-      )}
+              <div className="form-row">
+                <div className="field field--required">
+                  <label htmlFor="start_date">Start date</label>
+                  <DatePickerField id="start_date" value={startDate} onChange={setStartDate} />
+                  <FieldErrors errors={errors} field="start_date" />
+                  <FieldErrors errors={errors} field="end_date" />
+                </div>
+
+                <div className="field field--required">
+                  <label htmlFor="duration_weeks">Duration (weeks)</label>
+                  <input
+                    id="duration_weeks"
+                    type="number"
+                    min="1"
+                    value={durationWeeks}
+                    onChange={(e) => setDurationWeeks(e.target.value)}
+                    required
+                  />
+                  <FieldErrors errors={errors} field="duration_weeks" />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="learning_mode">Learning mode</label>
+                  <select id="learning_mode" value={learningMode} onChange={(e) => setLearningMode(e.target.value)}>
+                    {LEARNING_MODES.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {LEARNING_MODE_LABELS[mode]}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldErrors errors={errors} field="learning_mode" />
+                </div>
+              </div>
+            </fieldset>
+
+            <div className="form-actions">
+              <Link className="button button--secondary" to="/students">
+                Cancel
+              </Link>
+              <button type="submit" disabled={submitting}>
+                {submitting ? 'Enrolling…' : 'Enroll'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   )
 }

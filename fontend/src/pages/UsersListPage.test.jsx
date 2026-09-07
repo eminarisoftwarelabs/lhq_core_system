@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UsersListPage } from './UsersListPage'
+import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 
 const mockList = vi.fn()
 const mockUpdate = vi.fn()
@@ -35,9 +36,11 @@ const deactivatedAdmin = {
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <UsersListPage />
-    </MemoryRouter>,
+    <PageHeaderProvider>
+      <MemoryRouter>
+        <UsersListPage />
+      </MemoryRouter>
+    </PageHeaderProvider>,
   )
 }
 

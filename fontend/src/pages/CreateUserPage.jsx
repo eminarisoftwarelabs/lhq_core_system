@@ -1,11 +1,15 @@
+import { Briefcase, UserPlus } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { assignableRoles } from '../auth/permissions'
 import { FieldErrors, NonFieldErrors } from '../components/FieldErrors'
 import { TutorProfileFields } from '../components/TutorProfileFields'
+import { useToast } from '../components/toast/useToast'
+import { DatePickerField } from '../components/ui/DatePickerField'
 import { usersApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
+import { usePageTitle } from '../lib/usePageTitle'
 
 const EMPLOYMENT_TYPES = [
   { value: '', label: '—' },
@@ -19,7 +23,9 @@ const emptyTutorProfile = { hourly_rate: '', is_available: true }
 export function CreateUserPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const roleOptions = assignableRoles(user.role)
+  usePageTitle('Create user')
 
   const [form, setForm] = useState({
     email: '',
@@ -69,6 +75,7 @@ export function CreateUserPage() {
 
     try {
       await usersApi.create(payload)
+      showToast('New user created')
       navigate('/users', { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.data) {
@@ -91,123 +98,171 @@ export function CreateUserPage() {
 
   return (
     <div className="page">
-      <h1>Create user</h1>
-      <form className="form" onSubmit={handleSubmit}>
-        <NonFieldErrors errors={errors} />
+      <div className="form-card">
+        <form className="form" onSubmit={handleSubmit}>
+          <NonFieldErrors errors={errors} />
 
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={form.email}
-          onChange={(e) => updateField('email', e.target.value)}
-          required
-        />
-        <FieldErrors errors={errors} field="email" />
+          <fieldset>
+            <legend>
+              <span className="icon-badge">
+                <UserPlus size={16} strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              Account
+            </legend>
+            <div className="form-row">
+              <div className="field field--full field--required">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => updateField('email', e.target.value)}
+                  required
+                />
+                <FieldErrors errors={errors} field="email" />
+              </div>
 
-        <label htmlFor="full_name">Full name</label>
-        <input
-          id="full_name"
-          type="text"
-          value={form.full_name}
-          onChange={(e) => updateField('full_name', e.target.value)}
-          required
-        />
-        <FieldErrors errors={errors} field="full_name" />
+              <div className="field field--full field--required">
+                <label htmlFor="full_name">Full name</label>
+                <input
+                  id="full_name"
+                  type="text"
+                  value={form.full_name}
+                  onChange={(e) => updateField('full_name', e.target.value)}
+                  required
+                />
+                <FieldErrors errors={errors} field="full_name" />
+              </div>
 
-        <label htmlFor="role">Role</label>
-        <select id="role" value={form.role} onChange={(e) => updateField('role', e.target.value)} required>
-          {roleOptions.map((role) => (
-            <option key={role} value={role}>
-              {role}
-            </option>
-          ))}
-        </select>
-        <FieldErrors errors={errors} field="role" />
+              <div className="field field--required">
+                <label htmlFor="role">Role</label>
+                <select id="role" value={form.role} onChange={(e) => updateField('role', e.target.value)} required>
+                  {roleOptions.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+                <FieldErrors errors={errors} field="role" />
+              </div>
 
-        <label htmlFor="password">Starting password</label>
-        <input
-          id="password"
-          type="password"
-          autoComplete="new-password"
-          // minLength={8} - TEMPORARILY DISABLED FOR TESTING, matching
-          // backend's AUTH_PASSWORD_VALIDATORS being emptied out. Restore
-          // this before deploying anywhere real.
-          value={form.password}
-          onChange={(e) => updateField('password', e.target.value)}
-          required
-        />
-        <p className="form-note">
-          No email is sent yet, so share this password with them directly. They&apos;ll be
-          required to change it the first time they log in.
-        </p>
-        <FieldErrors errors={errors} field="password" />
+              <div className="field field--required">
+                <label htmlFor="password">Starting password</label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="new-password"
+                  // minLength={8} - TEMPORARILY DISABLED FOR TESTING, matching
+                  // backend's AUTH_PASSWORD_VALIDATORS being emptied out. Restore
+                  // this before deploying anywhere real.
+                  value={form.password}
+                  onChange={(e) => updateField('password', e.target.value)}
+                  required
+                />
+                <FieldErrors errors={errors} field="password" />
+              </div>
+            </div>
+            <p className="form-note">
+              No email is sent yet, so share this password with them directly. They&apos;ll be
+              required to change it the first time they log in.
+            </p>
+          </fieldset>
 
-        <label htmlFor="phone">Phone</label>
-        <input id="phone" type="text" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
-        <FieldErrors errors={errors} field="phone" />
+          <fieldset>
+            <legend>
+              <span className="icon-badge">
+                <Briefcase size={16} strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              Employment
+            </legend>
+            <div className="form-row">
+              <div className="field">
+                <label htmlFor="phone">Phone</label>
+                <input
+                  id="phone"
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => updateField('phone', e.target.value)}
+                />
+                <FieldErrors errors={errors} field="phone" />
+              </div>
 
-        <label htmlFor="employee_id">Employee ID</label>
-        <input
-          id="employee_id"
-          type="text"
-          value={form.employee_id}
-          onChange={(e) => updateField('employee_id', e.target.value)}
-        />
-        <FieldErrors errors={errors} field="employee_id" />
+              <div className="field">
+                <label htmlFor="employee_id">Employee ID</label>
+                <input
+                  id="employee_id"
+                  type="text"
+                  value={form.employee_id}
+                  onChange={(e) => updateField('employee_id', e.target.value)}
+                />
+                <FieldErrors errors={errors} field="employee_id" />
+              </div>
 
-        <label htmlFor="employment_type">Employment type</label>
-        <select
-          id="employment_type"
-          value={form.employment_type}
-          onChange={(e) => updateField('employment_type', e.target.value)}
-        >
-          {EMPLOYMENT_TYPES.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <FieldErrors errors={errors} field="employment_type" />
+              <div className="field">
+                <label htmlFor="employment_type">Employment type</label>
+                <select
+                  id="employment_type"
+                  value={form.employment_type}
+                  onChange={(e) => updateField('employment_type', e.target.value)}
+                >
+                  {EMPLOYMENT_TYPES.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <FieldErrors errors={errors} field="employment_type" />
+              </div>
 
-        <label htmlFor="address">Address</label>
-        <input
-          id="address"
-          type="text"
-          value={form.address}
-          onChange={(e) => updateField('address', e.target.value)}
-        />
-        <FieldErrors errors={errors} field="address" />
+              <div className="field">
+                <label htmlFor="start_date">Start date</label>
+                <DatePickerField
+                  id="start_date"
+                  value={form.start_date}
+                  onChange={(value) => updateField('start_date', value)}
+                />
+                <FieldErrors errors={errors} field="start_date" />
+              </div>
 
-        <label htmlFor="start_date">Start date</label>
-        <input
-          id="start_date"
-          type="date"
-          value={form.start_date}
-          onChange={(e) => updateField('start_date', e.target.value)}
-        />
-        <FieldErrors errors={errors} field="start_date" />
+              <div className="field field--full">
+                <label htmlFor="address">Address</label>
+                <input
+                  id="address"
+                  type="text"
+                  value={form.address}
+                  onChange={(e) => updateField('address', e.target.value)}
+                />
+                <FieldErrors errors={errors} field="address" />
+              </div>
+            </div>
 
-        {!isTutorRole && (
-          <label htmlFor="also_teaches" className="checkbox-label">
-            <input
-              id="also_teaches"
-              type="checkbox"
-              checked={alsoTeaches}
-              onChange={(e) => setAlsoTeaches(e.target.checked)}
-            />
-            This person also teaches
-          </label>
-        )}
+            {!isTutorRole && (
+              <label htmlFor="also_teaches" className="checkbox-label">
+                <input
+                  id="also_teaches"
+                  type="checkbox"
+                  checked={alsoTeaches}
+                  onChange={(e) => setAlsoTeaches(e.target.checked)}
+                />
+                This person also teaches
+              </label>
+            )}
 
-        {showTutorFields && (
-          <TutorProfileFields value={tutorProfile} onChange={setTutorProfile} idPrefix="create_tutor" />
-        )}
+            {showTutorFields && (
+              <TutorProfileFields value={tutorProfile} onChange={setTutorProfile} idPrefix="create_tutor" />
+            )}
+          </fieldset>
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Creating…' : 'Create user'}
-        </button>
-      </form>
+          <div className="form-actions">
+            <Link className="button button--secondary" to="/users">
+              Cancel
+            </Link>
+            <button type="submit" disabled={submitting}>
+              {submitting ? 'Creating…' : 'Create user'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

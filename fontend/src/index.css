@@ -212,6 +212,52 @@ button:hover,
   background: #dadae7;
 }
 
+/* The generic dark-mode overrides above match any element with the .button
+   class - including a variant like .button--secondary - at equal
+   specificity ((0,2,0), attribute + class), so without these, source order
+   alone decided it and the generic black/white flip always won, silently
+   erasing every variant's own color in dark mode. These come later in the
+   file so the tie resolves in the variant's favor instead. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .button--secondary {
+    background: var(--bg-surface-muted);
+    color: var(--text-primary);
+  }
+
+  :root:not([data-theme='light']) .button--secondary:hover {
+    background: var(--nav-hover-bg);
+  }
+
+  :root:not([data-theme='light']) .button--danger {
+    background: transparent;
+    color: var(--danger);
+  }
+
+  :root:not([data-theme='light']) .button--ghost {
+    background: transparent;
+    color: var(--text-primary);
+  }
+}
+
+:root[data-theme='dark'] .button--secondary {
+  background: var(--bg-surface-muted);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .button--secondary:hover {
+  background: var(--nav-hover-bg);
+}
+
+:root[data-theme='dark'] .button--danger {
+  background: transparent;
+  color: var(--danger);
+}
+
+:root[data-theme='dark'] .button--ghost {
+  background: transparent;
+  color: var(--text-primary);
+}
+
 button:disabled,
 .button:disabled {
   opacity: 0.5;
@@ -315,7 +361,13 @@ label {
   font-weight: 400;
 }
 
-.checkbox-label input {
+/* [type="checkbox"] (not just `input`) bumps specificity above `.form
+   input`'s width:100% - same (0,1,1) weight, so source order alone
+   previously decided it, and .form input sorts later in this file and won.
+   Surfaced by widening .form-card fieldset: the checkbox row is now wide
+   enough for a lost width:auto to visibly shove the label to the far
+   edge instead of sitting next to its checkbox. */
+.checkbox-label input[type='checkbox'] {
   width: auto;
 }
 
@@ -324,6 +376,19 @@ fieldset {
   border-radius: var(--radius-container);
   margin: var(--space-4) 0;
   padding: var(--space-3) var(--space-4);
+}
+
+/* Unstyled, legends render in the UA default serif and straddle the
+   fieldset border with no visual relationship to the rest of the form -
+   this brings them in line with the app's type scale instead. */
+legend {
+  padding: 0 var(--space-2);
+  margin-left: calc(-1 * var(--space-2));
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
 }
 
 .page-loading {
@@ -741,6 +806,38 @@ fieldset {
 
 .app-header__spacer {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Sized to match .app-header__title (the other pages' relocated <h1>) -
+   same font-size/weight/line-height/letter-spacing as the global h1 rule,
+   just on a <p> since a greeting isn't a heading. */
+.app-header__greeting {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header__back {
+  flex-shrink: 0;
+}
+
+/* Reuses the global h1 (size/weight) - this is still the one heading for
+   the page, just relocated into the header bar instead of the page body. */
+.app-header__title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* -- User menu ------------------------------------------------------------ */
@@ -1098,7 +1195,7 @@ fieldset {
   align-items: center;
   gap: var(--space-3);
   padding-bottom: var(--space-4);
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
   border-bottom: 1px solid var(--border-default);
 }
 
@@ -1195,6 +1292,13 @@ fieldset {
   min-width: 0;
 }
 
+.onboarding-row__name-wrap {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .onboarding-row__name {
   font-size: 13px;
   font-weight: 600;
@@ -1203,9 +1307,74 @@ fieldset {
   white-space: nowrap;
 }
 
-.onboarding-row__meta,
 .onboarding-row__action {
   font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Parent identity/contact, hidden by default. On pointers that support real
+   hover, revealed by hovering anywhere in the row - deliberately the whole
+   row rather than just the name span, since a hover target as narrow as the
+   name text alone is easy to miss and reads as flaky. On touch (no hover),
+   there is nothing to reveal it involuntarily, so a tap on the name toggles
+   the `--open` class instead (see the name-wrap's onClick in the page) -
+   tapping anywhere else in the row still navigates as normal. */
+.onboarding-row__parent-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  max-width: 220px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.06), 0 12px 24px 0 rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .onboarding-row:hover .onboarding-row__parent-popover,
+  .onboarding-row:focus-visible .onboarding-row__parent-popover {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+}
+
+.onboarding-row__name-wrap--open .onboarding-row__parent-popover {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.onboarding-row__parent-popover-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onboarding-row__parent-popover-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.onboarding-row__parent-popover-detail {
+  font-size: 11px;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1249,16 +1418,28 @@ fieldset {
 
 /* -- Generic page content -------------------------------------------------- */
 
-.page__header {
+/* For a page whose title moved to the app header bar (see usePageTitle) but
+   which still has a page-level action - right-aligns it where the title
+   used to sit alongside it. */
+.page-toolbar {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-3);
   margin-bottom: var(--space-4);
-  gap: var(--space-4);
 }
 
-.page__header h1 {
-  margin: 0;
+/* .app-shell__content's padding-top (space-8) reads as too much air under
+   the header on the onboarding board specifically, since the cards below
+   are tall and want to sit close to the "New enquiry" action - pull the
+   whole page (toolbar + board) up rather than changing that padding for
+   every other page. */
+.page--onboarding {
+  margin-top: calc(-1 * var(--space-6));
+}
+
+.page--enquiry-create {
+  margin-top: calc(-1 * var(--space-6));
 }
 
 .form {
@@ -1275,6 +1456,517 @@ fieldset {
 
 .form button {
   margin-top: var(--space-6);
+}
+
+/* -- Card-framed forms (e.g. New enquiry) ----------------------------------
+   `.form`'s flex column uses align-items: flex-start so free-standing forms
+   (buttons, short fields) don't stretch edge to edge - but that same rule
+   shrink-to-fits any block-level child with no explicit width, which is why
+   a bare fieldset/row/actions bar here would size to its content instead of
+   the card. Each direct child below gets `width: 100%` to opt back in. */
+.form-card {
+  max-width: 960px;
+  padding: var(--space-8);
+  border-radius: var(--radius-container-lg);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: 0 1px 3px 0 rgba(16, 16, 25, 0.04), 0 20px 40px -24px rgba(16, 16, 25, 0.12);
+}
+
+.form-card .form-error {
+  width: 100%;
+}
+
+/* A more compact take on the base input/select for this card - smaller than
+   the global default, since a dense multi-field form like this reads better
+   with tighter controls. The generic global rule stays untouched for every
+   other (plain, unboxed) form in the app. */
+.form-card input,
+.form-card select {
+  padding: 8px 12px;
+  font-size: 14px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-card input:focus-visible,
+.form-card select:focus-visible {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus-ring) 18%, transparent);
+}
+
+.form-card fieldset {
+  width: 100%;
+}
+
+/* Sections read as one continuous card, divided by a header + rule, rather
+   than three boxes stacked inside a box. */
+.form-card > form > fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--space-8);
+}
+
+.form-card > form > fieldset:last-of-type {
+  margin-bottom: 0;
+}
+
+.form-card > form > fieldset > legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 0 0 var(--space-4);
+  margin: 0 0 var(--space-6);
+  border-bottom: 1px solid var(--border-default);
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-primary);
+}
+
+/* Reusable icon chip for a section header - same treatment as
+   .onboarding-section__icon, so this reads as the same design system. */
+.icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-input);
+  background: var(--bg-surface-muted);
+  color: var(--text-nav);
+}
+
+/* Program details nests SubjectMultiSelect's own fieldset - flatten it so
+   the card shows one bordered section, not a box inside a box. */
+.form-card fieldset fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--space-6);
+}
+
+.form-card fieldset fieldset legend {
+  margin-left: 0;
+  padding: 0;
+}
+
+/* `gap` previously read `var(--space-4) var(--space-5)` - --space-5 was
+   never defined in the token scale (see the comment above it: 4/8/12/16/
+   24/32/48, no 20), so the whole gap shorthand was invalid at
+   computed-value time and resolved to `normal` (0 for a grid). Every field
+   on this form was rendering with zero space between it and its neighbor -
+   input borders genuinely touching, not just visually tight. */
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-6) var(--space-6);
+  width: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.field label {
+  margin: 0 0 var(--space-1);
+}
+
+.field .field-error {
+  margin-top: var(--space-1);
+}
+
+/* The free-text school name field, revealed under the School <select>
+   only when "Other" is picked. */
+.field__other-input {
+  margin-top: var(--space-2);
+}
+
+.field--full {
+  grid-column: 1 / -1;
+}
+
+.field--required label::after {
+  content: ' *';
+  color: var(--danger);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-default);
+}
+
+.form-actions button,
+.form-actions .button {
+  margin-top: 0;
+}
+
+/* -- Student search (EnrollmentCreatePage) ---------------------------------- */
+
+.student-search__results {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-input);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* Real <button> rows in a results list - see the date-picker-field comment
+   above for why plain class selectors lose to the global button styling
+   and need !important to reset back to a plain list row. */
+.student-search__result {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 0 !important;
+  padding: var(--space-2) var(--space-3) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border-default) !important;
+  border-radius: 0 !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  font-weight: 400 !important;
+  text-align: left;
+  cursor: pointer;
+}
+
+.student-search__results li:last-child .student-search__result {
+  border-bottom: none !important;
+}
+
+.student-search__result:hover {
+  background: var(--bg-surface-muted) !important;
+}
+
+.student-search__result-name {
+  font-weight: 500;
+}
+
+.student-search__result-number {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.student-search__selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius-input);
+  background: var(--bg-surface-muted);
+  font-size: 14px;
+}
+
+.student-search__selected .button {
+  margin-top: 0;
+}
+
+/* -- Date picker field (DatePickerField) ------------------------------------
+   Replaces <input type="date"> - the native calendar popup can't be styled
+   at all, so this is react-day-picker (react-day-picker/style.css supplies
+   the structural .rdp-* rules) themed with this app's tokens and dropped
+   into a popover under a trigger button that looks like the other inputs.
+
+   Every rdp nav/day cell (and our own trigger) is a real button element,
+   and this app's global button and button-hover background/color rule
+   (and its dark-mode flip) targets the bare element - at least one of
+   those always has higher specificity than a plain class selector, ours
+   or react-day-picker's own (confirmed: the dark-mode flip is (0,2,1),
+   beating a two-class popover-scoped selector at (0,2,0)). Rather than
+   chase 3+ levels of nesting to out-specify each combination, every
+   override below carries !important, scoped tightly to
+   .date-picker-field so it can't leak. */
+.date-picker-field {
+  position: relative;
+}
+
+.date-picker-field__trigger {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 8px 12px !important;
+  min-height: 0 !important;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400 !important;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary) !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-input) !important;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.date-picker-field__trigger:hover {
+  background: var(--bg-surface-muted) !important;
+  color: var(--text-primary) !important;
+}
+
+.date-picker-field__trigger svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.date-picker-field__trigger:focus-visible {
+  outline: none;
+  border-color: var(--focus-ring) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus-ring) 18%, transparent);
+}
+
+.date-picker-field__placeholder {
+  color: var(--text-secondary);
+}
+
+.date-picker-field__popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-container);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.06), 0 12px 24px 0 rgba(0, 0, 0, 0.08);
+}
+
+.date-picker-field__popover .rdp-root {
+  --rdp-accent-color: var(--nav-active-bg);
+  --rdp-accent-background-color: color-mix(in srgb, var(--focus-ring) 16%, transparent);
+  --rdp-today-color: var(--focus-ring);
+  --rdp-day-width: 36px;
+  --rdp-day-height: 36px;
+  --rdp-day_button-width: 32px;
+  --rdp-day_button-height: 32px;
+  --rdp-day_button-border-radius: var(--radius-input);
+  --rdp-nav_button-width: 32px;
+  --rdp-nav_button-height: 32px;
+  --rdp-selected-border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.date-picker-field__popover .rdp-month_caption {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.date-picker-field__popover .rdp-weekday {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Every plain day/nav button, reset back to the transparent, unpadded
+   look react-day-picker itself intends (its own style.css already says
+   this - these !important rules exist purely to out-rank this app's
+   global button styling, not to invent a new look). */
+.date-picker-field__popover .rdp-day_button,
+.date-picker-field__popover .rdp-button_previous,
+.date-picker-field__popover .rdp-button_next {
+  min-height: 0 !important;
+  padding: 0 !important;
+  font-weight: 400 !important;
+  background: none !important;
+  color: inherit !important;
+  border-radius: var(--rdp-day_button-border-radius, var(--radius-input)) !important;
+}
+
+.date-picker-field__popover .rdp-day_button:hover:not([disabled]) {
+  background: var(--bg-surface-muted) !important;
+}
+
+.date-picker-field__popover .rdp-selected .rdp-day_button {
+  background: var(--nav-active-bg) !important;
+  color: var(--text-nav-active) !important;
+  font-weight: 600 !important;
+}
+
+.date-picker-field__popover .rdp-button_previous,
+.date-picker-field__popover .rdp-button_next {
+  color: var(--text-nav) !important;
+}
+
+.date-picker-field__popover .rdp-button_previous:hover:not([disabled]),
+.date-picker-field__popover .rdp-button_next:hover:not([disabled]) {
+  background: var(--bg-surface-muted) !important;
+  color: var(--text-nav-hover) !important;
+}
+
+/* -- Toasts (ToastProvider) -------------------------------------------------
+   Bottom-right stack of transient success confirmations (e.g. "New enquiry
+   created"), auto-dismissed by the provider. */
+.toast-stack {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 260px;
+  max-width: 360px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-container);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.06), 0 12px 24px 0 rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+  font-size: 14px;
+  pointer-events: auto;
+  animation: toast-slide-in var(--transition-base) ease;
+}
+
+.toast__icon {
+  flex-shrink: 0;
+  color: var(--success);
+}
+
+.toast__message {
+  flex: 1;
+}
+
+/* Real <button> - the global button/dark-mode rules out-specify a plain
+   two-class selector (see the date-picker-field comment above for the exact
+   specificity math), hence !important here too. */
+.toast__dismiss {
+  flex-shrink: 0;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: var(--radius-input) !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  cursor: pointer;
+}
+
+.toast__dismiss:hover {
+  background: var(--bg-surface-muted) !important;
+  color: var(--text-primary) !important;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* -- Subject chips (SubjectMultiSelect) -------------------------------------
+   A row of toggle chips reads faster than a checkbox list and matches the
+   pill language already used elsewhere (period-toggle, section counts).
+   The real checkbox stays in the DOM via .visually-hidden for native
+   keyboard/checked semantics - the chip is just its visual skin. */
+.subject-select__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.subject-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.subject-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.subject-chip:has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.subject-chip__check {
+  width: 0;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: width var(--transition-fast), opacity var(--transition-fast);
+}
+
+.subject-chip--selected {
+  background: var(--color-black);
+  border-color: var(--color-black);
+  color: var(--color-white);
+}
+
+.subject-chip--selected .subject-chip__check {
+  width: 13px;
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .subject-chip--selected {
+    background: var(--color-white);
+    color: var(--color-black);
+  }
+}
+
+:root[data-theme='dark'] .subject-chip--selected {
+  background: var(--color-white);
+  color: var(--color-black);
+}
+
+/* Visually hidden but still in the accessibility tree and keyboard-reachable
+   - unlike display:none/visibility:hidden, which would drop it from both. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .form-error,
@@ -1410,10 +2102,6 @@ fieldset {
 
   h1 {
     font-size: 26px;
-  }
-
-  .page__header {
-    flex-wrap: wrap;
   }
 }
 

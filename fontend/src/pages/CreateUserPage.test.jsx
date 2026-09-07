@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
+import { ToastProvider } from '../components/toast/ToastProvider'
 import { CreateUserPage } from './CreateUserPage'
 
 const mockUseAuth = vi.fn()
@@ -27,9 +29,13 @@ beforeEach(() => {
 function renderWithActor(role) {
   mockUseAuth.mockReturnValue({ user: { id: 1, role } })
   return render(
-    <MemoryRouter>
-      <CreateUserPage />
-    </MemoryRouter>,
+    <ToastProvider>
+      <PageHeaderProvider>
+        <MemoryRouter>
+          <CreateUserPage />
+        </MemoryRouter>
+      </PageHeaderProvider>
+    </ToastProvider>,
   )
 }
 
@@ -95,6 +101,7 @@ describe('CreateUserPage submission', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create user' }))
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))
+    expect(await screen.findByText('New user created')).toBeInTheDocument()
     expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true })
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringMatching(/^\/users\/\d+$/), expect.anything())
   })

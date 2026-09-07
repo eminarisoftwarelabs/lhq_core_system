@@ -4,11 +4,13 @@ import { roleLabel } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
 import { usersApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
+import { usePageTitle } from '../lib/usePageTitle'
 
 const PAGE_SIZE = 20
 
 export function UsersListPage() {
   const { user: actor } = useAuth()
+  usePageTitle('Users')
   const [page, setPage] = useState(1)
   const [reloadToken, setReloadToken] = useState(0)
   const [data, setData] = useState(null)
@@ -86,8 +88,7 @@ export function UsersListPage() {
 
   return (
     <div className="page">
-      <div className="page__header">
-        <h1>Users</h1>
+      <div className="page-toolbar">
         <Link className="button" to="/users/new">
           Create user
         </Link>

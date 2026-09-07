@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { academicsApi, clientsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function SubjectRosterPage() {
   const { id } = useParams()
@@ -9,6 +10,7 @@ export function SubjectRosterPage() {
   const [students, setStudents] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  usePageTitle(subject ? `${subject.name} roster` : undefined)
 
   useEffect(() => {
     let cancelled = false
@@ -46,8 +48,7 @@ export function SubjectRosterPage() {
 
   return (
     <div className="page">
-      <div className="page__header">
-        <h1>{subject.name} roster</h1>
+      <div className="page-toolbar">
         <Link to={`/subjects/${id}`}>Back to subject</Link>
       </div>
 

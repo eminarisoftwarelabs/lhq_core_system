@@ -28,10 +28,6 @@ vi.mock('../auth/useAuth', () => ({
   useAuth: () => mockUseAuth(),
 }))
 
-vi.mock('../lib/greeting', () => ({
-  getGreeting: () => 'Good afternoon',
-}))
-
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -79,14 +75,12 @@ afterEach(() => {
 })
 
 describe('DashboardPage', () => {
-  it('greets the user and shows a card per accessible section, for staff', async () => {
+  it('shows a card per accessible section, for staff', async () => {
     mockUseAuth.mockReturnValue({
       user: { full_name: 'Wanangwa Banda', role: 'OWNER' },
       isStaffLevel: true,
     })
     renderPage()
-
-    expect(screen.getByRole('heading', { name: 'Good afternoon, Wanangwa Banda' })).toBeInTheDocument()
 
     for (const label of ['Onboarding', 'Enrolled Students', 'Active Subjects', 'Tutors']) {
       expect(screen.getByRole('link', { name: new RegExp(label) })).toBeInTheDocument()
@@ -153,7 +147,6 @@ describe('DashboardPage', () => {
     })
     renderPage()
 
-    expect(screen.getByRole('heading', { name: 'Good afternoon, tam@lhq.test' })).toBeInTheDocument()
     expect(await screen.findByText('6')).toBeInTheDocument()
 
     expect(screen.getByRole('link', { name: /active subjects/i })).toBeInTheDocument()

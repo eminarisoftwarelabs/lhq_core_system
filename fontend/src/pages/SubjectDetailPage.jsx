@@ -6,6 +6,7 @@ import { useAuth } from '../auth/useAuth'
 import { academicsApi, tutorsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { dayLabel, formatTime } from '../lib/constants'
+import { usePageTitle } from '../lib/usePageTitle'
 
 const emptySlot = { day_of_week: 0, start_time: '', end_time: '' }
 
@@ -160,6 +161,7 @@ export function SubjectDetailPage() {
   const [tutors, setTutors] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  usePageTitle(subject?.name)
 
   async function load() {
     setLoading(true)
@@ -198,7 +200,6 @@ export function SubjectDetailPage() {
 
   return (
     <div className="page">
-      <h1>{subject.name}</h1>
       <p>
         <Link to={`/subjects/${subject.id}/roster`}>View class roster</Link>
       </p>

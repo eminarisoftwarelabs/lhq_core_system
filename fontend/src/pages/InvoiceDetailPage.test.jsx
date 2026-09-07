@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InvoiceDetailPage } from './InvoiceDetailPage'
+import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 
 const mockGetInvoice = vi.fn()
 const mockRecordPayment = vi.fn()
@@ -29,11 +30,13 @@ const outstandingInvoice = {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/invoices/9']}>
-      <Routes>
-        <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <PageHeaderProvider>
+      <MemoryRouter initialEntries={['/invoices/9']}>
+        <Routes>
+          <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </PageHeaderProvider>,
   )
 }
 
@@ -51,7 +54,7 @@ describe('InvoiceDetailPage', () => {
   it('renders invoice totals and shows the payment form when a balance is due', async () => {
     renderPage()
 
-    await screen.findByText('Invoice #9')
+    await screen.findByText('Jimmy Doe')
     expect(screen.getByText((_, el) => el.tagName === 'P' && el.textContent === 'Total: $300.00')).toBeInTheDocument()
     expect(
       screen.getByText((_, el) => el.tagName === 'P' && el.textContent === 'Balance due: $300.00'),
@@ -67,7 +70,7 @@ describe('InvoiceDetailPage', () => {
       payments: [{ id: 1, amount: '100.00', recorded_by_name: 'Admin', paid_at: '2026-01-05T00:00:00Z' }],
     })
     renderPage()
-    await screen.findByText('Invoice #9')
+    await screen.findByText('Jimmy Doe')
 
     fireEvent.change(screen.getByLabelText('Payment amount'), { target: { value: '100.00' } })
     fireEvent.click(screen.getByRole('button', { name: 'Record payment' }))
@@ -81,7 +84,7 @@ describe('InvoiceDetailPage', () => {
     mockGetInvoice.mockResolvedValue({ ...outstandingInvoice, balance_due: '0.00', status: 'PAID' })
     renderPage()
 
-    await screen.findByText('Invoice #9')
+    await screen.findByText('Jimmy Doe')
     expect(screen.getByText('Paid in full.')).toBeInTheDocument()
     expect(screen.queryByLabelText('Payment amount')).not.toBeInTheDocument()
   })
@@ -92,7 +95,7 @@ describe('InvoiceDetailPage', () => {
       new ApiError(400, { detail: ['This enquiry is missing a desired start date.'] }),
     )
     renderPage()
-    await screen.findByText('Invoice #9')
+    await screen.findByText('Jimmy Doe')
 
     fireEvent.change(screen.getByLabelText('Payment amount'), { target: { value: '50.00' } })
     fireEvent.click(screen.getByRole('button', { name: 'Record payment' }))
@@ -104,7 +107,7 @@ describe('InvoiceDetailPage', () => {
     mockGetInvoice.mockResolvedValue({ ...outstandingInvoice, is_overdue: true })
     renderPage()
 
-    await screen.findByText('Invoice #9')
+    await screen.findByText('Jimmy Doe')
     expect(screen.getByText('Overdue')).toBeInTheDocument()
   })
 })

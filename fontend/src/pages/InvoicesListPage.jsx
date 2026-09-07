@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import { billingApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { formatMoney, INVOICE_STATUS_LABELS } from '../lib/constants'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function InvoicesListPage() {
+  usePageTitle('Invoices')
   const [outstandingOnly, setOutstandingOnly] = useState(true)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -34,8 +36,6 @@ export function InvoicesListPage() {
 
   return (
     <div className="page">
-      <h1>Invoices</h1>
-
       <label htmlFor="outstanding_only" className="checkbox-label">
         <input
           id="outstanding_only"

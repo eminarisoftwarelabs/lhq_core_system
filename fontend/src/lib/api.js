@@ -51,6 +51,7 @@ function toQuery(params = {}) {
 }
 
 export const academicsApi = {
+  listSchools: (params = {}) => apiFetch(`/schools/${toQuery(params)}`),
   listSubjects: (params = {}) => apiFetch(`/subjects/${toQuery(params)}`),
   getSubject: (id) => apiFetch(`/subjects/${id}/`),
   createSubject: (payload) => apiFetch('/subjects/', { method: 'POST', body: payload }),

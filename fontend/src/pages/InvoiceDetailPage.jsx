@@ -4,6 +4,7 @@ import { NonFieldErrors } from '../components/FieldErrors'
 import { billingApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { formatMoney, INVOICE_STATUS_LABELS } from '../lib/constants'
+import { usePageTitle } from '../lib/usePageTitle'
 
 function RecordPaymentForm({ invoice, onRecorded }) {
   const [amount, setAmount] = useState('')
@@ -54,6 +55,7 @@ export function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  usePageTitle(invoice ? `Invoice #${invoice.id}` : undefined)
 
   useEffect(() => {
     let cancelled = false
@@ -82,7 +84,6 @@ export function InvoiceDetailPage() {
 
   return (
     <div className="page">
-      <h1>Invoice #{invoice.id}</h1>
       <p>
         For <Link to={`/enquiries/${invoice.enquiry}`}>{invoice.enquiry_student_name}</Link>
       </p>

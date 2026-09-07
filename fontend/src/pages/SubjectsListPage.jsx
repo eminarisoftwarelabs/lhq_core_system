@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { academicsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function SubjectsListPage() {
   const { isStaffLevel } = useAuth()
+  usePageTitle('Subjects')
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -34,14 +36,13 @@ export function SubjectsListPage() {
 
   return (
     <div className="page">
-      <div className="page__header">
-        <h1>Subjects</h1>
-        {isStaffLevel && (
+      {isStaffLevel && (
+        <div className="page-toolbar">
           <Link className="button" to="/subjects/new">
             Add subject
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
       {loading && <p>Loading…</p>}
       {error && (

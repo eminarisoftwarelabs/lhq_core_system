@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudentsListPage } from './StudentsListPage'
+import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 
 const mockSearch = vi.fn()
 vi.mock('../lib/api', () => ({
@@ -12,9 +13,11 @@ vi.mock('../lib/api', () => ({
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <StudentsListPage />
-    </MemoryRouter>,
+    <PageHeaderProvider>
+      <MemoryRouter>
+        <StudentsListPage />
+      </MemoryRouter>
+    </PageHeaderProvider>,
   )
 }
 

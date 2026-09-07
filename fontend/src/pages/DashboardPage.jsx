@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { academicsApi, clientsApi, enquiriesApi, enrollmentsApi, tutorsApi } from '../lib/api'
 import { formatShortDate, isWithinDays } from '../lib/dateWindow'
-import { getGreeting } from '../lib/greeting'
 
 const ENROLLMENT_PERIOD_OPTIONS = [7, 14, 30, 60, 90]
 const DEFAULT_ENROLLMENT_PERIOD_DAYS = 30
@@ -85,7 +84,7 @@ function useAllEnrollments(enabled) {
 }
 
 export function DashboardPage() {
-  const { user, isStaffLevel } = useAuth()
+  const { isStaffLevel } = useAuth()
   const sections = useMemo(
     () => DASHBOARD_CARDS.filter((item) => !item.staffOnly || isStaffLevel),
     [isStaffLevel],
@@ -118,16 +117,8 @@ export function DashboardPage() {
     }
   }, [sections])
 
-  const displayName = user?.full_name || user?.email
-
   return (
     <div className="page">
-      <div className="page__header">
-        <h1>
-          {getGreeting()}, {displayName}
-        </h1>
-      </div>
-
       <div className="dashboard-grid">
         {sections.map((section) => {
           const Icon = section.icon

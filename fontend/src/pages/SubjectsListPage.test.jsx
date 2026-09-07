@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SubjectsListPage } from './SubjectsListPage'
+import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 
 const mockListSubjects = vi.fn()
 vi.mock('../lib/api', () => ({
@@ -17,9 +18,11 @@ vi.mock('../auth/useAuth', () => ({
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <SubjectsListPage />
-    </MemoryRouter>,
+    <PageHeaderProvider>
+      <MemoryRouter>
+        <SubjectsListPage />
+      </MemoryRouter>
+    </PageHeaderProvider>,
   )
 }
 

@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { clientsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function StudentsListPage() {
+  usePageTitle('Students')
   const [query, setQuery] = useState('')
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -32,8 +34,6 @@ export function StudentsListPage() {
 
   return (
     <div className="page">
-      <h1>Students</h1>
-
       <label htmlFor="q">Search by name or student number</label>
       <input
         id="q"

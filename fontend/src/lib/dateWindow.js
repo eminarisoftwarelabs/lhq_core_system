@@ -21,3 +21,14 @@ export function parseDateOnly(dateString) {
   const [year, month, day] = dateString.split('-').map(Number)
   return new Date(year, month - 1, day)
 }
+
+// The inverse of parseDateOnly - a local calendar date back to the bare
+// 'YYYY-MM-DD' string a DRF DateField expects. Deliberately not
+// toISOString() (that converts to UTC first, which can shift the date by a
+// day depending on the viewer's timezone and time of day).
+export function toDateOnlyString(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EnquiryDetailPage } from './EnquiryDetailPage'
+import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 
 const mockGet = vi.fn()
 const mockUpdate = vi.fn()
@@ -29,6 +30,10 @@ const baseEnquiry = {
   id: 5,
   parent: { id: 1, full_name: 'Jane Doe', phone: '0999', email: '' },
   student_name: 'Jimmy Doe',
+  student_year_group: 7,
+  student_school: 'Kamuzu Academy',
+  student_phone: '',
+  student_email: '',
   student_grade: '7',
   stage: 'INITIAL_CALL',
   interested_subjects: [{ id: 1, name: 'Maths', is_active: true }],
@@ -49,11 +54,13 @@ const baseEnquiry = {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/enquiries/5']}>
-      <Routes>
-        <Route path="/enquiries/:id" element={<EnquiryDetailPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <PageHeaderProvider>
+      <MemoryRouter initialEntries={['/enquiries/5']}>
+        <Routes>
+          <Route path="/enquiries/:id" element={<EnquiryDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </PageHeaderProvider>,
   )
 }
 
@@ -78,14 +85,14 @@ describe('EnquiryDetailPage', () => {
   it('renders the enquiry stage and parent info', async () => {
     renderPage()
 
-    await screen.findByText('Jimmy Doe')
+    await screen.findByText(/Parent: Jane Doe/)
     expect(screen.getByText('Initial call')).toBeInTheDocument()
     expect(screen.getByText(/Jane Doe/)).toBeInTheDocument()
   })
 
   it('the stage dropdown never offers the current stage or ENROLLED', async () => {
     renderPage()
-    await screen.findByText('Jimmy Doe')
+    await screen.findByText(/Parent: Jane Doe/)
 
     const select = screen.getByLabelText('Move to stage')
     const options = within(select).getAllByRole('option').map((o) => o.textContent)
@@ -98,7 +105,7 @@ describe('EnquiryDetailPage', () => {
   it('changing stage calls the API and updates the displayed stage', async () => {
     mockChangeStage.mockResolvedValueOnce({ ...baseEnquiry, stage: 'MEETING_SET' })
     renderPage()
-    await screen.findByText('Jimmy Doe')
+    await screen.findByText(/Parent: Jane Doe/)
 
     fireEvent.change(screen.getByLabelText('Move to stage'), { target: { value: 'MEETING_SET' } })
     fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: 'Booked Tuesday' } })
@@ -110,7 +117,7 @@ describe('EnquiryDetailPage', () => {
 
   it('shows a "Generate invoice" button when there is no invoice yet, not enrolled', async () => {
     renderPage()
-    await screen.findByText('Jimmy Doe')
+    await screen.findByText(/Parent: Jane Doe/)
 
     expect(screen.getByRole('button', { name: 'Generate invoice' })).toBeInTheDocument()
   })
@@ -134,7 +141,7 @@ describe('EnquiryDetailPage', () => {
       ],
     })
     renderPage()
-    await screen.findByText('Jimmy Doe')
+    await screen.findByText(/Parent: Jane Doe/)
 
     fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }))
 
@@ -149,7 +156,7 @@ describe('EnquiryDetailPage', () => {
       new ApiError(400, { duration_weeks: ['Required on the enquiry before an invoice can be generated.'] }),
     )
     renderPage()
-    await screen.findByText('Jimmy Doe')
+    await screen.findByText(/Parent: Jane Doe/)
 
     fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }))
 
@@ -158,11 +165,31 @@ describe('EnquiryDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Generate invoice' })).toBeInTheDocument()
   })
 
+  it('saves the year group, school and student contact fields', async () => {
+    mockUpdate.mockResolvedValueOnce({ ...baseEnquiry, student_year_group: 10, student_school: 'St. Andrews' })
+    renderPage()
+    await screen.findByText(/Parent: Jane Doe/)
+
+    expect(screen.getByLabelText('Year / class')).toHaveValue('7')
+    expect(screen.getByLabelText('School')).toHaveValue('Kamuzu Academy')
+
+    fireEvent.change(screen.getByLabelText('Year / class'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('School'), { target: { value: 'St. Andrews' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ student_year_group: 10, student_school: 'St. Andrews' }),
+      ),
+    )
+  })
+
   it('shows an enrolled banner instead of a stage-change form once enrolled', async () => {
     mockGet.mockResolvedValue({ ...baseEnquiry, stage: 'ENROLLED', enrollment: 3 })
     renderPage()
 
-    await screen.findByText('Jimmy Doe')
+    await screen.findByText(/Parent: Jane Doe/)
     expect(screen.getByText(/no longer changes manually/i)).toBeInTheDocument()
     expect(screen.getByText(/Enrolled\./)).toBeInTheDocument()
   })

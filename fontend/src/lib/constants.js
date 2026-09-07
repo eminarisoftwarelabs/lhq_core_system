@@ -14,6 +14,14 @@ export const STAGE_LABELS = {
 // outright, it's only ever set automatically by the first payment.
 export const MANUAL_STAGE_OPTIONS = ['INITIAL_CALL', 'MEETING_SET', 'INVOICED']
 
+// A student's class/form level (Year 1-13) - distinct from `grade`, which
+// records the marks/grades a student brought from their previous school.
+export const YEAR_GROUPS = Array.from({ length: 13 }, (_, i) => i + 1)
+
+export function yearGroupLabel(year) {
+  return year ? `Year ${year}` : '—'
+}
+
 export const LEARNING_MODES = ['IN_PERSON', 'ONLINE']
 
 export const LEARNING_MODE_LABELS = {

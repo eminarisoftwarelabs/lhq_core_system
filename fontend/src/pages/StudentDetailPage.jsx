@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { clientsApi, enrollmentsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
-import { dayLabel, ENROLLMENT_STATUS_LABELS, formatTime, LEARNING_MODE_LABELS } from '../lib/constants'
+import { dayLabel, ENROLLMENT_STATUS_LABELS, formatTime, LEARNING_MODE_LABELS, yearGroupLabel } from '../lib/constants'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function StudentDetailPage() {
   const { id } = useParams()
@@ -13,6 +14,7 @@ export function StudentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [actionError, setActionError] = useState(null)
   const [withdrawingId, setWithdrawingId] = useState(null)
+  usePageTitle(student ? `${student.full_name} (${student.student_number})` : undefined)
 
   async function loadAll() {
     setLoading(true)
@@ -63,16 +65,24 @@ export function StudentDetailPage() {
 
   return (
     <div className="page">
-      <div className="page__header">
-        <h1>
-          {student.full_name} <small>({student.student_number})</small>
-        </h1>
+      <div className="page-toolbar">
         <Link className="button" to={`/enrollments/new?student=${student.id}`}>
           New enrollment
         </Link>
       </div>
 
-      <p>Grade: {student.grade}</p>
+      <p>
+        {yearGroupLabel(student.year_group)}
+        {student.school && ` · ${student.school}`}
+        {student.grade && ` · Grade: ${student.grade}`}
+      </p>
+      {(student.phone || student.email) && (
+        <p>
+          {student.phone}
+          {student.phone && student.email && ' · '}
+          {student.email}
+        </p>
+      )}
 
       <h2>Guardians</h2>
       {student.guardianships.length === 0 && <p>No guardians on file.</p>}
