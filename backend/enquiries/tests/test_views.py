@@ -25,6 +25,8 @@ class EnquiryCreateTests(APITestCase):
             {
                 'parent': {'full_name': 'Jane Doe', 'phone': '0999111222'},
                 'student_name': 'Jimmy Doe',
+                'student_year_group': 7,
+                'student_school': 'Kamuzu Academy',
                 'student_grade': '7',
                 'subject_ids': [self.subject.id],
                 'duration_weeks': 12,
@@ -56,6 +58,59 @@ class EnquiryCreateTests(APITestCase):
         self.client.force_authenticate(self.admin)
         resp = self.client.post('/api/enquiries/', {'parent': {'full_name': 'Jane Doe', 'phone': '0999'}}, format='json')
         self.assertEqual(resp.status_code, 400)
+
+    def test_student_year_group_and_school_are_required(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(
+            '/api/enquiries/',
+            {'parent': {'full_name': 'Jane Doe', 'phone': '0999'}, 'student_name': 'Jimmy'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('student_year_group', resp.data)
+        self.assertIn('student_school', resp.data)
+
+    def test_student_grade_is_optional(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(
+            '/api/enquiries/',
+            {
+                'parent': {'full_name': 'Jane Doe', 'phone': '0999111222'},
+                'student_name': 'Jimmy Doe',
+                'student_year_group': 3,
+                'student_school': 'Kamuzu Academy',
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['student_grade'], '')
+
+    def test_creates_enquiry_with_student_contact_details_and_year_group(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(
+            '/api/enquiries/',
+            {
+                'parent': {
+                    'full_name': 'Jane Doe',
+                    'phone': '0999111222',
+                    'address': '15 Chilobwe Road',
+                    'city': 'Blantyre',
+                },
+                'student_name': 'Jimmy Doe',
+                'student_year_group': 10,
+                'student_school': 'Kamuzu Academy',
+                'student_phone': '0888123456',
+                'student_email': 'jimmy@example.com',
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['student_year_group'], 10)
+        self.assertEqual(resp.data['student_school'], 'Kamuzu Academy')
+        self.assertEqual(resp.data['student_phone'], '0888123456')
+        self.assertEqual(resp.data['student_email'], 'jimmy@example.com')
+        self.assertEqual(resp.data['parent']['address'], '15 Chilobwe Road')
+        self.assertEqual(resp.data['parent']['city'], 'Blantyre')
 
 
 class EnquiryListTests(APITestCase):

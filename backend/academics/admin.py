@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Subject, TimetableSlot, Topic
+from .models import School, Subject, TimetableSlot, Topic
+
+
+@admin.register(School)
+class SchoolAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['name']
 
 
 class TopicInline(admin.TabularInline):

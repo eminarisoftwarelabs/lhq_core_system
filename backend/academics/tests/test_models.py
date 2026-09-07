@@ -2,8 +2,20 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from academics.models import Subject, TimetableSlot, Topic
+from academics.models import School, Subject, TimetableSlot, Topic
 from accounts.models import Role, TutorProfile, User
+
+
+class SchoolModelTests(TestCase):
+    def test_defaults_to_active(self):
+        school = School.objects.create(name='Test Academy')
+        self.assertTrue(school.is_active)
+
+    def test_name_must_be_unique(self):
+        School.objects.create(name='Test Academy')
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                School.objects.create(name='Test Academy')
 
 
 class SubjectModelTests(TestCase):

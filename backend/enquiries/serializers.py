@@ -35,6 +35,10 @@ class EnquirySerializer(serializers.ModelSerializer):
             'id',
             'parent',
             'student_name',
+            'student_year_group',
+            'student_school',
+            'student_phone',
+            'student_email',
             'student_grade',
             'stage',
             'interested_subjects',
@@ -57,7 +61,8 @@ class ParentInputSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=120)
     phone = serializers.CharField(max_length=20)
     email = serializers.EmailField(required=False, allow_blank=True)
-    location = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    address = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    city = serializers.CharField(max_length=100, required=False, allow_blank=True)
 
 
 class EnquiryCreateSerializer(serializers.Serializer):
@@ -67,7 +72,13 @@ class EnquiryCreateSerializer(serializers.Serializer):
 
     parent = ParentInputSerializer()
     student_name = serializers.CharField(max_length=120)
-    student_grade = serializers.CharField(max_length=20)
+    student_year_group = serializers.ChoiceField(choices=Enquiry._meta.get_field('student_year_group').choices)
+    student_school = serializers.CharField(max_length=150)
+    student_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    student_email = serializers.EmailField(required=False, allow_blank=True)
+    # Unlike year_group/school above, the grade a student brought from their
+    # previous school is often not known yet at intake.
+    student_grade = serializers.CharField(max_length=20, required=False, allow_blank=True)
     subject_ids = serializers.PrimaryKeyRelatedField(
         source='subjects', queryset=Subject.objects.all(), many=True, required=False, default=list
     )
@@ -83,7 +94,11 @@ class EnquiryCreateSerializer(serializers.Serializer):
         return create_enquiry(
             parent_data=validated_data['parent'],
             student_name=validated_data['student_name'],
-            student_grade=validated_data['student_grade'],
+            student_year_group=validated_data['student_year_group'],
+            student_school=validated_data['student_school'],
+            student_phone=validated_data.get('student_phone', ''),
+            student_email=validated_data.get('student_email', ''),
+            student_grade=validated_data.get('student_grade', ''),
             subject_ids=[s.id for s in validated_data.get('subjects', [])],
             duration_weeks=validated_data.get('duration_weeks'),
             learning_mode=validated_data.get('learning_mode'),
@@ -104,6 +119,10 @@ class EnquiryUpdateSerializer(serializers.ModelSerializer):
         model = Enquiry
         fields = [
             'student_name',
+            'student_year_group',
+            'student_school',
+            'student_phone',
+            'student_email',
             'student_grade',
             'interested_subjects',
             'duration_weeks',

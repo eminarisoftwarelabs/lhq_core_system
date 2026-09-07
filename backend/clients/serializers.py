@@ -6,7 +6,7 @@ from .models import Guardianship, Parent, Student
 class ParentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Parent
-        fields = ['id', 'full_name', 'phone', 'email', 'location']
+        fields = ['id', 'full_name', 'phone', 'email', 'address', 'city']
         read_only_fields = ['id']
 
 
@@ -29,5 +29,15 @@ class StudentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['id', 'student_number', 'full_name', 'grade', 'guardianships']
+        fields = [
+            'id',
+            'student_number',
+            'full_name',
+            'year_group',
+            'school',
+            'phone',
+            'email',
+            'grade',
+            'guardianships',
+        ]
         read_only_fields = fields

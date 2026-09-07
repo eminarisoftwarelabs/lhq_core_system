@@ -2,6 +2,22 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 
+class School(models.Model):
+    """Reference list of schools offered on the enquiry form's school
+    picker. Free text is still accepted there for a school not in this
+    list (the form's "Other" option) - this is a suggestion list, not a
+    hard constraint on Student/Enquiry's school field."""
+
+    name = models.CharField(max_length=150, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Subject(models.Model):
     name = models.CharField(max_length=100)
     # null=True so a Subject can exist before anyone is assigned to it.

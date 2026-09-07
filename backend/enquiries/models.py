@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+from clients.models import YEAR_GROUP_CHOICES
 from enrollments.models import LearningMode
 
 
@@ -15,7 +16,13 @@ class Enquiry(models.Model):
     parent = models.ForeignKey('clients.Parent', on_delete=models.PROTECT, related_name='enquiries')
 
     student_name = models.CharField(max_length=120)  # plain field, no Student row yet
-    student_grade = models.CharField(max_length=20)
+    student_year_group = models.PositiveSmallIntegerField(choices=YEAR_GROUP_CHOICES, null=True, blank=True)
+    student_school = models.CharField(max_length=150, blank=True)
+    student_phone = models.CharField(max_length=20, blank=True)
+    student_email = models.EmailField(blank=True)
+    # The grades/marks the student brought from their previous school - not
+    # always known at intake, unlike student_year_group above.
+    student_grade = models.CharField(max_length=20, blank=True)
 
     stage = models.CharField(max_length=20, choices=EnquiryStage.choices, default=EnquiryStage.INITIAL_CALL)
 

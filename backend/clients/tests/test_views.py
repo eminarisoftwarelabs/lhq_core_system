@@ -60,8 +60,18 @@ class StudentSearchTests(APITestCase):
 class StudentDetailTests(APITestCase):
     def setUp(self):
         self.owner = make_user(Role.OWNER)
-        self.student = Student.objects.create(student_number='STU-000001', full_name='Alice Wang', grade='7')
-        parent = Parent.objects.create(full_name='Wanjiru Wang', phone='0999')
+        self.student = Student.objects.create(
+            student_number='STU-000001',
+            full_name='Alice Wang',
+            year_group=7,
+            school='Kamuzu Academy',
+            phone='0888123456',
+            email='alice@example.com',
+            grade='7',
+        )
+        parent = Parent.objects.create(
+            full_name='Wanjiru Wang', phone='0999', address='15 Chilobwe Road', city='Blantyre'
+        )
         Guardianship.objects.create(student=self.student, parent=parent, is_primary_contact=True)
 
     def test_detail_includes_guardianships(self):
@@ -71,6 +81,17 @@ class StudentDetailTests(APITestCase):
         self.assertEqual(len(resp.data['guardianships']), 1)
         self.assertEqual(resp.data['guardianships'][0]['parent']['full_name'], 'Wanjiru Wang')
         self.assertTrue(resp.data['guardianships'][0]['is_primary_contact'])
+        self.assertEqual(resp.data['guardianships'][0]['parent']['address'], '15 Chilobwe Road')
+        self.assertEqual(resp.data['guardianships'][0]['parent']['city'], 'Blantyre')
+
+    def test_detail_includes_year_group_school_and_contact_details(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get(f'/api/students/{self.student.id}/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['year_group'], 7)
+        self.assertEqual(resp.data['school'], 'Kamuzu Academy')
+        self.assertEqual(resp.data['phone'], '0888123456')
+        self.assertEqual(resp.data['email'], 'alice@example.com')
 
 
 class StudentTimetableTests(APITestCase):

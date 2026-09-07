@@ -42,6 +42,43 @@ class CreateEnquiryTests(TestCase):
         self.assertIsNone(history[0].from_stage)
         self.assertEqual(history[0].to_stage, EnquiryStage.INITIAL_CALL)
 
+    def test_student_year_group_school_and_contact_details_are_stored(self):
+        staff = make_staff()
+
+        enquiry = create_enquiry(
+            parent_data={'full_name': 'Jane Doe', 'phone': '0999111222'},
+            student_name='Jimmy Doe',
+            student_year_group=10,
+            student_school='Kamuzu Academy',
+            student_phone='0888123456',
+            student_email='jimmy@example.com',
+            subject_ids=[],
+            duration_weeks=None,
+            learning_mode=None,
+            desired_start_date=None,
+            created_by=staff,
+        )
+
+        self.assertEqual(enquiry.student_year_group, 10)
+        self.assertEqual(enquiry.student_school, 'Kamuzu Academy')
+        self.assertEqual(enquiry.student_phone, '0888123456')
+        self.assertEqual(enquiry.student_email, 'jimmy@example.com')
+
+    def test_student_grade_defaults_to_blank(self):
+        staff = make_staff()
+
+        enquiry = create_enquiry(
+            parent_data={'full_name': 'Jane Doe', 'phone': '0999'},
+            student_name='Jimmy',
+            subject_ids=[],
+            duration_weeks=None,
+            learning_mode=None,
+            desired_start_date=None,
+            created_by=staff,
+        )
+
+        self.assertEqual(enquiry.student_grade, '')
+
 
 class ChangeStageTests(TestCase):
     def setUp(self):
@@ -88,6 +125,10 @@ class EnrollStudentTests(TestCase):
         self.enquiry = Enquiry.objects.create(
             parent=self.parent,
             student_name='Jimmy Doe',
+            student_year_group=7,
+            student_school='Kamuzu Academy',
+            student_phone='0888123456',
+            student_email='jimmy@example.com',
             student_grade='7',
             duration_weeks=12,
             learning_mode=LearningMode.IN_PERSON,
@@ -109,6 +150,15 @@ class EnrollStudentTests(TestCase):
         self.assertEqual(enrollment.student.full_name, 'Jimmy Doe')
         self.assertEqual(enrollment.status, EnrollmentStatus.ACTIVE)
         self.assertIn(self.subject, enrollment.subjects.all())
+
+        # The enquiry's student_* intake fields carry over onto the real
+        # Student row created here - this is the only place they're copied.
+        student = enrollment.student
+        self.assertEqual(student.year_group, 7)
+        self.assertEqual(student.school, 'Kamuzu Academy')
+        self.assertEqual(student.phone, '0888123456')
+        self.assertEqual(student.email, 'jimmy@example.com')
+        self.assertEqual(student.grade, '7')
 
         guardianship = enrollment.student.guardianships.get()
         self.assertEqual(guardianship.parent, self.parent)

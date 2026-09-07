@@ -18,17 +18,25 @@ DEFAULT_INVOICE_DUE_DAYS = 14
 def create_enquiry(
     parent_data,
     student_name,
-    student_grade,
     subject_ids,
     duration_weeks,
     learning_mode,
     desired_start_date,
     created_by,
+    student_year_group=None,
+    student_school='',
+    student_phone='',
+    student_email='',
+    student_grade='',
 ):
     parent = Parent.objects.create(**parent_data)
     enquiry = Enquiry.objects.create(
         parent=parent,
         student_name=student_name,
+        student_year_group=student_year_group,
+        student_school=student_school,
+        student_phone=student_phone,
+        student_email=student_email,
         student_grade=student_grade,
         duration_weeks=duration_weeks,
         learning_mode=learning_mode,
@@ -78,6 +86,10 @@ def enroll_student(invoice, changed_by):
     student = Student.objects.create(
         student_number=generate_student_number(),
         full_name=enquiry.student_name,
+        year_group=enquiry.student_year_group,
+        school=enquiry.student_school,
+        phone=enquiry.student_phone,
+        email=enquiry.student_email,
         grade=enquiry.student_grade,
     )
     # The enquiry never captures how this parent relates to the student

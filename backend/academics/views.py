@@ -5,8 +5,23 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Subject, Topic
-from .serializers import SubjectSerializer, TopicSerializer
+from .models import School, Subject, Topic
+from .serializers import SchoolSerializer, SubjectSerializer, TopicSerializer
+
+
+class SchoolListView(generics.ListAPIView):
+    """Read-only reference list for the enquiry form's school picker.
+    ?is_active=true/false filters, same convention as /api/subjects/."""
+
+    serializer_class = SchoolSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = School.objects.all()
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            qs = qs.filter(is_active=is_active.lower() in ('1', 'true', 'yes'))
+        return qs
 
 
 def _tutor_scoped_or_none(qs, user):

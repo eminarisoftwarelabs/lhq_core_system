@@ -1,6 +1,13 @@
 from rest_framework import serializers
 
-from .models import Subject, TimetableSlot, Topic
+from .models import School, Subject, TimetableSlot, Topic
+
+
+class SchoolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = School
+        fields = ['id', 'name', 'is_active']
+        read_only_fields = ['id']
 
 
 class TimetableSlotSerializer(serializers.ModelSerializer):

@@ -1,6 +1,6 @@
 from rest_framework.test import APITestCase
 
-from academics.models import Subject, Topic
+from academics.models import School, Subject, Topic
 from accounts.models import Role, TutorProfile, User
 
 
@@ -9,6 +9,46 @@ def make_user(role, email=None, **kwargs):
     return User.objects.create_user(
         email=email, full_name=kwargs.pop('full_name', role.title()), role=role, **kwargs
     )
+
+
+class SchoolListTests(APITestCase):
+    """School.objects already has 6 rows from the 0004_seed_schools data
+    migration by the time these tests run (migrations apply to the test
+    database too) - names below are deliberately distinct from that seed
+    list to avoid colliding with the unique constraint on name."""
+
+    def setUp(self):
+        self.owner = make_user(Role.OWNER)
+        self.tutor_user = make_user(Role.TUTOR)
+        self.seeded_count = School.objects.count()
+        School.objects.create(name='Zzz Test Academy')
+        School.objects.create(name='Aaa Test Academy')
+        School.objects.create(name='Old Defunct Test School', is_active=False)
+
+    def test_requires_authentication(self):
+        resp = self.client.get('/api/schools/')
+        self.assertEqual(resp.status_code, 401)
+
+    def test_lists_every_school_ordered_by_name(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get('/api/schools/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['count'], self.seeded_count + 3)
+        names = [row['name'] for row in resp.data['results']]
+        self.assertEqual(names, sorted(names))
+
+    def test_any_authenticated_role_can_list_schools(self):
+        self.client.force_authenticate(self.tutor_user)
+        resp = self.client.get('/api/schools/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['count'], self.seeded_count + 3)
+
+    def test_is_active_filter(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get('/api/schools/?is_active=true')
+        self.assertEqual(resp.data['count'], self.seeded_count + 2)
+        resp = self.client.get('/api/schools/?is_active=false')
+        self.assertEqual(resp.data['count'], 1)
 
 
 class SubjectListCreateTests(APITestCase):
