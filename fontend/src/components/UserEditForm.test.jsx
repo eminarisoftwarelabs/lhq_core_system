@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UserEditForm } from './UserEditForm'
 
 const tutor = { id: 2, email: 't@lhq.test', full_name: 'Tam Tutor', role: 'TUTOR', is_active: true, teaches: true, tutor_profile: { hourly_rate: '40.00', is_available: true } }
@@ -41,5 +41,33 @@ describe('UserEditForm permission gating', () => {
     const optionValues = [...roleSelect.querySelectorAll('option')].map((o) => o.value)
     expect(optionValues).toEqual(['TUTOR'])
     expect(screen.getByLabelText('Active')).toBeInTheDocument()
+  })
+
+  describe('start date field', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-09-15T00:00:00'))
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('uses the themed date picker, not a native date input', () => {
+      render(<UserEditForm actor={admin} target={tutor} />)
+
+      const field = screen.getByLabelText('Start date')
+      expect(field.tagName).toBe('BUTTON')
+      expect(screen.getByText('Select date')).toBeInTheDocument()
+    })
+
+    it('picking a day sets the start date', () => {
+      render(<UserEditForm actor={admin} target={tutor} />)
+
+      fireEvent.click(screen.getByLabelText('Start date'))
+      fireEvent.click(document.querySelector('.rdp-today .rdp-day_button'))
+
+      expect(screen.getByLabelText('Start date')).toHaveTextContent('Sep 15, 2026')
+    })
   })
 })

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatDateTime, formatShortDate, isWithinDays, parseDateOnly } from './dateWindow'
+import {
+  formatDateTime,
+  formatShortDate,
+  fromDatetimeLocalValue,
+  isWithinDays,
+  parseDateOnly,
+  toDatetimeLocalValue,
+} from './dateWindow'
 
 describe('isWithinDays', () => {
   const now = new Date('2026-01-31T00:00:00Z')
@@ -48,5 +55,28 @@ describe('parseDateOnly', () => {
 
   it('handles the first of the month correctly', () => {
     expect(formatShortDate(parseDateOnly('2026-01-01'))).toBe('Jan 1, 2026')
+  })
+})
+
+describe('toDatetimeLocalValue', () => {
+  it('formats a Date as a zero-padded local datetime-local value', () => {
+    const date = new Date(2026, 8, 7, 9, 5) // Sep 7 2026, 09:05 local
+    expect(toDatetimeLocalValue(date.toISOString())).toBe('2026-09-07T09:05')
+  })
+
+  it('returns an empty string for a null or empty input', () => {
+    expect(toDatetimeLocalValue(null)).toBe('')
+    expect(toDatetimeLocalValue('')).toBe('')
+  })
+})
+
+describe('fromDatetimeLocalValue', () => {
+  it('round-trips back to the same local datetime-local value', () => {
+    const value = '2026-09-07T09:05'
+    expect(toDatetimeLocalValue(fromDatetimeLocalValue(value))).toBe(value)
+  })
+
+  it('returns null for an empty value', () => {
+    expect(fromDatetimeLocalValue('')).toBeNull()
   })
 })

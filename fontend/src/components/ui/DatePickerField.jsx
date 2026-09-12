@@ -1,15 +1,8 @@
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { DayPicker } from 'react-day-picker'
 import { formatShortDate, parseDateOnly, toDateOnlyString } from '../../lib/dateWindow'
-
-function Chevron({ orientation, ...props }) {
-  return orientation === 'left' ? (
-    <ChevronLeft size={16} strokeWidth={1.75} {...props} />
-  ) : (
-    <ChevronRight size={16} strokeWidth={1.75} {...props} />
-  )
-}
+import { Chevron } from './Chevron'
 
 // A themed replacement for <input type="date"> - the browser's own calendar
 // popup can't be styled at all, so this renders react-day-picker inside a

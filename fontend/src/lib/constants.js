@@ -51,7 +51,11 @@ export function formatTime(value) {
   return value ? value.slice(0, 5) : ''
 }
 
+// LHQ bills in Malawi Kwacha. Tuition fees run into the hundreds of
+// thousands (see billing/services.py's per-session rates), so grouping
+// separators aren't optional polish here - without them a real invoice
+// total reads as an unbroken 7-digit string.
 export function formatMoney(value) {
   if (value === null || value === undefined) return '—'
-  return `$${Number(value).toFixed(2)}`
+  return `MK ${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }

@@ -25,9 +25,14 @@ describe('formatTime', () => {
 })
 
 describe('formatMoney', () => {
-  it('formats a numeric string to two decimal places with a $ prefix', () => {
-    expect(formatMoney('100')).toBe('$100.00')
-    expect(formatMoney('99.5')).toBe('$99.50')
+  it('formats a numeric string to two decimal places with an MK prefix', () => {
+    expect(formatMoney('100')).toBe('MK 100.00')
+    expect(formatMoney('99.5')).toBe('MK 99.50')
+  })
+
+  it('groups thousands - tuition totals run into six and seven figures', () => {
+    expect(formatMoney('1200000')).toBe('MK 1,200,000.00')
+    expect(formatMoney('1500000.5')).toBe('MK 1,500,000.50')
   })
 
   it('returns a placeholder for null/undefined', () => {

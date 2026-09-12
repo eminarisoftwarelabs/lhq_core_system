@@ -23,6 +23,7 @@ import { SubjectCreatePage } from './pages/SubjectCreatePage'
 import { SubjectDetailPage } from './pages/SubjectDetailPage'
 import { SubjectRosterPage } from './pages/SubjectRosterPage'
 import { SubjectsListPage } from './pages/SubjectsListPage'
+import { TimetablePage } from './pages/TimetablePage'
 import { UserDetailPage } from './pages/UserDetailPage'
 import { UsersListPage } from './pages/UsersListPage'
 
@@ -47,6 +48,8 @@ function App() {
             <Route path="/subjects" element={<SubjectsListPage />} />
             <Route path="/subjects/:id" element={<SubjectDetailPage />} />
             <Route path="/subjects/:id/roster" element={<SubjectRosterPage />} />
+
+            <Route path="/timetable" element={<TimetablePage />} />
 
             <Route element={<ProtectedRoute staffOnly />}>
               <Route path="/users" element={<UsersListPage />} />

@@ -32,3 +32,21 @@ export function toDateOnlyString(date) {
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
+
+// <input type="datetime-local">'s value format ('YYYY-MM-DDTHH:mm') has no
+// timezone either, but here that's exactly what we want: it reads/writes in
+// the viewer's own local time, matching how "the meeting is at 2pm" is
+// actually meant. An ISO datetime from the API (has a real timezone, e.g.
+// '...Z') still converts correctly since `new Date(iso)` and
+// `date.getHours()` both resolve through the browser's local timezone.
+export function toDatetimeLocalValue(isoString) {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+export function fromDatetimeLocalValue(value) {
+  if (!value) return null
+  return new Date(value).toISOString()
+}

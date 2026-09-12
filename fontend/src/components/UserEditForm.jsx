@@ -4,6 +4,7 @@ import { usersApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { FieldErrors, NonFieldErrors } from './FieldErrors'
 import { TutorProfileFields } from './TutorProfileFields'
+import { DatePickerField } from './ui/DatePickerField'
 
 const EMPLOYMENT_TYPES = [
   { value: '', label: '—' },
@@ -162,12 +163,7 @@ export function UserEditForm({ actor, target, onSaved }) {
       {isEditable('start_date') && (
         <>
           <label htmlFor="start_date">Start date</label>
-          <input
-            id="start_date"
-            type="date"
-            value={form.start_date || ''}
-            onChange={(e) => updateField('start_date', e.target.value)}
-          />
+          <DatePickerField id="start_date" value={form.start_date} onChange={(value) => updateField('start_date', value)} />
           <FieldErrors errors={errors} field="start_date" />
         </>
       )}

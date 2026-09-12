@@ -12,7 +12,7 @@ describe('Sidebar', () => {
       </MemoryRouter>,
     )
 
-    for (const label of ['Dashboard', 'Onboarding', 'Students', 'Subjects', 'Invoices', 'Users', 'My Profile']) {
+    for (const label of ['Dashboard', 'Onboarding', 'Students', 'Subjects', 'Timetable', 'Invoices', 'Users', 'My Profile']) {
       expect(screen.getByRole('link', { name: new RegExp(label, 'i') })).toBeInTheDocument()
     }
   })
@@ -31,6 +31,7 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('link', { name: /^dashboard$/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /subjects/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /timetable/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /my profile/i })).toBeInTheDocument()
   })
 

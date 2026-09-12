@@ -1,14 +1,11 @@
-import { BookOpen } from 'lucide-react'
+import { BookOpen, CalendarClock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { TimetableSlotFields } from '../components/TimetableSlotFields'
 import { FieldErrors, NonFieldErrors } from '../components/FieldErrors'
 import { useToast } from '../components/toast/useToast'
 import { academicsApi, tutorsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { usePageTitle } from '../lib/usePageTitle'
-
-const emptySlot = { day_of_week: 0, start_time: '', end_time: '' }
 
 export function SubjectCreatePage() {
   usePageTitle('Add subject')
@@ -18,8 +15,6 @@ export function SubjectCreatePage() {
   const [name, setName] = useState('')
   const [tutorId, setTutorId] = useState('')
   const [isActive, setIsActive] = useState(true)
-  const [setSlot, setSetSlot] = useState(false)
-  const [slot, setSlotValue] = useState(emptySlot)
   const [errors, setErrors] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -39,9 +34,6 @@ export function SubjectCreatePage() {
     setSubmitting(true)
 
     const payload = { name, is_active: isActive, tutor: tutorId || null }
-    if (setSlot) {
-      payload.timetable_slot = slot
-    }
 
     try {
       const created = await academicsApi.createSubject(payload)
@@ -97,19 +89,12 @@ export function SubjectCreatePage() {
               />
               Active (offered to onboarding)
             </label>
-
-            <label htmlFor="set_slot" className="checkbox-label">
-              <input
-                id="set_slot"
-                type="checkbox"
-                checked={setSlot}
-                onChange={(e) => setSetSlot(e.target.checked)}
-              />
-              Set a timetable slot now
-            </label>
-            {setSlot && <TimetableSlotFields value={slot} onChange={setSlotValue} idPrefix="create_slot" />}
-            <FieldErrors errors={errors} field="timetable_slot" />
           </fieldset>
+
+          <p className="form-note form-note--icon">
+            <CalendarClock size={14} strokeWidth={1.75} aria-hidden="true" />
+            You can give this subject a timetable slot from the Timetable page once it's created.
+          </p>
 
           <div className="form-actions">
             <Link className="button button--secondary" to="/subjects">

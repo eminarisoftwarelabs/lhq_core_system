@@ -228,12 +228,14 @@ button:hover,
     background: var(--nav-hover-bg);
   }
 
-  :root:not([data-theme='light']) .button--danger {
+  :root:not([data-theme='light']) .button--danger,
+  :root:not([data-theme='light']) .button-danger {
     background: transparent;
     color: var(--danger);
   }
 
-  :root:not([data-theme='light']) .button--ghost {
+  :root:not([data-theme='light']) .button--ghost,
+  :root:not([data-theme='light']) .topic-chip__remove {
     background: transparent;
     color: var(--text-primary);
   }
@@ -248,12 +250,14 @@ button:hover,
   background: var(--nav-hover-bg);
 }
 
-:root[data-theme='dark'] .button--danger {
+:root[data-theme='dark'] .button--danger,
+:root[data-theme='dark'] .button-danger {
   background: transparent;
   color: var(--danger);
 }
 
-:root[data-theme='dark'] .button--ghost {
+:root[data-theme='dark'] .button--ghost,
+:root[data-theme='dark'] .topic-chip__remove {
   background: transparent;
   color: var(--text-primary);
 }
@@ -330,7 +334,8 @@ button:disabled,
 /* -- Inputs -------------------------------------------------------------- */
 
 input,
-select {
+select,
+textarea {
   font: inherit;
   padding: 10px 12px;
   border-radius: var(--radius-input);
@@ -343,7 +348,8 @@ select {
 }
 
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   border-color: var(--focus-ring);
 }
 
@@ -790,7 +796,16 @@ legend {
 
 /* -- Header ------------------------------------------------------------- */
 
+/* Static/pinned while the page content scrolls beneath it - the sidebar is
+   already position:fixed (see .sidebar above), so this keeps the header the
+   other permanently-visible piece of chrome, matching what a longer list
+   (e.g. the students directory once it has more than a page's worth of
+   rows) needs: the header (and the search/back controls in it) stays put
+   instead of scrolling away with the list. */
 .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -1131,6 +1146,61 @@ legend {
   color: var(--text-secondary);
 }
 
+/* -- Directory list pages (StudentsListPage, SubjectsListPage) -------------
+   Reuses .recent-enrollments' card chrome so a full record list reads as
+   the same design language as the dashboard's "Recently enrolled" widget,
+   rather than a plain data-table - this is the page's only content, not a
+   small supporting widget, so it drops the dashboard version's top margin
+   and internal scroll cap. */
+.directory-card {
+  margin-top: 0;
+}
+
+.directory-card__list {
+  max-height: none;
+  overflow: visible;
+}
+
+/* Each row now carries an identity block and an enrollment summary rather
+   than .recent-enrollments__row's plain name + date, so it needs vertical
+   centering instead of that rule's text-baseline alignment. */
+.recent-enrollments__row--rich {
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+}
+
+/* The right-hand column of a "rich" directory row (StudentsListPage,
+   SubjectsListPage): a status badge plus one or more detail lines.
+   flex-shrink:0 here would force .directory-row__identity (its sibling) to
+   absorb all the squeeze instead - a row with a lot to say on this side
+   (e.g. a student enrolled in several subjects) would push the identity
+   column down to single-word-wide, wrapping a name across multiple lines.
+   Letting this side shrink too, capped at max-width so it can't dominate
+   the row, keeps that squeeze on this column's own (now-truncated) text
+   instead. */
+.directory-row__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 60%;
+}
+
+.directory-row__detail {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.directory-row__detail--muted {
+  font-style: italic;
+}
+
 /* -- Period toggle (segmented pill control) --------------------------------
    Overrides the global button/dark-mode rules via matched specificity
    (class + type selectors) and source order - see the "Buttons" section
@@ -1181,22 +1251,30 @@ legend {
   flex-direction: column;
   min-height: 560px;
   max-height: 560px;
-  padding: var(--space-6);
   border-radius: var(--radius-container-lg);
   /* A tinted "lining" rather than the flat neutral border used elsewhere -
      a soft wash of the nav accent blended into the default border color. */
   border: 1px solid color-mix(in srgb, var(--focus-ring) 35%, var(--border-default));
   background: var(--bg-surface);
   box-shadow: 0 1px 2px 0 rgba(16, 16, 25, 0.04);
+  /* The header below is a full-bleed dark band - clip its square top
+     corners to the card's rounded ones instead of adding a second radius. */
+  overflow: hidden;
 }
 
+/* A full-bleed band rather than the plain bottom-border row used elsewhere
+   (.detail-section__header etc.) - uses the app's existing muted-surface
+   tone (the same one .icon-badge normally sits on) rather than a stark
+   black slab, so it reads as a header without fighting the rest of the
+   page's low-key palette. */
 .onboarding-section__header {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding-bottom: var(--space-4);
-  margin-bottom: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--bg-surface-muted);
   border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
 }
 
 .onboarding-section__icon {
@@ -1207,7 +1285,9 @@ legend {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-input);
-  background: var(--bg-surface-muted);
+  /* Inverted from .icon-badge's usual muted-on-surface pairing, since this
+     badge instead sits on the header's muted background. */
+  background: var(--bg-surface);
   color: var(--text-nav);
 }
 
@@ -1217,6 +1297,7 @@ legend {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  color: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1227,7 +1308,9 @@ legend {
   min-width: 24px;
   padding: 3px 9px;
   border-radius: 999px;
-  background: var(--bg-surface-muted);
+  /* Same inversion as .onboarding-section__icon above - a surface-toned
+     pill so it stays legible on the header's muted background. */
+  background: var(--bg-surface);
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
@@ -1240,6 +1323,7 @@ legend {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  padding: var(--space-4) var(--space-6) var(--space-6);
 }
 
 .onboarding-section__status {
@@ -1416,6 +1500,211 @@ legend {
   color: var(--text-nav-hover);
 }
 
+/* -- Timetable board (TimetablePage) ---------------------------------------
+   Seven day columns, same "narrow tall lane" idiom as .onboarding-board's
+   pipeline stages - but content-height rather than that layout's fixed
+   560px, since a day's session count varies from zero to several, and
+   wraps to a single column below 900px instead of onboarding-board's
+   auto-fit reflow, since day order (Monday first) needs to stay fixed
+   rather than reflow by content width. */
+.timetable-board {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .timetable-board {
+    grid-template-columns: 1fr;
+  }
+}
+
+.timetable-day {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-container-lg);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px 0 rgba(16, 16, 25, 0.04);
+  overflow: hidden;
+}
+
+/* Today's column gets the same tinted-lining treatment .onboarding-section
+   uses for every column, so it stands out without a second, louder color. */
+.timetable-day--today {
+  border: 1px solid color-mix(in srgb, var(--focus-ring) 45%, var(--border-default));
+}
+
+.timetable-day__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface-muted);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.timetable-day__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.timetable-day--today .timetable-day__name {
+  color: var(--focus-ring);
+}
+
+.timetable-day__count {
+  min-width: 20px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.timetable-day__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.timetable-day__empty {
+  margin: var(--space-2) 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Shared by a scheduled block (inside a day column) and an unscheduled row
+   (inside the card below the board) - a button when staff can act on it
+   (edit or set a slot), a plain div otherwise, but the same visual shape
+   either way so the board reads consistently regardless of role. */
+.timetable-slot-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface-muted);
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+.timetable-slot-row--button {
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.timetable-slot-row--button:hover {
+  background: var(--nav-hover-bg);
+  border-color: var(--border-strong);
+}
+
+/* Without these, the generic dark-mode `button` inversion two sections up
+   (specificity (0,2,1): :root + [data-theme] + the `button` type selector)
+   outranks a plain `.timetable-slot-row` class rule ((0,1,0)) and silently
+   flips a scheduled block to a stark white pill in dark mode - same trap
+   documented above .button--secondary's own dark overrides, same fix:
+   match it with enough class selectors to win. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .timetable-slot-row--button {
+    background: var(--bg-surface-muted);
+    color: var(--text-primary);
+  }
+
+  :root:not([data-theme='light']) .timetable-slot-row--button:hover {
+    background: var(--nav-hover-bg);
+  }
+}
+
+:root[data-theme='dark'] .timetable-slot-row--button {
+  background: var(--bg-surface-muted);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .timetable-slot-row--button:hover {
+  background: var(--nav-hover-bg);
+}
+
+.timetable-slot-row__time {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-nav);
+}
+
+.timetable-slot-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.timetable-slot-row__name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timetable-slot-row__tutor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timetable-slot-row__icon {
+  flex-shrink: 0;
+  color: var(--text-nav);
+}
+
+/* Unscheduled subjects list (below the board) is a wider single column, so
+   its rows read left-to-right instead of stacking name over tutor. */
+.timetable-unscheduled .timetable-slot-row--unscheduled {
+  margin-bottom: var(--space-2);
+}
+
+.timetable-unscheduled .timetable-slot-row--unscheduled:last-child {
+  margin-bottom: 0;
+}
+
+.timetable-slot-row__set {
+  flex-shrink: 0;
+  min-height: 0 !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+}
+
+.timetable-editor {
+  margin-bottom: var(--space-6);
+}
+
+/* Pushes a leading destructive action (Remove slot) to the far side of
+   .form-actions' flex row, away from the Cancel/Save pair it otherwise
+   clusters with under justify-content: flex-end. */
+.form-actions__leading {
+  margin-right: auto;
+}
+
 /* -- Generic page content -------------------------------------------------- */
 
 /* For a page whose title moved to the app header bar (see usePageTitle) but
@@ -1427,6 +1716,62 @@ legend {
   align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+
+/* Icon-in-field pattern, reused wherever a search input needs one - the
+   icon sits inside the input's own padding rather than as a decorative
+   sibling, so the field keeps a single focus/hover surface. */
+.search-field {
+  width: 100%;
+  max-width: 360px;
+}
+
+.search-field__control {
+  position: relative;
+}
+
+.search-field__icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.search-field__control input {
+  max-width: none;
+  padding-left: 38px;
+}
+
+/* Centered placeholder for "nothing here" states that anchor an entire
+   page (an empty student directory) rather than one small table cell -
+   .form-note stays the right call for a subsection with content elsewhere
+   on the page. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-6);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.empty-state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-surface-muted);
+  color: var(--text-nav);
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
 }
 
 /* .app-shell__content's padding-top (space-8) reads as too much air under
@@ -1449,7 +1794,8 @@ legend {
 }
 
 .form input,
-.form select {
+.form select,
+.form textarea {
   max-width: none;
   width: 100%;
 }
@@ -1482,14 +1828,16 @@ legend {
    with tighter controls. The generic global rule stays untouched for every
    other (plain, unboxed) form in the app. */
 .form-card input,
-.form-card select {
+.form-card select,
+.form-card textarea {
   padding: 8px 12px;
   font-size: 14px;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .form-card input:focus-visible,
-.form-card select:focus-visible {
+.form-card select:focus-visible,
+.form-card textarea:focus-visible {
   outline: none;
   border-color: var(--focus-ring);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus-ring) 18%, transparent);
@@ -1540,6 +1888,29 @@ legend {
   color: var(--text-nav);
 }
 
+/* Initials chip for a person's identity (student, guardian) - same tinted-
+   chip language as .icon-badge, sized up for a page header vs a table row. */
+.avatar-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-surface-muted);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.avatar-badge--sm {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
 /* Program details nests SubjectMultiSelect's own fieldset - flatten it so
    the card shows one bordered section, not a box inside a box. */
 .form-card fieldset fieldset {
@@ -1551,6 +1922,379 @@ legend {
 .form-card fieldset fieldset legend {
   margin-left: 0;
   padding: 0;
+}
+
+/* -- Detail pages with mixed form + read-only sections (EnquiryDetailPage) --
+   Some direct children of .form-card here aren't a single <form> with
+   fieldsets (the create-page pattern) - a page can render several separate
+   <form>s (stage change, then the edit form) followed by plain read-only
+   sections (invoicing, stage history). Both need the same section spacing
+   and header treatment as .form-card > form > fieldset gets natively. */
+.form-card > form,
+.form-card > .detail-section {
+  margin: 0 0 var(--space-8);
+}
+
+.form-card > form:last-child,
+.form-card > .detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.detail-section__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 0 var(--space-4);
+  margin: 0 0 var(--space-6);
+  border-bottom: 1px solid var(--border-default);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detail-section__edit {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 6px 12px !important;
+  min-height: 0 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* Read-only recap shown instead of the edit form until "Edit" is clicked -
+   a two-column label/value grid rather than another set of bordered
+   inputs, so it reads as reference info, not something to fill in. */
+.detail-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4) var(--space-6);
+  margin: 0;
+}
+
+.detail-summary__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detail-summary__row--full {
+  grid-column: 1 / -1;
+}
+
+.detail-summary__row dt {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.detail-summary__row dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  overflow-wrap: break-word;
+}
+
+/* Stage + parent-contact strip above the card. */
+.detail-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.stage-badge {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--bg-surface-muted);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.detail-header__parent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.detail-header__parent svg {
+  flex-shrink: 0;
+  color: var(--text-nav);
+}
+
+/* Name + student number stacked next to the avatar - its own block so it
+   doesn't stretch/wrap the way a bare flex child would next to the badge
+   and action button that follow it in .detail-header. */
+.detail-header__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detail-header__name {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.detail-header__number {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A second, lower-priority row under the badge/name strip - contact and
+   program facts that matter but shouldn't compete with the name for the
+   eye's first pass. Reuses .detail-header__parent per row for the same
+   icon + secondary-text treatment already established there. */
+.detail-header__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: 0 0 var(--space-6);
+}
+
+.invoice-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.invoice-status-badge--paid {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.invoice-status-badge--partially_paid {
+  background: color-mix(in srgb, var(--text-nav) 16%, transparent);
+  color: var(--text-nav);
+}
+
+.enrollment-status-badge--active {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.enrollment-status-badge--completed {
+  background: color-mix(in srgb, var(--text-nav) 16%, transparent);
+  color: var(--text-nav);
+}
+
+.enrollment-status-badge--withdrawn {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.enrollment-status-badge--inactive {
+  background: var(--bg-surface-muted);
+  color: var(--text-secondary);
+}
+
+.subject-status-badge--active {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.subject-status-badge--inactive {
+  background: var(--bg-surface-muted);
+  color: var(--text-secondary);
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius-input);
+  font-size: 14px;
+}
+
+.banner--success {
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+}
+
+.banner a {
+  color: inherit;
+  font-weight: 600;
+}
+
+/* A vertical dotted timeline - a small dot per change, connected by a line,
+   rather than a plain bulleted <ul> for what's inherently a sequence. */
+.stage-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stage-history li {
+  position: relative;
+  padding-left: var(--space-6);
+  font-size: 14px;
+}
+
+.stage-history li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-nav);
+}
+
+.stage-history li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 5.5px;
+  top: 16px;
+  bottom: calc(-1 * var(--space-4));
+  width: 1px;
+  background: var(--border-default);
+}
+
+.stage-history__transition {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stage-history__meta {
+  color: var(--text-secondary);
+}
+
+.stage-history__note {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* -- Next action panel (EnquiryDetailPage) ----------------------------------
+   A featured callout above the record's plain form-card - the one thing to
+   do next shouldn't compete for attention with two dozen editable fields.
+   Same tinted-border card treatment as .onboarding-section, so it reads as
+   "the important one" without inventing a new visual language. */
+.next-action {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius-container-lg);
+  border: 1px solid color-mix(in srgb, var(--focus-ring) 35%, var(--border-default));
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px 0 rgba(16, 16, 25, 0.04);
+}
+
+.next-action__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-container);
+  background: var(--bg-surface-muted);
+  color: var(--text-nav);
+}
+
+.next-action__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-action__eyebrow {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-nav);
+}
+
+.next-action__headline {
+  margin: 0 0 var(--space-1);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.next-action__detail {
+  margin: 0 0 var(--space-4);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* The figure the "Record payment" input right below is meant to be
+   checked against - shown before the form, not buried in the detail line
+   above, so it's visible while actually typing an amount. */
+.next-action__balance {
+  margin: 0 0 var(--space-4);
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.next-action__balance strong {
+  font-weight: 700;
+}
+
+.next-action__form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.next-action__form .field {
+  min-width: 220px;
+}
+
+.next-action__form input {
+  max-width: none;
+}
+
+.next-action__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.next-action__skip {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-default);
+}
+
+.next-action__skip-label {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.next-action__reschedule {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-default);
+}
+
+.next-action__reschedule .next-action__form {
+  margin-bottom: 0;
 }
 
 /* `gap` previously read `var(--space-4) var(--space-5)` - --space-5 was
@@ -1702,6 +2446,7 @@ legend {
   justify-content: space-between;
   gap: var(--space-2);
   width: 100%;
+  margin-top: 0 !important;
   padding: 8px 12px !important;
   min-height: 0 !important;
   font: inherit;
@@ -1809,6 +2554,51 @@ legend {
 .date-picker-field__popover .rdp-button_next:hover:not([disabled]) {
   background: var(--bg-surface-muted) !important;
   color: var(--text-nav-hover) !important;
+}
+
+/* -- Date+time picker field (DateTimePickerField) ---------------------------
+   The calendar half reuses every .date-picker-field/.rdp-* rule above -
+   this only adds the time row (a plain <input type="time"> - not worth
+   building a custom hour/minute scroller for) and its Done button below
+   the calendar, inside the same popover. */
+.date-time-picker__time-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+
+.date-time-picker__time-row label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.date-time-picker__time-input {
+  flex: 1;
+  padding: 6px 10px !important;
+  min-height: 0 !important;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-input) !important;
+}
+
+.date-time-picker__time-input:focus-visible {
+  outline: none;
+  border-color: var(--focus-ring) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus-ring) 18%, transparent);
+}
+
+.date-time-picker__done {
+  margin-left: auto;
+  padding: 6px 14px !important;
+  min-height: 0 !important;
+  font-size: 13px !important;
 }
 
 /* -- Toasts (ToastProvider) -------------------------------------------------
@@ -2000,6 +2790,83 @@ legend {
   font-style: italic;
 }
 
+/* A .form-note that also carries a leading icon (e.g. "manage this
+   elsewhere" hints) - needs the width:100% opt-in .form-card's direct
+   children get natively (see the comment on .form-card above), since this
+   sits directly under a <form> whose flex layout would otherwise shrink it
+   to its own content width. */
+.form-note--icon {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  font-style: normal;
+}
+
+.form-note--icon svg {
+  flex-shrink: 0;
+  color: var(--text-nav);
+}
+
+/* Topics as removable pill chips (SubjectDetailPage) - a wrapped, scannable
+   set of short tags reads better here than a bulleted list of one-word
+   items each with its own trailing button. */
+.topic-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.topic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 14px;
+  border-radius: 999px;
+  background: var(--bg-surface-muted);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.topic-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.topic-chip__remove:hover {
+  background: var(--nav-hover-bg);
+  color: var(--danger);
+}
+
+/* A single-field add row (e.g. "Add a topic") that sits beside its submit
+   button instead of stacking above it - the same horizontal shape as
+   .next-action__form, generalized for reuse outside that panel. */
+.inline-add-form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.inline-add-form .field {
+  flex: 1 1 240px;
+}
+
+.inline-add-form input {
+  max-width: none;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -2018,6 +2885,126 @@ legend {
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.data-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.data-table tbody tr:hover {
+  background: var(--bg-surface-muted);
+}
+
+/* The name/subtext identity block in a "rich" directory row - shared by
+   StudentsListPage and SubjectsListPage (see .recent-enrollments__row--rich).
+   min-width:0 plus ellipsis on each line (matching .onboarding-row__name's
+   truncation elsewhere) keeps a long name from wrapping across several
+   lines when its sibling column (.directory-row__meta) is also competing
+   for the row's width. */
+.directory-row__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.directory-row__identity > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-row__subtext {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Guardian cards - an avatar-led name/relationship/contact block per
+   guardian, rather than the plain em-dash-joined <li> text this replaces. */
+.guardian-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.guardian-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.guardian-list__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.guardian-list__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.guardian-list__primary-badge {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.guardian-list__meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.invoice-line-items {
+  margin-bottom: var(--space-6);
+}
+
+.invoice-line-items__amount {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoice-line-items__total-row td {
+  border-bottom: none;
+  border-top: 2px solid var(--border-strong);
+  padding-top: var(--space-3);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.invoice-line-items__total-row--plain {
+  margin: 0 0 var(--space-6);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.invoice-terms {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-default);
+}
+
+/* Hidden on screen - the app chrome (sidebar, header) disappears when the
+   invoice is printed, so this stands in as the document's own letterhead
+   for context once it's a standalone page. */
+.invoice-print-header {
+  display: none;
 }
 
 .pagination {
@@ -2112,5 +3099,54 @@ legend {
 
   .user-menu__panel {
     min-width: 220px;
+  }
+}
+
+/* -- Print ---------------------------------------------------------------
+   Used by InvoiceDetailPage's "Print / Save as PDF" button. Strips the app
+   chrome so window.print() (and its "Save as PDF" destination) outputs a
+   clean, standalone document rather than the full sidebar/nav layout. Any
+   page can opt an element out of printing with the .no-print utility. */
+@media print {
+  .sidebar,
+  .sidebar-backdrop,
+  .sidebar-toggle,
+  .app-header,
+  .no-print {
+    display: none !important;
+  }
+
+  .app-shell,
+  .app-shell__main,
+  .app-shell__content,
+  .page {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    background: var(--color-white) !important;
+  }
+
+  .invoice-print-header {
+    display: flex !important;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
+    border-bottom: 2px solid var(--color-black);
+    font-size: 14px;
+    color: var(--color-black);
+  }
+
+  .invoice-print-header__brand {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .form-card {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
   }
 }

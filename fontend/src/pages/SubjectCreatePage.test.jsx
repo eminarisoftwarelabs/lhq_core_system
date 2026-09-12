@@ -48,28 +48,24 @@ describe('SubjectCreatePage', () => {
 
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
     expect(screen.getByLabelText(/Active/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Set a timetable slot now/)).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: 'Grace Phiri' })).toBeInTheDocument()
   })
 
-  it('defaults Active to checked and the timetable slot fields to hidden', () => {
+  it('defaults Active to checked', () => {
     renderPage()
 
     expect(screen.getByLabelText(/Active/)).toBeChecked()
-    expect(screen.queryByLabelText('Day')).not.toBeInTheDocument()
   })
 
-  it('reveals timetable slot fields when "set a timetable slot now" is checked', () => {
+  it('has no timetable slot fields - scheduling happens on the Timetable page instead', () => {
     renderPage()
 
-    fireEvent.click(screen.getByLabelText(/Set a timetable slot now/))
-
-    expect(screen.getByLabelText('Day')).toBeInTheDocument()
-    expect(screen.getByLabelText('Start time')).toBeInTheDocument()
-    expect(screen.getByLabelText('End time')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/timetable slot/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Day')).not.toBeInTheDocument()
+    expect(screen.getByText(/timetable slot from the Timetable page/i)).toBeInTheDocument()
   })
 
-  it('submits the subject without a timetable slot when the checkbox is left unchecked', async () => {
+  it('submits the subject without a timetable slot', async () => {
     mockCreateSubject.mockResolvedValue({ id: 5 })
     renderPage()
 
@@ -78,28 +74,6 @@ describe('SubjectCreatePage', () => {
 
     await waitFor(() =>
       expect(mockCreateSubject).toHaveBeenCalledWith({ name: 'Chemistry', is_active: true, tutor: null }),
-    )
-  })
-
-  it('includes the timetable slot in the payload when set', async () => {
-    mockCreateSubject.mockResolvedValue({ id: 6 })
-    renderPage()
-
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'French' } })
-    fireEvent.click(await screen.findByRole('option', { name: 'Grace Phiri' }))
-    fireEvent.change(screen.getByLabelText('Tutor'), { target: { value: '9' } })
-    fireEvent.click(screen.getByLabelText(/Set a timetable slot now/))
-    fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '15:00' } })
-    fireEvent.change(screen.getByLabelText('End time'), { target: { value: '16:00' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create subject' }))
-
-    await waitFor(() =>
-      expect(mockCreateSubject).toHaveBeenCalledWith({
-        name: 'French',
-        is_active: true,
-        tutor: '9',
-        timetable_slot: { day_of_week: 0, start_time: '15:00', end_time: '16:00' },
-      }),
     )
   })
 

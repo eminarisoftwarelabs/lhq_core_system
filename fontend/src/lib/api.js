@@ -53,6 +53,20 @@ function toQuery(params = {}) {
 export const academicsApi = {
   listSchools: (params = {}) => apiFetch(`/schools/${toQuery(params)}`),
   listSubjects: (params = {}) => apiFetch(`/subjects/${toQuery(params)}`),
+  // The Timetable page needs every Subject at once (to lay out a full
+  // week), not one page at a time like SubjectsListPage's Previous/Next -
+  // so this walks every page via `next` rather than exposing pagination
+  // to the caller. Bounded at 50 pages (1000 subjects at PAGE_SIZE=20) so a
+  // server bug returning `next` forever can't spin this forever.
+  async listAllSubjects(params = {}) {
+    const results = []
+    for (let page = 1; page <= 50; page += 1) {
+      const res = await academicsApi.listSubjects({ ...params, page })
+      results.push(...res.results)
+      if (!res.next) break
+    }
+    return results
+  },
   getSubject: (id) => apiFetch(`/subjects/${id}/`),
   createSubject: (payload) => apiFetch('/subjects/', { method: 'POST', body: payload }),
   updateSubject: (id, payload) => apiFetch(`/subjects/${id}/`, { method: 'PATCH', body: payload }),
