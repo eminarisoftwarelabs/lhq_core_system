@@ -4,43 +4,69 @@ from django.db import transaction
 
 from .models import InvoiceStatus, Payment
 
-# Placeholder fee calculator. The real tiered-rate + duration-discount table
-# is specced separately (see onboarding_apps_handover.md, "Explicitly out of
-# scope") and should replace this — kept here so invoice generation has
-# something real to call rather than leaving the endpoint stubbed out.
-# One TimetableSlot per Subject means one session/week per interested
-# subject, so sessions/week == subject_count.
-SUBJECT_RATE_TIERS = {
-    1: Decimal('25.00'),
-    2: Decimal('22.00'),
-    3: Decimal('20.00'),
-}
-DEFAULT_SUBJECT_RATE = Decimal('18.00')  # 4+ subjects
-
-# (minimum duration_weeks, discount fraction), checked longest-first.
-DURATION_DISCOUNTS = [
-    (12, Decimal('0.10')),
-    (8, Decimal('0.05')),
-]
+# LHQ runs a fixed weekly timetable of 5 sessions/week regardless of subject
+# count - subject count only selects which per-session rate tier applies
+# (more subjects sharing the same weekly slots costs less per session).
+# Longer commitments earn a duration discount.
+SESSIONS_PER_WEEK = 5
 
 
-def calculate_fee(subject_count, duration_weeks):
-    """Per-session rate by subject-count tier, times sessions/week, times
-    duration_weeks, with a duration discount applied. Placeholder — see
-    module docstring."""
-    if subject_count <= 0 or duration_weeks <= 0:
-        return Decimal('0.00')
+def _rate_for_subjects(num_subjects: int) -> Decimal:
+    if num_subjects == 1:
+        return Decimal('25000')
+    elif num_subjects <= 3:
+        return Decimal('20000')
+    return Decimal('15000')
 
-    rate = SUBJECT_RATE_TIERS.get(subject_count, DEFAULT_SUBJECT_RATE)
-    total = rate * subject_count * duration_weeks
 
-    discount = Decimal('0')
-    for min_weeks, pct in DURATION_DISCOUNTS:
-        if duration_weeks >= min_weeks:
-            discount = pct
-            break
+def _discount_for_duration(duration_weeks: int) -> Decimal:
+    if duration_weeks <= 3:
+        return Decimal('0')
+    elif duration_weeks == 4:
+        return Decimal('0.10')
+    return Decimal('0.20')
 
-    return (total * (Decimal('1') - discount)).quantize(Decimal('0.01'))
+
+def calculate_fee(num_subjects: int, duration_weeks: int) -> Decimal:
+    """Per-session rate by subject-count tier, times a fixed 5
+    sessions/week, times duration_weeks, less a duration discount.
+
+    Pure function - no request or database access - so the full tier x
+    discount matrix is unit tested directly against it. Always use Decimal
+    for the inputs/output here, never float: this feeds straight into
+    Invoice.total, a DecimalField, and float would introduce rounding drift.
+    """
+    rate = _rate_for_subjects(num_subjects)
+    discount = _discount_for_duration(duration_weeks)
+    total = rate * SESSIONS_PER_WEEK * duration_weeks * (Decimal('1') - discount)
+    return total.quantize(Decimal('0.01'))
+
+
+def invoice_line_items(num_subjects: int, duration_weeks: int) -> list[dict]:
+    """The visible breakdown behind calculate_fee()'s total, for display on
+    the invoice and its PDF/print view. The discount line is computed as
+    (subtotal - calculate_fee(...)) rather than independently re-applying
+    the discount fraction, so the line items always sum to exactly the
+    invoice total even after quantization."""
+    rate = _rate_for_subjects(num_subjects)
+    subtotal = (rate * SESSIONS_PER_WEEK * duration_weeks).quantize(Decimal('0.01'))
+    total = calculate_fee(num_subjects, duration_weeks)
+
+    items = [
+        {
+            'description': (
+                f'Tuition — {num_subjects} subject{"s" if num_subjects != 1 else ""}, '
+                f'{SESSIONS_PER_WEEK} sessions/week × {duration_weeks} '
+                f'week{"s" if duration_weeks != 1 else ""} @ {rate:,.2f}/session'
+            ),
+            'amount': subtotal,
+        }
+    ]
+    discount_amount = subtotal - total
+    if discount_amount:
+        pct = _discount_for_duration(duration_weeks) * 100
+        items.append({'description': f'Duration discount ({pct:.0f}%)', 'amount': -discount_amount})
+    return items
 
 
 @transaction.atomic

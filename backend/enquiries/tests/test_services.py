@@ -116,6 +116,17 @@ class GenerateInvoiceTests(TestCase):
         self.enquiry.refresh_from_db()
         self.assertEqual(self.enquiry.stage, EnquiryStage.INVOICED)
 
+    def test_creates_line_items_summing_to_the_total(self):
+        # 1 subject, 12 weeks -> hits the 20% duration discount, so this
+        # exercises both the tuition line and the discount line.
+        invoice = generate_invoice(self.enquiry, self.staff)
+
+        line_items = list(invoice.line_items.all())
+        self.assertEqual(len(line_items), 2)
+        self.assertIn('Tuition', line_items[0].description)
+        self.assertIn('20%', line_items[1].description)
+        self.assertEqual(sum(item.amount for item in line_items), invoice.total)
+
 
 class EnrollStudentTests(TestCase):
     def setUp(self):

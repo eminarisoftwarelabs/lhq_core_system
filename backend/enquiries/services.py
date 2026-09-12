@@ -65,14 +65,22 @@ def generate_invoice(enquiry, changed_by, note=''):
     """Assumes the caller (the view) has already validated that the enquiry
     has interested_subjects and a duration_weeks — see fee calculator's
     contract in billing.services.calculate_fee."""
-    from billing.models import Invoice
-    from billing.services import calculate_fee
+    from billing.models import Invoice, InvoiceLineItem, InvoiceStatus
+    from billing.services import calculate_fee, invoice_line_items
 
-    total = calculate_fee(enquiry.interested_subjects.count(), enquiry.duration_weeks)
+    num_subjects = enquiry.interested_subjects.count()
+    duration_weeks = enquiry.duration_weeks
+
+    total = calculate_fee(num_subjects=num_subjects, duration_weeks=duration_weeks)
     invoice = Invoice.objects.create(
         enquiry=enquiry,
         total=total,
         due_date=timezone.now().date() + timedelta(days=DEFAULT_INVOICE_DUE_DAYS),
+        status=InvoiceStatus.SENT,
+    )
+    InvoiceLineItem.objects.bulk_create(
+        InvoiceLineItem(invoice=invoice, order=order, **item)
+        for order, item in enumerate(invoice_line_items(num_subjects=num_subjects, duration_weeks=duration_weeks))
     )
     change_stage(enquiry, EnquiryStage.INVOICED, changed_by, note)
     return invoice

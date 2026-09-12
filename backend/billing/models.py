@@ -38,6 +38,23 @@ class Invoice(models.Model):
         return f'Invoice<{self.pk}, {self.status}>'
 
 
+class InvoiceLineItem(models.Model):
+    """The visible breakdown behind Invoice.total (tuition subtotal, any
+    duration discount) - never recomputed, so the invoice/PDF always shows
+    exactly what was charged even if the pricing rules change later."""
+
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='line_items')
+    description = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'{self.description}: {self.amount}'
+
+
 class Payment(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='payments')
     amount = models.DecimalField(max_digits=12, decimal_places=2)

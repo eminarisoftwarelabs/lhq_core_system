@@ -67,6 +67,37 @@ class RecordPaymentViewTests(APITestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
+    def test_amount_exceeding_balance_due_rejected(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(
+            f'/api/invoices/{self.invoice.id}/record-payment/', {'amount': '500.01'}, format='json'
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('amount', resp.data)
+        self.assertEqual(self.invoice.payments.count(), 0)
+
+    def test_partial_then_overpaying_the_remaining_balance_rejected(self):
+        self.client.force_authenticate(self.admin)
+        self.client.post(f'/api/invoices/{self.invoice.id}/record-payment/', {'amount': '400.00'}, format='json')
+
+        resp = self.client.post(
+            f'/api/invoices/{self.invoice.id}/record-payment/', {'amount': '100.01'}, format='json'
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('amount', resp.data)
+        self.assertEqual(self.invoice.payments.count(), 1)
+
+    def test_payment_against_an_already_fully_paid_invoice_rejected(self):
+        self.client.force_authenticate(self.admin)
+        self.client.post(f'/api/invoices/{self.invoice.id}/record-payment/', {'amount': '500.00'}, format='json')
+
+        resp = self.client.post(
+            f'/api/invoices/{self.invoice.id}/record-payment/', {'amount': '50.00'}, format='json'
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('amount', resp.data)
+        self.assertEqual(self.invoice.payments.count(), 1)
+
     def test_missing_desired_start_date_rejected_instead_of_crashing(self):
         # desired_start_date could be cleared via PATCH /enquiries/{id}/
         # after the invoice was generated - this must 400, not 500.

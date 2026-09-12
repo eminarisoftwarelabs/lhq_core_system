@@ -23,7 +23,7 @@ class InvoiceListView(generics.ListAPIView):
     permission_classes = [IsStaffLevel]
 
     def get_queryset(self):
-        qs = Invoice.objects.select_related('enquiry').prefetch_related('payments')
+        qs = Invoice.objects.select_related('enquiry').prefetch_related('payments', 'line_items')
         enquiry_id = self.request.query_params.get('enquiry')
         if enquiry_id:
             qs = qs.filter(enquiry_id=enquiry_id)
@@ -46,7 +46,7 @@ class InvoiceListView(generics.ListAPIView):
 class InvoiceDetailView(generics.RetrieveAPIView):
     serializer_class = InvoiceSerializer
     permission_classes = [IsStaffLevel]
-    queryset = Invoice.objects.select_related('enquiry').prefetch_related('payments')
+    queryset = Invoice.objects.select_related('enquiry').prefetch_related('payments', 'line_items')
 
 
 class RecordPaymentView(APIView):
@@ -64,7 +64,7 @@ class RecordPaymentView(APIView):
     @extend_schema(request=RecordPaymentSerializer, responses=InvoiceSerializer)
     def post(self, request, pk):
         invoice = self._get(pk)
-        serializer = RecordPaymentSerializer(data=request.data)
+        serializer = RecordPaymentSerializer(data=request.data, context={'invoice': invoice})
         serializer.is_valid(raise_exception=True)
 
         # enroll_student (triggered when this is the first payment) needs a
