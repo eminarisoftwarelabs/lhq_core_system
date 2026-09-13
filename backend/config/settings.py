@@ -9,6 +9,7 @@ separate app and talks to this over /api/.
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
 from decouple import Csv, config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -87,14 +88,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
-        'NAME': config('DB_NAME', default=str(BASE_DIR / 'db.sqlite3')),
-        'USER': config('DB_USER', default=''),
-        'PASSWORD': config('DB_PASSWORD', default=''),
-        'HOST': config('DB_HOST', default=''),
-        'PORT': config('DB_PORT', default=''),
-    }
+    'default': dj_database_url.config(
+        default=config(
+            'DATABASE_URL',
+            default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
+        ),
+    )
 }
 
 
