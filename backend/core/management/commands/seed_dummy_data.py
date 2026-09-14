@@ -12,11 +12,16 @@ from clients.models import Guardianship, Parent, Student
 from clients.services import generate_student_number
 from enquiries.models import Enquiry, EnquiryStage
 from enquiries.services import change_stage, create_enquiry, generate_invoice
-from enrollments.models import LearningMode
+from enrollments.models import Enrollment, LearningMode
+from enrollments.services import compute_end_date
 
 # Fixed so re-running the command logs in as the same demo accounts instead
 # of leaving forgotten one-off passwords behind.
 DUMMY_PASSWORD = 'ChangeMe123!'
+
+# How long the roster students below (created already-enrolled, not via an
+# Enquiry) have been signed up for.
+ROSTER_ENROLLMENT_DURATION_WEEKS = 12
 
 ADMIN = {
     'email': 'admin.demo@lhq.test',
@@ -72,8 +77,20 @@ PARENTS_AND_CHILDREN = [
         },
         'relationship': Guardianship.Relationship.MOTHER,
         'children': [
-            {'full_name': 'Takondwa Banda', 'year_group': 8, 'school': 'Bishop Mackenzie International School'},
-            {'full_name': 'Chisomo Banda', 'year_group': 5, 'school': 'Bishop Mackenzie International School'},
+            {
+                'full_name': 'Takondwa Banda',
+                'year_group': 8,
+                'school': 'Bishop Mackenzie International School',
+                'subjects': ['Mathematics'],
+                'learning_mode': LearningMode.IN_PERSON,
+            },
+            {
+                'full_name': 'Chisomo Banda',
+                'year_group': 5,
+                'school': 'Bishop Mackenzie International School',
+                'subjects': ['English'],
+                'learning_mode': LearningMode.IN_PERSON,
+            },
         ],
     },
     {
@@ -86,8 +103,20 @@ PARENTS_AND_CHILDREN = [
         },
         'relationship': Guardianship.Relationship.MOTHER,
         'children': [
-            {'full_name': 'Dalitso Chirwa', 'year_group': 10, 'school': 'St Andrews International High School'},
-            {'full_name': 'Grace Chirwa', 'year_group': 3, 'school': 'St Andrews International High School'},
+            {
+                'full_name': 'Dalitso Chirwa',
+                'year_group': 10,
+                'school': 'St Andrews International High School',
+                'subjects': ['Physics', 'Chemistry'],
+                'learning_mode': LearningMode.ONLINE,
+            },
+            {
+                'full_name': 'Grace Chirwa',
+                'year_group': 3,
+                'school': 'St Andrews International High School',
+                'subjects': ['Mathematics'],
+                'learning_mode': LearningMode.IN_PERSON,
+            },
         ],
     },
     {
@@ -100,7 +129,13 @@ PARENTS_AND_CHILDREN = [
         },
         'relationship': Guardianship.Relationship.FATHER,
         'children': [
-            {'full_name': 'Ethel Gondwe', 'year_group': 12, 'school': 'Marist International School'},
+            {
+                'full_name': 'Ethel Gondwe',
+                'year_group': 12,
+                'school': 'Marist International School',
+                'subjects': ['Biology', 'Chemistry'],
+                'learning_mode': LearningMode.IN_PERSON,
+            },
         ],
     },
 ]
@@ -211,9 +246,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         with transaction.atomic():
             admin = self._get_or_create_staff_user(ADMIN, Role.ADMIN, EmploymentType.FULL_TIME)
-            tutors_by_subject = self._seed_tutors_and_subjects()
-            self._seed_clients()
-            self._seed_enquiries(admin, tutors_by_subject)
+            subjects_by_name = self._seed_tutors_and_subjects()
+            self._seed_clients(subjects_by_name)
+            self._seed_enquiries(admin, subjects_by_name)
 
         self.stdout.write(self.style.SUCCESS('Dummy data seed complete.'))
         self.stdout.write(f'Demo login password for every seeded user: {DUMMY_PASSWORD}')
@@ -274,7 +309,11 @@ class Command(BaseCommand):
 
     # -- clients --------------------------------------------------------
 
-    def _seed_clients(self):
+    def _seed_clients(self, subjects_by_name):
+        # A Student row is only ever meant to exist once someone has
+        # actually enrolled (see clients.models.Student's docstring) — so
+        # every roster student created here gets a real Enrollment with
+        # subjects, not just a bare Student + Guardianship.
         for entry in PARENTS_AND_CHILDREN:
             parent, created = Parent.objects.get_or_create(
                 full_name=entry['parent']['full_name'],
@@ -300,6 +339,17 @@ class Command(BaseCommand):
                     parent=parent,
                     defaults={'relationship': entry['relationship'], 'is_primary_contact': True},
                 )
+
+                if not Enrollment.objects.filter(student=student).exists():
+                    start_date = timezone.now().date() - timedelta(weeks=6)
+                    enrollment = Enrollment.objects.create(
+                        student=student,
+                        start_date=start_date,
+                        end_date=compute_end_date(start_date, ROSTER_ENROLLMENT_DURATION_WEEKS),
+                        learning_mode=child['learning_mode'],
+                    )
+                    enrollment.subjects.set(subjects_by_name[name] for name in child['subjects'])
+                    self.stdout.write(f'Enrolled {student.full_name} in {", ".join(child["subjects"])}')
 
     # -- enquiries / enrollments / billing -------------------------------
 

@@ -76,6 +76,18 @@ class SeedDummyDataCommandTests(TestCase):
         for full_name in ['Takondwa Banda', 'Chisomo Banda', 'Dalitso Chirwa', 'Grace Chirwa', 'Ethel Gondwe']:
             self.assertTrue(Student.objects.filter(full_name=full_name).exists(), full_name)
 
+    def test_every_student_has_an_enrollment_with_at_least_one_subject(self):
+        # Regression test: clients.models.Student's own docstring says a
+        # Student row shouldn't exist until enrollment, so every seeded
+        # student must have a real Enrollment linked to at least one
+        # Subject, not just a bare Student + Guardianship.
+        for student in Student.objects.all():
+            enrollment = student.enrollments.first()
+            self.assertIsNotNone(enrollment, f'{student.full_name} has no Enrollment')
+            self.assertGreater(
+                enrollment.subjects.count(), 0, f'{student.full_name} has an Enrollment with no subjects'
+            )
+
     def test_enquiries_cover_every_stage(self):
         expected_stages = {
             'Mphatso Kachingwe': EnquiryStage.INITIAL_CALL,
