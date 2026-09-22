@@ -124,7 +124,20 @@ function DetailsSection({ subject, tutors, onSaved }) {
           onCancel={() => setEditing(false)}
         />
       ) : (
-        <p className="form-note">Name, assigned tutor, and whether it's offered to onboarding.</p>
+        <dl className="detail-summary">
+          <div className="detail-summary__row">
+            <dt>Name</dt>
+            <dd>{subject.name}</dd>
+          </div>
+          <div className="detail-summary__row">
+            <dt>Assigned tutor</dt>
+            <dd>{subject.tutor_name || 'Unassigned'}</dd>
+          </div>
+          <div className="detail-summary__row">
+            <dt>Offered to onboarding</dt>
+            <dd>{subject.is_active ? 'Yes' : 'No'}</dd>
+          </div>
+        </dl>
       )}
     </div>
   )
