@@ -2767,7 +2767,11 @@ legend {
     color var(--transition-fast);
 }
 
-.subject-chip:hover {
+/* Unselected only. A bare .subject-chip:hover would outrank
+   .subject-chip--selected on specificity (0,2,0 vs 0,1,0) and repaint a
+   selected chip's label to --text-primary - near-black text on the black
+   selected fill, i.e. the word vanishes on hover in light mode. */
+.subject-chip:not(.subject-chip--selected):hover {
   border-color: var(--border-strong);
   color: var(--text-primary);
 }
@@ -2790,6 +2794,15 @@ legend {
   color: var(--color-white);
 }
 
+/* Selected chips get the same hover lift as a primary button (#313149 light,
+   #dadae7 dark) so the label keeps its contrast instead of inheriting the
+   unselected hover color. */
+.subject-chip--selected:hover {
+  background: #313149;
+  border-color: #313149;
+  color: var(--color-white);
+}
+
 .subject-chip--selected .subject-chip__check {
   width: 13px;
   opacity: 1;
@@ -2798,12 +2811,26 @@ legend {
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .subject-chip--selected {
     background: var(--color-white);
+    border-color: var(--color-white);
+    color: var(--color-black);
+  }
+
+  :root:not([data-theme='light']) .subject-chip--selected:hover {
+    background: #dadae7;
+    border-color: #dadae7;
     color: var(--color-black);
   }
 }
 
 :root[data-theme='dark'] .subject-chip--selected {
   background: var(--color-white);
+  border-color: var(--color-white);
+  color: var(--color-black);
+}
+
+:root[data-theme='dark'] .subject-chip--selected:hover {
+  background: #dadae7;
+  border-color: #dadae7;
   color: var(--color-black);
 }
 
