@@ -277,6 +277,42 @@ button:hover,
   background: var(--danger-bg);
 }
 
+/* Same trap for the ghost variant: without these the generic dark hover
+   paints #dadae7 under light --text-primary text. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .button--ghost:hover {
+    background: var(--nav-hover-bg);
+  }
+}
+
+:root[data-theme='dark'] .button--ghost:hover {
+  background: var(--nav-hover-bg);
+}
+
+/* And for .icon-button (header theme toggle, user menu, dialog close):
+   the generic dark `button` rules rendered them as solid white tiles. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .icon-button {
+    background: transparent;
+    color: var(--text-nav);
+  }
+
+  :root:not([data-theme='light']) .icon-button:hover {
+    background: var(--nav-hover-bg);
+    color: var(--text-nav-hover);
+  }
+}
+
+:root[data-theme='dark'] .icon-button {
+  background: transparent;
+  color: var(--text-nav);
+}
+
+:root[data-theme='dark'] .icon-button:hover {
+  background: var(--nav-hover-bg);
+  color: var(--text-nav-hover);
+}
+
 button:disabled,
 .button:disabled {
   opacity: 0.5;
@@ -1603,202 +1639,1106 @@ legend {
   color: var(--text-nav-hover);
 }
 
-/* -- Timetable board (TimetablePage) ---------------------------------------
-   Seven day columns, same "narrow tall lane" idiom as .onboarding-board's
-   pipeline stages - but content-height rather than that layout's fixed
-   560px, since a day's session count varies from zero to several, and
-   wraps to a single column below 900px instead of onboarding-board's
-   auto-fit reflow, since day order (Monday first) needs to stay fixed
-   rather than reflow by content width. */
-.timetable-board {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--space-3);
-  align-items: start;
+/* -- Timetable (TimetablePage) ---------------------------------------------
+   A Monday-Friday week grid on a shared time axis: hours down the left,
+   one column per day, each session an absolutely positioned block whose
+   top/height come from its start/end (percentages of the column, set
+   inline by WeekGrid). --tt-hours (inline) x --tt-hour-height sets the
+   column height, so CSS alone decides how tall an hour is. */
+.page--timetable {
+  --tt-hour-height: 84px;
 }
 
-@media (max-width: 900px) {
-  .timetable-board {
-    grid-template-columns: 1fr;
-  }
-}
-
-.timetable-day {
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-container-lg);
-  border: 1px solid var(--border-default);
-  background: var(--bg-surface);
-  box-shadow: 0 1px 2px 0 rgba(16, 16, 25, 0.04);
-  overflow: hidden;
-}
-
-/* Today's column gets the same tinted-lining treatment .onboarding-section
-   uses for every column, so it stands out without a second, louder color. */
-.timetable-day--today {
-  border: 1px solid color-mix(in srgb, var(--focus-ring) 45%, var(--border-default));
-}
-
-.timetable-day__header {
+.tt-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-surface-muted);
-  border-bottom: 1px solid var(--border-default);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
-.timetable-day__name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.timetable-day--today .timetable-day__name {
-  color: var(--focus-ring);
-}
-
-.timetable-day__count {
-  min-width: 20px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.timetable-day__body {
+.tt-toolbar__summary {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  padding: var(--space-3);
 }
 
-.timetable-day__empty {
-  margin: var(--space-2) 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-/* Shared by a scheduled block (inside a day column) and an unscheduled row
-   (inside the card below the board) - a button when staff can act on it
-   (edit or set a slot), a plain div otherwise, but the same visual shape
-   either way so the board reads consistently regardless of role. */
-.timetable-slot-row {
+.tt-toolbar__actions {
   display: flex;
+  gap: var(--space-3);
+}
+
+.tt-stat {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-input);
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
   border: 1px solid var(--border-default);
-  background: var(--bg-surface-muted);
-  text-align: left;
-  font: inherit;
-  color: var(--text-primary);
-  cursor: default;
+  background: var(--bg-surface);
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
-.timetable-slot-row--button {
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
-
-.timetable-slot-row--button:hover {
-  background: var(--nav-hover-bg);
-  border-color: var(--border-strong);
-}
-
-/* Without these, the generic dark-mode `button` inversion two sections up
-   (specificity (0,2,1): :root + [data-theme] + the `button` type selector)
-   outranks a plain `.timetable-slot-row` class rule ((0,1,0)) and silently
-   flips a scheduled block to a stark white pill in dark mode - same trap
-   documented above .button--secondary's own dark overrides, same fix:
-   match it with enough class selectors to win. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .timetable-slot-row--button {
-    background: var(--bg-surface-muted);
-    color: var(--text-primary);
-  }
-
-  :root:not([data-theme='light']) .timetable-slot-row--button:hover {
-    background: var(--nav-hover-bg);
-  }
-}
-
-:root[data-theme='dark'] .timetable-slot-row--button {
-  background: var(--bg-surface-muted);
-  color: var(--text-primary);
-}
-
-:root[data-theme='dark'] .timetable-slot-row--button:hover {
-  background: var(--nav-hover-bg);
-}
-
-.timetable-slot-row__time {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.tt-stat svg {
   color: var(--text-nav);
 }
 
-.timetable-slot-row__body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
+.tt-stat strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-.timetable-slot-row__name {
-  font-size: 13px;
+.tt-stat--warning {
+  border-color: transparent;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Week navigation + topic tools, the first row of the board. */
+.tt-weekbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.tt-weekbar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tt-weekbar__step {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.tt-weekbar__title {
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  margin: 0;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.tt-weekbar__relative {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-nav);
+}
+
+.tt-weekbar__range {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tt-weekbar__tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.tt-weekbar__switch {
+  margin: 0;
+  font-size: 14px;
   font-weight: 500;
+}
+
+.tt-board__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.tt-board__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.tt-hours-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tt-hours-toggle__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.tt-hours-toggle__range {
+  margin-left: 2px;
+  font-weight: 500;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.tt-grid--editable .tt-grid__column {
+  cursor: pointer;
+}
+
+/* Phone-only day switcher (see the 767px breakpoint). */
+.tt-day-tabs {
+  display: none;
+}
+
+.tt-grid {
+  display: grid;
+  grid-template-columns: 56px repeat(5, minmax(0, 1fr));
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 1px 3px 0 rgba(16, 16, 25, 0.04), 0 20px 40px -24px rgba(16, 16, 25, 0.12);
+  overflow: hidden;
+}
+
+.tt-grid__corner,
+.tt-grid__day-head {
+  border-bottom: 1px solid var(--border-default);
+}
+
+.tt-grid__day-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border-left: 1px solid var(--border-default);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tt-grid__day-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.timetable-slot-row__tutor {
+.tt-grid__day-short {
+  display: none;
+}
+
+.tt-grid__day-date {
+  margin-left: 6px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.tt-grid__day-head--today .tt-grid__day-name {
+  color: var(--text-nav);
+}
+
+.tt-grid__today-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
+.tt-grid__gutter,
+.tt-grid__column {
+  position: relative;
+  height: calc(var(--tt-hours) * var(--tt-hour-height));
+}
+
+.tt-grid__hour-label {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The first label sits on the grid's top edge - centering it on the line
+   would clip its top half under the day headers. */
+.tt-grid__hour-label:first-child {
+  transform: translateY(4px);
+}
+
+/* Solid hour lines plus fainter half-hour lines, drawn as backgrounds so
+   they cost no DOM. */
+.tt-grid__column {
+  border-left: 1px solid var(--border-default);
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      var(--border-default) 0 1px,
+      transparent 1px var(--tt-hour-height)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 calc(var(--tt-hour-height) / 2),
+      color-mix(in srgb, var(--border-default) 55%, transparent) calc(var(--tt-hour-height) / 2)
+        calc(var(--tt-hour-height) / 2 + 1px),
+      transparent calc(var(--tt-hour-height) / 2 + 1px) var(--tt-hour-height)
+    );
+}
+
+.tt-grid__column--today {
+  background-color: color-mix(in srgb, var(--text-nav) 5%, transparent);
+}
+
+.tt-grid__column--drop {
+  background-color: color-mix(in srgb, var(--text-nav) 9%, transparent);
+}
+
+/* "Click to add here" ghost that follows the pointer over empty time. */
+.tt-grid__hover,
+.tt-grid__drop-preview {
+  position: absolute;
+  left: 3px;
+  right: 3px;
   display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.tt-grid__hover {
+  border: 1px dashed color-mix(in srgb, var(--text-nav) 60%, transparent);
+  background: color-mix(in srgb, var(--text-nav) 7%, transparent);
+  color: var(--text-nav);
+}
+
+.tt-grid__drop-preview {
+  z-index: 3;
+  border: 2px solid var(--text-nav);
+  background: color-mix(in srgb, var(--text-nav) 14%, var(--bg-surface));
+  color: var(--text-primary);
+}
+
+.tt-grid__now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  height: 2px;
+  background: var(--danger);
+  pointer-events: none;
+}
+
+.tt-grid__now::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+/* -- Session blocks -------------------------------------------------------
+   Six tints assigned by subject id, so the same subject is the same color
+   everywhere and neighbours are easy to tell apart. Text stays
+   --text-primary on a light wash of the tint, so contrast never depends on
+   the hue. */
+.tt-session {
+  --tone: #5b5fc7;
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
+  border-left: 3px solid var(--tone);
+  background: color-mix(in srgb, var(--tone) 13%, var(--bg-surface));
+  color: var(--text-primary);
+  overflow: hidden;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.tt-session:hover,
+.tt-session:focus-within {
+  z-index: 5;
+  box-shadow: 0 6px 16px -6px rgba(16, 16, 25, 0.25);
+}
+
+.tt-session[draggable='true'] {
+  cursor: grab;
+}
+
+.tt-session[draggable='true']:active {
+  cursor: grabbing;
+}
+
+.tt-session--tone-0 { --tone: #5b5fc7; }
+.tt-session--tone-1 { --tone: #0f8a7e; }
+.tt-session--tone-2 { --tone: #b7791f; }
+.tt-session--tone-3 { --tone: #c2456b; }
+.tt-session--tone-4 { --tone: #2b7bb9; }
+.tt-session--tone-5 { --tone: #8b5cc9; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tt-session--tone-0 { --tone: #9e9ef0; }
+  :root:not([data-theme='light']) .tt-session--tone-1 { --tone: #4fc1b3; }
+  :root:not([data-theme='light']) .tt-session--tone-2 { --tone: #e0a84a; }
+  :root:not([data-theme='light']) .tt-session--tone-3 { --tone: #ec7fa0; }
+  :root:not([data-theme='light']) .tt-session--tone-4 { --tone: #6fb2ea; }
+  :root:not([data-theme='light']) .tt-session--tone-5 { --tone: #bb95ef; }
+}
+
+:root[data-theme='dark'] .tt-session--tone-0 { --tone: #9e9ef0; }
+:root[data-theme='dark'] .tt-session--tone-1 { --tone: #4fc1b3; }
+:root[data-theme='dark'] .tt-session--tone-2 { --tone: #e0a84a; }
+:root[data-theme='dark'] .tt-session--tone-3 { --tone: #ec7fa0; }
+:root[data-theme='dark'] .tt-session--tone-4 { --tone: #6fb2ea; }
+:root[data-theme='dark'] .tt-session--tone-5 { --tone: #bb95ef; }
+
+.tt-session--clash {
+  border-color: var(--danger);
+  border-left-color: var(--danger);
+  border-style: dashed solid dashed solid;
+}
+
+.tt-session--inactive {
+  opacity: 0.6;
+}
+
+/* The block's own buttons need to shed the global button look (and the
+   dark-mode black/white inversion, which outranks a bare class - hence
+   `.tt-grid button.x`, repeated for :hover, placed after those rules). */
+.tt-grid button.tt-session__open,
+.tt-grid button.tt-session__open:hover {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-weight: 400;
+  cursor: inherit;
+}
+
+.tt-session__content {
+  position: absolute;
+  inset: 4px 22px 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  /* Unitless, so each line scales with its own (small) font size - the
+     root's "16px/145%" shorthand otherwise hands every line a fixed 23px. */
+  line-height: 1.35;
+}
+
+/* Lines keep their natural height: without this, flexbox shrinks the
+   overflow:hidden lines (name, topic) when a block is short, shaving the
+   descenders off "Biology" instead of letting the last line drop off. */
+.tt-session__content > * {
+  flex-shrink: 0;
+}
+
+/* A read-only block has no × button to leave room for. */
+.tt-session > .tt-session__content {
+  right: 8px;
+}
+
+.tt-session__name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  /* Tall enough that overflow:hidden (needed for the ellipsis) doesn't
+     shave the descenders off g/y/p. */
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tt-session__clash-icon {
+  flex-shrink: 0;
+  color: var(--danger);
+}
+
+/* The planned topic for the week on screen - the line that turns the grid
+   into a lesson plan, so it gets the tint's colour to stand out from the
+   grey time/tutor lines. */
+.tt-session__topic {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--tone) 70%, var(--text-primary));
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tt-session__topic svg {
+  flex-shrink: 0;
+}
+
+.tt-session__topic--empty {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.tt-session__time {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tt-session__tutor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tt-session--compact .tt-session__content {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 40-59 minute blocks: name and time share the first line. */
+.tt-session__row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tt-session__row .tt-session__name {
+  flex-shrink: 0;
+  max-width: 70%;
+}
+
+.tt-session__row .tt-session__time {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* In a one-line block the name wins the space; the time truncates first. */
+.tt-session--compact .tt-session__name {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.tt-session--compact .tt-session__topic {
+  min-width: 0;
+}
+
+.tt-grid button.tt-session__remove,
+.tt-grid button.tt-session__remove:hover {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.tt-grid button.tt-session__remove:hover {
+  color: var(--danger);
+}
+
+.tt-session:hover .tt-session__remove,
+.tt-session:focus-within .tt-session__remove {
+  opacity: 1;
+}
+
+/* Touch screens have no hover to reveal it. */
+@media (hover: none) {
+  .tt-grid button.tt-session__remove {
+    opacity: 1;
+  }
+}
+
+/* -- Unscheduled tray ------------------------------------------------------
+   A strip of subject chips above the grid (not a side column), so the
+   five day columns keep the page's full width. */
+.tt-tray {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-radius: var(--radius-container-lg);
+  border: 1px dashed var(--border-strong);
+  background: var(--bg-surface-muted);
+}
+
+.tt-tray__header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.tt-tray__header h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.tt-tray__hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tt-tray__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tt-tray__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  padding: 6px 6px 6px 4px;
+  border-radius: var(--radius-input);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  cursor: grab;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.tt-tray__item:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 12px -6px rgba(16, 16, 25, 0.2);
+  transform: translateY(-1px);
+}
+
+.tt-tray__item:active {
+  cursor: grabbing;
+}
+
+.tt-tray__grip {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.tt-tray__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tt-tray__name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tt-tray__tutor {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 12px;
   color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.timetable-slot-row__icon {
+.tt-tray__item .button--compact {
   flex-shrink: 0;
+  margin-left: var(--space-1);
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.tt-tray__empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--success);
+}
+
+.tt-tray__empty p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* -- Session dialog -------------------------------------------------------- */
+.tt-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(16, 16, 25, 0.45);
+  animation: tt-fade-in 120ms ease;
+}
+
+.tt-dialog {
+  width: 100%;
+  max-width: 540px;
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow-y: auto;
+  border-radius: var(--radius-container-lg);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: 0 24px 64px -16px rgba(16, 16, 25, 0.4);
+  animation: tt-pop-in 160ms ease;
+}
+
+@keyframes tt-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes tt-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-dialog__backdrop,
+  .tt-dialog {
+    animation: none;
+  }
+}
+
+.tt-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.tt-dialog__header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+}
+
+.tt-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.tt-dialog__body label {
+  margin-top: 0;
+  font-size: 13px;
+}
+
+.tt-dialog__body select {
+  max-width: none;
+  padding: 8px 12px;
+  font-size: 14px;
+  min-height: 41px;
+}
+
+.tt-dialog__body .form-actions {
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+
+.tt-dialog__body .form-actions > * {
+  white-space: nowrap;
+}
+
+.tt-dialog__days {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.tt-dialog__days legend {
+  margin: 0 0 var(--space-1);
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-primary);
+}
+
+.tt-day-picker {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.tt-day-picker__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 9px 0;
+  border-radius: var(--radius-input);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.tt-day-picker__option:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-muted);
+}
+
+.tt-day-picker__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tt-day-picker__option:has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.tt-day-picker__option--selected,
+.tt-day-picker__option--selected:hover {
+  border-color: var(--nav-active-bg);
+  background: var(--nav-active-bg);
+  color: var(--text-nav-active);
+}
+
+.tt-dialog__times {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.tt-dialog__times .field {
+  flex: 1;
+}
+
+.tt-dialog__to {
+  padding-bottom: 10px;
+  color: var(--text-secondary);
+}
+
+.tt-dialog__duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 0 10px var(--space-2);
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tt-dialog__summary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* -- Lesson plan (inside the session dialog) ------------------------------ */
+.lesson-plan {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-default);
+}
+
+.tt-dialog__body > .lesson-plan:first-child,
+.tt-dialog__summary + .lesson-plan {
+  padding-top: 0;
+  border-top: none;
+}
+
+.lesson-plan__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.lesson-plan__header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.lesson-plan__header p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.lesson-plan__weeks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lesson-plan__week {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px 8px 6px 12px;
+  border-radius: var(--radius-input);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.lesson-plan__week--planned {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border-default));
+  background: color-mix(in srgb, var(--success) 5%, var(--bg-surface));
+}
+
+.lesson-plan__when {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.lesson-plan__date {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.lesson-plan__relative {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-nav);
 }
 
-/* Unscheduled subjects list (below the board) is a wider single column, so
-   its rows read left-to-right instead of stacking name over tutor. */
-.timetable-unscheduled .timetable-slot-row--unscheduled {
-  margin-bottom: var(--space-2);
+.tt-dialog__body .lesson-plan__week select {
+  min-height: 36px;
+  padding: 6px 10px;
 }
 
-.timetable-unscheduled .timetable-slot-row--unscheduled:last-child {
-  margin-bottom: 0;
+.lesson-plan__new-topic {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
 }
 
-.timetable-slot-row__set {
-  flex-shrink: 0;
-  min-height: 0 !important;
-  padding: 6px 12px !important;
-  font-size: 13px !important;
+.lesson-plan__new-topic input {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  padding: 6px 10px;
+  font-size: 14px;
 }
 
-.timetable-editor {
-  margin-bottom: var(--space-6);
+.lesson-plan__status {
+  display: inline-flex;
+  justify-content: center;
+  color: var(--success);
+}
+
+.lesson-plan__spinner {
+  color: var(--text-secondary);
+  animation: lesson-plan-spin 0.8s linear infinite;
+}
+
+@keyframes lesson-plan-spin {
+  to { transform: rotate(360deg); }
+}
+
+.lesson-plan__error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.lesson-plan__more {
+  margin-top: var(--space-2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-nav);
+}
+
+.tt-dialog__clash {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+}
+
+@media (max-width: 1023px) {
+  .tt-grid__day-full {
+    display: none;
+  }
+
+  .tt-grid__day-short {
+    display: inline;
+  }
+
+}
+
+/* One day at a time on a phone: the switcher picks which column shows. */
+@media (max-width: 767px) {
+  .tt-day-tabs {
+    display: flex;
+    width: 100%;
+    margin-bottom: var(--space-3);
+  }
+
+  .tt-day-tabs button.period-toggle__option {
+    flex: 1;
+    padding: 7px 0;
+    font-size: 13px;
+  }
+
+  .tt-grid {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .tt-grid__hide-mobile {
+    display: none;
+  }
+
+  .tt-grid__day-full {
+    display: inline;
+  }
+
+  .tt-grid__day-short {
+    display: none;
+  }
+
+  .tt-board__hint,
+  .tt-tray__hint {
+    display: none;
+  }
+
+  .tt-weekbar,
+  .tt-weekbar__nav {
+    width: 100%;
+  }
+
+  .tt-weekbar__title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tt-weekbar__tools {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .lesson-plan__week {
+    grid-template-columns: 88px minmax(0, 1fr) 16px;
+    gap: var(--space-2);
+  }
+
+  .tt-hours-toggle {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+  }
+
+  .tt-hours-toggle .period-toggle {
+    display: flex;
+  }
+
+  .tt-hours-toggle button.period-toggle__option {
+    flex: 1;
+    white-space: nowrap;
+  }
+
+  .tt-toolbar__actions {
+    width: 100%;
+  }
+
+  .tt-toolbar__actions > * {
+    flex: 1;
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  /* Remove sits on its own row above Cancel / Save on a phone. */
+  .tt-dialog__body .form-actions__leading {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+
+  .tt-dialog__times {
+    flex-wrap: wrap;
+  }
+
+  .tt-dialog__duration {
+    width: 100%;
+    padding: 0;
+  }
 }
 
 /* Pushes a leading destructive action (Remove slot) to the far side of
@@ -3249,6 +4189,132 @@ legend {
   font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* -- Invoice filters (InvoicesListPage) ------------------------------------
+   The issue-date dropdown sits beside the Outstanding/All pill toggle and
+   borrows its pill shape, so the two read as one filter bar. It stays a
+   native <select> (keyboard, screen reader, and mobile picker behavior for
+   free) with the UA arrow swapped for the app's own icons. */
+.invoice-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.filter-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  font-weight: 400;
+}
+
+.filter-select select {
+  appearance: none;
+  width: auto;
+  max-width: none;
+  min-height: 0;
+  padding: 7px 32px 7px 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.filter-select select:hover {
+  border-color: var(--border-strong);
+}
+
+.filter-select select:focus-visible {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus-ring) 18%, transparent);
+}
+
+.filter-select__icon,
+.filter-select__chevron {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-nav);
+  pointer-events: none;
+}
+
+.filter-select__icon {
+  left: 12px;
+}
+
+.filter-select__chevron {
+  right: 12px;
+  color: var(--text-secondary);
+}
+
+.invoice-custom-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-input);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.invoice-custom-range .field {
+  flex: 1 1 180px;
+  max-width: 240px;
+}
+
+.invoice-custom-range label {
+  margin-top: 0;
+  font-size: 13px;
+}
+
+.invoice-custom-range__error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* The active date window in words, so a filtered list never looks like the
+   whole ledger. */
+.invoice-range-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.invoice-range-summary strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoice-range-summary__clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.invoice-range-summary__clear:hover {
+  color: var(--text-primary);
 }
 
 /* -- Users directory (UsersListPage) --------------------------------------

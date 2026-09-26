@@ -155,6 +155,8 @@ describe('other stateful controls stay readable on hover', () => {
       ['danger button', ['button', 'button--danger']],
       ['compact danger button', ['button', 'button--danger', 'button--compact']],
       ['legacy danger button', ['button-danger']],
+      ['ghost button', ['button--ghost']],
+      ['icon button', ['icon-button']],
     ]
     for (const [label, classes] of VARIANTS) {
       it(`${label} is readable in ${name}`, () => {
@@ -165,5 +167,16 @@ describe('other stateful controls stay readable on hover', () => {
         expect(contrastFor({ tag: 'button', classes, hover: true }, theme)).toBeGreaterThanOrEqual(4.5)
       })
     }
+  }
+})
+
+describe('icon buttons stay transparent in dark mode', () => {
+  // The header theme toggle and user menu rendered as solid white tiles:
+  // the generic dark `button` rule (0,2,1) outranked `.icon-button` (0,1,0).
+  for (const [name, theme] of THEME_CASES) {
+    it(`icon button has no solid fill in ${name}`, () => {
+      const bg = computed({ tag: 'button', classes: ['icon-button'], hover: false }, theme, 'background')
+      expect(bg.value).toBe('transparent')
+    })
   }
 })

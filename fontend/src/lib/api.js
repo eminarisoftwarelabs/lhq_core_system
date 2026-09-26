@@ -76,6 +76,17 @@ export const academicsApi = {
   deleteTopic: (id) => apiFetch(`/topics/${id}/`, { method: 'DELETE' }),
 }
 
+// Per-week lesson plans: which topic each subject's weekly session covers
+// in a given week (keyed by that week's Monday, 'YYYY-MM-DD').
+export const lessonPlansApi = {
+  list: (fromWeek, toWeek = fromWeek) => apiFetch(`/lesson-plans/${toQuery({ from: fromWeek, to: toWeek })}`),
+  // topicId null clears that week's plan (204, resolves to null).
+  set: (subjectId, weekStart, topicId) =>
+    apiFetch(`/subjects/${subjectId}/lesson-plans/${weekStart}/`, { method: 'PUT', body: { topic: topicId } }),
+  copyWeek: (fromWeek, toWeek) =>
+    apiFetch('/lesson-plans/copy-week/', { method: 'POST', body: { from_week: fromWeek, to_week: toWeek } }),
+}
+
 export const clientsApi = {
   searchStudents: (q, page = 1) => apiFetch(`/students/${toQuery({ q, page })}`),
   getStudent: (id) => apiFetch(`/students/${id}/`),
