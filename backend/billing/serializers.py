@@ -62,3 +62,24 @@ class RecordPaymentSerializer(serializers.Serializer):
         if value > invoice.balance_due:
             raise serializers.ValidationError('Amount cannot exceed the balance due.')
         return value
+
+
+class InvoiceListFilterSerializer(serializers.Serializer):
+    """Query params for GET /invoices/ that filter on the issue date
+    (created_at). issued_from is inclusive, issued_to exclusive - a client
+    sends two local midnights (with their UTC offset) for "this month" and
+    gets exactly that calendar month in its own timezone, with no
+    off-by-one at either edge. Blank values are treated as absent."""
+
+    issued_from = serializers.DateTimeField(required=False, allow_null=True)
+    issued_to = serializers.DateTimeField(required=False, allow_null=True)
+
+    def to_internal_value(self, data):
+        data = {key: value for key, value in data.items() if value not in ('', None)}
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        start, end = attrs.get('issued_from'), attrs.get('issued_to')
+        if start and end and start >= end:
+            raise serializers.ValidationError({'issued_to': ['Must be after issued_from.']})
+        return attrs

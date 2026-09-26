@@ -128,6 +128,20 @@ class SubjectListCreateTests(APITestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
+    def test_create_rejects_weekend_timetable_slot(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(
+            '/api/subjects/',
+            {
+                'name': 'Saturday Club',
+                'timetable_slot': {'day_of_week': 5, 'start_time': '09:00', 'end_time': '10:00'},
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('day_of_week', resp.data['timetable_slot'])
+        self.assertFalse(Subject.objects.filter(name='Saturday Club').exists())
+
 
 class SubjectDetailTests(APITestCase):
     def setUp(self):
@@ -201,8 +215,12 @@ class TopicTests(APITestCase):
         self.assertEqual(resp.status_code, 204)
         self.assertFalse(Topic.objects.filter(pk=topic.id).exists())
 
-    def test_tutor_cannot_add_topic(self):
+    def test_tutor_cannot_add_topic_to_a_subject_that_is_not_theirs(self):
+        # Tutors may add topics to their own subjects (see
+        # test_lesson_plans.TopicRulesWithLessonPlansTests); anyone else's
+        # is hidden, same as reading it.
         tutor = make_user(Role.TUTOR)
         self.client.force_authenticate(tutor)
         resp = self.client.post(f'/api/subjects/{self.subject.id}/topics/', {'name': 'WWII'}, format='json')
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 404)
+        self.assertFalse(Topic.objects.filter(name='WWII').exists())

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
@@ -9,7 +10,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsStaffLevel
 
 from .models import Invoice
-from .serializers import InvoiceSerializer, RecordPaymentSerializer
+from .serializers import InvoiceListFilterSerializer, InvoiceSerializer, RecordPaymentSerializer
 from .services import record_payment
 
 
@@ -17,7 +18,11 @@ class InvoiceListView(generics.ListAPIView):
     """GET /invoices/, optionally ?enquiry=<id> for one enquiry's invoices,
     or ?balance_due__gt=<n> for outstanding balances. balance_due is a
     computed property (never stored, so it can't go stale as payments come
-    in) rather than a DB column, so that filter is applied in Python."""
+    in) rather than a DB column, so that filter is applied in Python.
+
+    ?issued_from=<iso datetime> (inclusive) and ?issued_to=<iso datetime>
+    (exclusive) narrow by issue date (created_at) - see
+    InvoiceListFilterSerializer. A malformed value is a 400, not a 500."""
 
     serializer_class = InvoiceSerializer
     permission_classes = [IsStaffLevel]
@@ -27,8 +32,25 @@ class InvoiceListView(generics.ListAPIView):
         enquiry_id = self.request.query_params.get('enquiry')
         if enquiry_id:
             qs = qs.filter(enquiry_id=enquiry_id)
+
+        filters = InvoiceListFilterSerializer(data=self.request.query_params.dict())
+        filters.is_valid(raise_exception=True)
+        issued_from = filters.validated_data.get('issued_from')
+        issued_to = filters.validated_data.get('issued_to')
+        if issued_from:
+            qs = qs.filter(created_at__gte=issued_from)
+        if issued_to:
+            qs = qs.filter(created_at__lt=issued_to)
         return qs
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('enquiry', OpenApiTypes.INT, description='Only this enquiry\'s invoices.'),
+            OpenApiParameter('balance_due__gt', OpenApiTypes.DECIMAL, description='Balance due above this amount.'),
+            OpenApiParameter('issued_from', OpenApiTypes.DATETIME, description='Issued at or after (inclusive).'),
+            OpenApiParameter('issued_to', OpenApiTypes.DATETIME, description='Issued before (exclusive).'),
+        ]
+    )
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         threshold = request.query_params.get('balance_due__gt')

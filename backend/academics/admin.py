@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import School, Subject, TimetableSlot, Topic
+from .models import LessonPlan, School, Subject, TimetableSlot, Topic
 
 
 @admin.register(School)
@@ -39,3 +39,10 @@ class TopicAdmin(admin.ModelAdmin):
 class TimetableSlotAdmin(admin.ModelAdmin):
     list_display = ['subject', 'day_of_week', 'start_time', 'end_time']
     list_filter = ['day_of_week']
+
+
+@admin.register(LessonPlan)
+class LessonPlanAdmin(admin.ModelAdmin):
+    list_display = ['week_start', 'subject', 'topic', 'updated_by', 'updated_at']
+    list_filter = ['subject', 'week_start']
+    date_hierarchy = 'week_start'

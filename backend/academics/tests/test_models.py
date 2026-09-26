@@ -62,6 +62,18 @@ class TimetableSlotModelTests(TestCase):
         with self.assertRaises(ValidationError):
             slot.clean()
 
+    def test_weekend_days_rejected(self):
+        # The centre timetables Monday-Friday only.
+        subject = Subject.objects.create(name='Art')
+        for day in (5, 6):
+            slot = TimetableSlot(subject=subject, day_of_week=day, start_time='13:00', end_time='14:00')
+            with self.assertRaises(ValidationError, msg=f'day {day} should be rejected'):
+                slot.clean()
+
+    def test_friday_accepted(self):
+        subject = Subject.objects.create(name='Music')
+        TimetableSlot(subject=subject, day_of_week=4, start_time='13:00', end_time='14:00').clean()
+
     def test_valid_slot(self):
         subject = Subject.objects.create(name='English')
         slot = TimetableSlot.objects.create(

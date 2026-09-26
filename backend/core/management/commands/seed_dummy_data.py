@@ -57,7 +57,7 @@ TUTORS = [
     },
 ]
 
-# subject name -> (day_of_week, start_time, end_time). 0=Monday ... 6=Sunday.
+# subject name -> (day_of_week, start_time, end_time). 0=Monday ... 4=Friday.
 SUBJECT_SLOTS = {
     'Mathematics': (0, time(14, 0), time(15, 30)),
     'English': (1, time(15, 0), time(16, 30)),

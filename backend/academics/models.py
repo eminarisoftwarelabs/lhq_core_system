@@ -51,12 +51,20 @@ class Topic(models.Model):
         return f'{self.name} ({self.subject.name})'
 
 
+# The centre runs Monday-Friday only. day_of_week keeps the 0=Monday
+# numbering (so the column stays compatible with Python's date.weekday()),
+# just capped at Friday.
+FIRST_WEEKDAY = 0
+LAST_WEEKDAY = 4
+WEEKDAY_RANGE_MESSAGE = 'Must be a weekday, between 0 (Monday) and 4 (Friday).'
+
+
 class TimetableSlot(models.Model):
     # One fixed slot per Subject. If a Subject ever needs multiple sessions
     # a week at different times, this becomes a ForeignKey instead —
     # confirmed not needed today.
     subject = models.OneToOneField(Subject, on_delete=models.CASCADE, related_name='timetable_slot')
-    day_of_week = models.IntegerField()  # 0=Monday ... 6=Sunday
+    day_of_week = models.IntegerField()  # 0=Monday ... 4=Friday
     start_time = models.TimeField()
     end_time = models.TimeField()
 
@@ -64,10 +72,48 @@ class TimetableSlot(models.Model):
         ordering = ['day_of_week', 'start_time']
 
     def clean(self):
-        if not 0 <= self.day_of_week <= 6:
-            raise ValidationError({'day_of_week': 'Must be between 0 (Monday) and 6 (Sunday).'})
+        if not FIRST_WEEKDAY <= self.day_of_week <= LAST_WEEKDAY:
+            raise ValidationError({'day_of_week': WEEKDAY_RANGE_MESSAGE})
         if self.start_time is not None and self.end_time is not None and self.start_time >= self.end_time:
             raise ValidationError({'end_time': 'Must be after start_time.'})
 
     def __str__(self):
         return f'{self.subject.name}: day {self.day_of_week} {self.start_time}-{self.end_time}'
+
+
+class LessonPlan(models.Model):
+    """What a subject's weekly session will cover in one particular week -
+    the tutor's plan, set ahead and changeable any time.
+
+    Keyed by the week (its Monday), not the exact date: a subject has one
+    session a week (TimetableSlot), so the week identifies the lesson, and
+    if the session later moves from Monday to Wednesday its planned topics
+    move with it instead of being stranded on the old day."""
+
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='lesson_plans')
+    week_start = models.DateField(help_text='The Monday of the planned week.')
+    # PROTECT: deleting a topic that's still planned must be a deliberate,
+    # explained refusal (TopicDetailView), not a silent loss of the plan.
+    topic = models.ForeignKey(Topic, on_delete=models.PROTECT, related_name='lesson_plans')
+    updated_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+'
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['week_start', 'subject__name']
+        constraints = [
+            models.UniqueConstraint(fields=['subject', 'week_start'], name='one_lesson_plan_per_subject_week'),
+        ]
+
+    def clean(self):
+        errors = {}
+        if self.week_start and self.week_start.weekday() != 0:
+            errors['week_start'] = 'Must be a Monday (the start of a week).'
+        if self.topic_id and self.subject_id and self.topic.subject_id != self.subject_id:
+            errors['topic'] = 'This topic belongs to a different subject.'
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f'{self.subject.name}, week of {self.week_start}: {self.topic.name}'
