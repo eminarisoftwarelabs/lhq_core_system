@@ -62,6 +62,8 @@ describe('CreateUserPage role dropdown gating', () => {
     const roleSelect = screen.getByLabelText('Role')
     const optionValues = [...roleSelect.querySelectorAll('option')].map((o) => o.value)
     expect(optionValues).toEqual(['TUTOR', 'ADMIN', 'OWNER', 'SYS_ADMIN'])
+    const optionLabels = [...roleSelect.querySelectorAll('option')].map((o) => o.textContent)
+    expect(optionLabels).toEqual(['Tutor', 'Admin', 'Owner', 'System Admin'])
   })
 
   it('shows an explanatory message instead of a form for an actor who can create nobody', () => {

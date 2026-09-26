@@ -262,6 +262,21 @@ button:hover,
   color: var(--text-primary);
 }
 
+/* Hover needs the same treatment: the generic dark `.button:hover` rule
+   (0,3,0) otherwise outranks `.button--danger:hover` (0,2,0) and paints a
+   light grey fill under the pink danger text - unreadable. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .button--danger:hover,
+  :root:not([data-theme='light']) .button-danger:hover {
+    background: var(--danger-bg);
+  }
+}
+
+:root[data-theme='dark'] .button--danger:hover,
+:root[data-theme='dark'] .button-danger:hover {
+  background: var(--danger-bg);
+}
+
 button:disabled,
 .button:disabled {
   opacity: 0.5;
@@ -308,6 +323,14 @@ button:disabled,
 
 .button--ghost:hover {
   background: var(--nav-hover-bg);
+}
+
+/* Small inline action inside a list row (UsersListPage) - the full 44px
+   button would make every row twice as tall as its content. */
+.button--compact {
+  min-height: 0;
+  padding: 6px 12px;
+  font-size: 13px;
 }
 
 .icon-button {
@@ -1263,6 +1286,24 @@ legend {
   font-style: italic;
 }
 
+.directory-row__detail--money {
+  font-variant-numeric: tabular-nums;
+}
+
+/* More than one status chip side by side in a row's meta column (an
+   invoice's status + Overdue, a user's role + active state). */
+.directory-row__badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.directory-row__badges .stage-badge {
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
 /* -- Period toggle (segmented pill control) --------------------------------
    Overrides the global button/dark-mode rules via matched specificity
    (class + type selectors) and source order - see the "Buttons" section
@@ -1909,6 +1950,23 @@ legend {
   width: 100%;
 }
 
+/* Chromium pins <select> to line-height: normal regardless of the inherited
+   font shorthand, so a select renders 4px shorter than the text input or
+   date picker beside it in the same .form-row. Match their 41px box. */
+.form-card select {
+  min-height: 41px;
+}
+
+/* Read-only fields (e.g. a user's email, or every field when the viewer
+   can't edit the account) should read as reference text, not as an input
+   that's merely unresponsive. */
+.form-card input:disabled,
+.form-card select:disabled {
+  background: var(--bg-surface-muted);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
 /* Sections read as one continuous card, divided by a header + rule, rather
    than three boxes stacked inside a box. */
 .form-card > form > fieldset {
@@ -2174,6 +2232,33 @@ legend {
   color: var(--text-secondary);
 }
 
+.invoice-status-badge--overdue {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.user-status-badge--active {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.user-status-badge--inactive {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* Neutral tinted chip for a role name - informational, not a status, so it
+   takes the nav tint rather than a success/danger color. */
+.role-badge {
+  background: color-mix(in srgb, var(--text-nav) 14%, transparent);
+  color: var(--text-nav);
+}
+
+.user-badge--self {
+  background: var(--nav-active-bg);
+  color: var(--text-nav-active);
+}
+
 .banner {
   display: flex;
   align-items: center;
@@ -2187,6 +2272,13 @@ legend {
 .banner--success {
   background: color-mix(in srgb, var(--success) 12%, transparent);
   color: var(--success);
+}
+
+/* InvoiceDetailPage's overdue warning used this class long before it had
+   any rule, so it rendered as bare unstyled text. */
+.banner--danger {
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 .banner a {
@@ -2370,6 +2462,20 @@ legend {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-6) var(--space-6);
   width: 100%;
+}
+
+/* A fixed two-column row. auto-fit can't be used when a row mixes
+   .field--full items with half-width ones: the full-span items keep every
+   auto-fit track occupied, so on a wide card the half fields shrink to
+   ~200px slivers with empty tracks beside them (UserEditForm). */
+.form-row--2col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Outranks `.form-card fieldset fieldset`'s margin reset so the nested
+   Tutor profile block gets air under the "Teaches" toggle above it. */
+.form-card fieldset.tutor-profile-fields {
+  margin-top: var(--space-6);
 }
 
 .field {
@@ -3145,6 +3251,66 @@ legend {
   font-variant-numeric: tabular-nums;
 }
 
+/* -- Users directory (UsersListPage) --------------------------------------
+   .roster-row's stretched-link row inside .directory-card. The card itself
+   is --bg-surface-muted, so hover lifts to --bg-surface (same as
+   .recent-enrollments__row) instead of roster-row's muted fill, which would
+   vanish into the card. */
+.directory-card .roster-row:hover {
+  background: var(--bg-surface);
+}
+
+/* The card is --bg-surface-muted, same as .avatar-badge's default fill, so
+   the chip would dissolve into it - lift it to the surface color instead. */
+.directory-card .avatar-badge {
+  background: var(--bg-surface);
+}
+
+/* .roster-list's own last-row rule targets `li:last-child .roster-row`
+   (row nested in the li); here the li *is* the row. */
+.roster-list > li.roster-row:last-child {
+  border-bottom: none;
+}
+
+/* "Sent" is the neutral default status - .stage-badge's muted fill matches
+   the directory card behind it, so outline it to keep it reading as a chip. */
+.invoice-status-badge--sent {
+  background: var(--bg-surface);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+  color: var(--text-secondary);
+}
+
+.user-row {
+  padding: var(--space-3);
+  margin: 0 calc(-1 * var(--space-3));
+}
+
+.user-row--inactive .avatar-badge {
+  opacity: 0.55;
+}
+
+.user-row__side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+/* Lifted above .roster-row__link::after (the row-wide click target) so the
+   buttons get their own clicks instead of navigating to the user. */
+.user-row__actions {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.invoice-terms__balance {
+  font-weight: 700;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
 .invoice-line-items {
   margin-bottom: var(--space-6);
 }
@@ -3263,6 +3429,41 @@ legend {
 
   h1 {
     font-size: 26px;
+  }
+
+  .user-row {
+    flex-wrap: wrap;
+  }
+
+  .form-row--2col {
+    grid-template-columns: 1fr;
+  }
+
+  /* Identity and balance can't share one line at phone width without
+     truncating both - stack them instead. */
+  .invoice-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .invoice-row .directory-row__meta {
+    max-width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .user-row__side {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding-left: 40px;
+  }
+
+  .directory-row__badges {
+    justify-content: flex-start;
   }
 }
 

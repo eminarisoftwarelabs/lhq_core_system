@@ -348,6 +348,23 @@ export function toRgb(color) {
   return null
 }
 
+/**
+ * Flatten a translucent rgba() color onto the opaque color behind it, the
+ * way the browser paints it. toRgb() drops alpha, so without this a
+ * `--danger-bg` tint (8-12% alpha) would be scored as if it were solid.
+ * Opaque colors come back unchanged.
+ */
+export function flattenOver(color, base) {
+  const rgba = /^rgba\(([^)]+)\)$/.exec(color.trim().toLowerCase())
+  if (!rgba) return color
+  const parts = rgba[1].split(',').map((p) => parseFloat(p))
+  const alpha = parts.length > 3 ? parts[3] : 1
+  if (alpha >= 1) return color
+  const under = toRgb(base)
+  const mixed = [0, 1, 2].map((i) => Math.round(parts[i] * alpha + under[i] * (1 - alpha)))
+  return `rgb(${mixed.join(', ')})`
+}
+
 function channel(c) {
   const s = c / 255
   return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4

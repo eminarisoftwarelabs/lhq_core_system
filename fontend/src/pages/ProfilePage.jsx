@@ -1,6 +1,8 @@
+import { KeyRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { UserEditForm } from '../components/UserEditForm'
+import { UserProfileHeader } from '../components/UserProfileHeader'
 import { usePageTitle } from '../lib/usePageTitle'
 
 export function ProfilePage() {
@@ -9,10 +11,16 @@ export function ProfilePage() {
 
   return (
     <div className="page">
-      <p>
-        <Link to="/change-password">Change password</Link>
-      </p>
-      <UserEditForm actor={user} target={user} onSaved={setUser} />
+      <UserProfileHeader user={user}>
+        <Link className="button button--secondary" to="/change-password">
+          <KeyRound size={16} strokeWidth={1.75} aria-hidden="true" />
+          Change password
+        </Link>
+      </UserProfileHeader>
+
+      <div className="form-card">
+        <UserEditForm actor={user} target={user} onSaved={setUser} />
+      </div>
     </div>
   )
 }

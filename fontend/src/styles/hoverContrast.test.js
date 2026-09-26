@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cwd } from 'node:process'
 import { describe, expect, it } from 'vitest'
-import { THEMES, computeProperty, contrastRatio, parseCss } from '../test-utils/cssCascade'
+import { THEMES, computeProperty, contrastRatio, flattenOver, parseCss, resolveRootVars } from '../test-utils/cssCascade'
 
 /* Regression gate for a specific, repeatable failure: a base `:hover` rule
  * outranking a selected/active state rule on specificity, so the label is
@@ -33,10 +33,13 @@ function computed(el, theme, prop) {
 }
 
 function resolvedBackground(el, theme) {
+  // Read the page color from the theme's resolved root tokens: looking it up
+  // as a property on an `html` element only ever matched the light :root
+  // block, so every dark-theme fallback was scored against a light page.
+  const page = resolveRootVars(rules, theme)[PAGE_FALLBACK] ?? '#ffffff'
   const bg = computed(el, theme, 'background') || computed(el, theme, 'background-color')
-  if (bg && bg.value !== 'transparent' && bg.value !== 'none') return bg.value
-  const root = computeProperty(rules, { tag: 'html', classes: [], hover: false }, theme, PAGE_FALLBACK)
-  return root ? root.value : '#ffffff'
+  if (bg && bg.value !== 'transparent' && bg.value !== 'none') return flattenOver(bg.value, page)
+  return page
 }
 
 function contrastFor(el, theme) {
@@ -72,6 +75,12 @@ describe('cssCascade harness', () => {
     const el = { tag: 'span', classes: ['a'], hover: false }
     expect(computeProperty(sheet, el, THEMES.light, 'color').value).toBe('#111')
     expect(computeProperty(sheet, el, THEMES.darkExplicit, 'color').value).toBe('#eee')
+  })
+
+  it('flattens translucent colors onto what is behind them', () => {
+    expect(flattenOver('rgba(255, 0, 0, 0.5)', '#ffffff')).toBe('rgb(255, 128, 128)')
+    expect(flattenOver('#123456', '#ffffff')).toBe('#123456')
+    expect(flattenOver('rgba(0, 0, 0, 1)', '#ffffff')).toBe('rgba(0, 0, 0, 1)')
   })
 
   it('computes WCAG contrast ratios', () => {
@@ -135,5 +144,26 @@ describe('other stateful controls stay readable on hover', () => {
       const el = { tag: 'button', classes: [], hover: true }
       expect(contrastFor(el, theme)).toBeGreaterThanOrEqual(4.5)
     })
+
+    // Row actions on UsersListPage (Deactivate/Delete) and page actions
+    // elsewhere. Danger hover shipped unreadable in dark mode: the generic
+    // dark `.button:hover` outranked `.button--danger:hover` and painted a
+    // light grey fill under the pink danger text.
+    const VARIANTS = [
+      ['secondary button', ['button', 'button--secondary']],
+      ['compact secondary button', ['button', 'button--secondary', 'button--compact']],
+      ['danger button', ['button', 'button--danger']],
+      ['compact danger button', ['button', 'button--danger', 'button--compact']],
+      ['legacy danger button', ['button-danger']],
+    ]
+    for (const [label, classes] of VARIANTS) {
+      it(`${label} is readable in ${name}`, () => {
+        expect(contrastFor({ tag: 'button', classes, hover: false }, theme)).toBeGreaterThanOrEqual(4.5)
+      })
+
+      it(`${label} hover is readable in ${name}`, () => {
+        expect(contrastFor({ tag: 'button', classes, hover: true }, theme)).toBeGreaterThanOrEqual(4.5)
+      })
+    }
   }
 })

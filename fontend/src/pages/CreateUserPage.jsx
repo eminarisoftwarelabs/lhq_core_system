@@ -2,7 +2,7 @@ import { Briefcase, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
-import { assignableRoles } from '../auth/permissions'
+import { assignableRoles, roleLabel } from '../auth/permissions'
 import { FieldErrors, NonFieldErrors } from '../components/FieldErrors'
 import { TutorProfileFields } from '../components/TutorProfileFields'
 import { useToast } from '../components/toast/useToast'
@@ -139,7 +139,7 @@ export function CreateUserPage() {
                 <select id="role" value={form.role} onChange={(e) => updateField('role', e.target.value)} required>
                   {roleOptions.map((role) => (
                     <option key={role} value={role}>
-                      {role}
+                      {roleLabel(role)}
                     </option>
                   ))}
                 </select>

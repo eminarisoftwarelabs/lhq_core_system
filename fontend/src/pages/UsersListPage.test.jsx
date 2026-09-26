@@ -15,8 +15,9 @@ vi.mock('../lib/api', () => ({
   },
 }))
 
+let mockActor = { id: 1, role: 'OWNER' }
 vi.mock('../auth/useAuth', () => ({
-  useAuth: () => ({ user: { id: 1, role: 'OWNER' } }),
+  useAuth: () => ({ user: mockActor }),
 }))
 
 const activeTutor = {
@@ -45,6 +46,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  mockActor = { id: 1, role: 'OWNER' }
   mockList.mockReset()
   mockUpdate.mockReset()
   mockDelete.mockReset()
@@ -66,9 +68,10 @@ describe('UsersListPage row actions', () => {
 
     await screen.findByText('Tam Tutor')
 
-    const rows = screen.getAllByRole('row')
-    expect(within(rows[1]).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
-    expect(within(rows[2]).getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
+    const rows = screen.getAllByRole('listitem')
+    expect(within(rows[0]).getByRole('link', { name: 'Tam Tutor' })).toHaveAttribute('href', '/users/2')
+    expect(within(rows[0]).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+    expect(within(rows[1]).getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
   })
 
   it('deactivating asks for confirmation, and does nothing if declined', async () => {
@@ -179,5 +182,67 @@ describe('UsersListPage delete', () => {
     await screen.findByText('Me')
 
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+})
+
+describe('UsersListPage directory layout', () => {
+  it('shows the user count, role label, and active state for each row', async () => {
+    renderPage()
+    await screen.findByText('Tam Tutor')
+
+    expect(screen.getByRole('heading', { name: 'Users' })).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
+
+    const [tutorRow, adminRow] = screen.getAllByRole('listitem')
+    expect(within(tutorRow).getByText('tutor@lhq.test')).toBeInTheDocument()
+    expect(within(tutorRow).getByText('Tutor')).toHaveClass('role-badge')
+    expect(within(tutorRow).getByText('Active')).toHaveClass('user-status-badge--active')
+    expect(within(adminRow).getByText('Admin')).toHaveClass('role-badge')
+    expect(within(adminRow).getByText('Deactivated')).toHaveClass('user-status-badge--inactive')
+  })
+
+  it('links "Create user" to the create page', async () => {
+    renderPage()
+    await screen.findByText('Tam Tutor')
+
+    expect(screen.getByRole('link', { name: 'Create user' })).toHaveAttribute('href', '/users/new')
+  })
+
+  it('marks the actor\'s own row as "You", links it to /me, and offers no actions on it', async () => {
+    mockList.mockResolvedValue({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [{ id: 1, email: 'me@lhq.test', full_name: 'Me', role: 'OWNER', is_active: true }],
+    })
+    renderPage()
+    await screen.findByText('Me')
+
+    expect(screen.getByText('You')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Me' })).toHaveAttribute('href', '/me')
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument()
+  })
+
+  it('an Admin gets actions on Tutors but not on an Owner (mirrors hasStaffScopeOver)', async () => {
+    mockActor = { id: 3, role: 'ADMIN' }
+    mockList.mockResolvedValue({
+      count: 2,
+      next: null,
+      previous: null,
+      results: [activeTutor, { id: 4, email: 'o@lhq.test', full_name: 'Ola Owner', role: 'OWNER', is_active: true }],
+    })
+    renderPage()
+    await screen.findByText('Ola Owner')
+
+    const [tutorRow, ownerRow] = screen.getAllByRole('listitem')
+    expect(within(tutorRow).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+    expect(within(ownerRow).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('shows an empty state when there are no users', async () => {
+    mockList.mockResolvedValue({ count: 0, next: null, previous: null, results: [] })
+    renderPage()
+
+    expect(await screen.findByText('No users found.')).toBeInTheDocument()
   })
 })

@@ -1,4 +1,15 @@
-import { AlertTriangle, CheckCircle2, CreditCard, Download, Plus, Printer, Receipt, Users } from 'lucide-react'
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  CreditCard,
+  Download,
+  Plus,
+  Printer,
+  Receipt,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { RecordPaymentForm } from '../components/RecordPaymentForm'
@@ -46,7 +57,7 @@ export function InvoiceDetailPage() {
     }
   }, [id])
 
-  if (loading) return <div className="page">Loading…</div>
+  if (loading) return <div className="page page-loading">Loading…</div>
   if (error === 'not_found') return <div className="page">Invoice not found.</div>
   if (error) return <div className="page">Could not load this invoice.</div>
 
@@ -63,25 +74,45 @@ export function InvoiceDetailPage() {
       </div>
 
       <div className="detail-header">
+        <span className="icon-badge">
+          <Receipt size={18} strokeWidth={1.75} aria-hidden="true" />
+        </span>
+        <div className="detail-header__identity">
+          <h1 className="detail-header__name">Invoice #{invoice.id}</h1>
+          {invoice.created_at && (
+            <span className="detail-header__number">Issued {formatShortDate(new Date(invoice.created_at))}</span>
+          )}
+        </div>
         <span
           className={`stage-badge invoice-status-badge invoice-status-badge--${invoice.status.toLowerCase()}`}
         >
           {INVOICE_STATUS_LABELS[invoice.status]}
         </span>
+        <div className="invoice-header-actions no-print">
+          <button type="button" className="button button--secondary" onClick={() => window.print()}>
+            <Printer size={16} strokeWidth={1.75} aria-hidden="true" />
+            Print
+          </button>
+          <button type="button" className="button" onClick={() => downloadInvoicePdf(invoice)}>
+            <Download size={16} strokeWidth={1.75} aria-hidden="true" />
+            Download PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="detail-header__meta">
         <span className="detail-header__parent">
           <Users size={14} strokeWidth={1.75} aria-hidden="true" />
           For <Link to={`/enquiries/${invoice.enquiry}`}>{invoice.enquiry_student_name}</Link>
         </span>
-        <div className="invoice-header-actions no-print">
-          <button type="button" className="button button--secondary" onClick={() => window.print()}>
-            <Printer size={14} strokeWidth={1.75} aria-hidden="true" />
-            Print
-          </button>
-          <button type="button" className="button" onClick={() => downloadInvoicePdf(invoice)}>
-            <Download size={14} strokeWidth={1.75} aria-hidden="true" />
-            Download PDF
-          </button>
-        </div>
+        <span className="detail-header__parent">
+          <CalendarClock size={14} strokeWidth={1.75} aria-hidden="true" />
+          Due {formatShortDate(parseDateOnly(invoice.due_date))}
+        </span>
+        <span className="detail-header__parent">
+          <Wallet size={14} strokeWidth={1.75} aria-hidden="true" />
+          {formatMoney(invoice.balance_due)} balance
+        </span>
       </div>
 
       {invoice.is_overdue && (
@@ -146,7 +177,7 @@ export function InvoiceDetailPage() {
             </div>
             <div className="detail-summary__row">
               <dt>Balance due</dt>
-              <dd>{formatMoney(invoice.balance_due)}</dd>
+              <dd className="invoice-terms__balance">{formatMoney(invoice.balance_due)}</dd>
             </div>
           </dl>
         </div>

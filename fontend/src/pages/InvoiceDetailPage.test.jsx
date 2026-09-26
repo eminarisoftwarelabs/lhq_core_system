@@ -171,6 +171,18 @@ describe('InvoiceDetailPage', () => {
 
     await screen.findByText('Jimmy Doe')
     expect(screen.getByText(/Overdue/)).toBeInTheDocument()
+    // .banner--danger shipped once with no CSS rule behind it - see index.css.
+    expect(screen.getByText(/Overdue/).closest('.banner')).toHaveClass('banner--danger')
+  })
+
+  it('heads the page with the invoice number, issue date, status, and due date', async () => {
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'Invoice #9' })).toBeInTheDocument()
+    expect(screen.getByText('Issued Jan 1, 2026')).toBeInTheDocument()
+    expect(screen.getByText('Sent')).toHaveClass('invoice-status-badge--sent')
+    expect(screen.getByText('Due Feb 15, 2026')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Jimmy Doe' })).toHaveAttribute('href', '/enquiries/5')
   })
 
   it('shows an enrolled banner and student link once enrolled', async () => {

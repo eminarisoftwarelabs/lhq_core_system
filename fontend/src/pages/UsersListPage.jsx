@@ -1,9 +1,11 @@
+import { UserCog, UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { roleLabel } from '../auth/permissions'
+import { hasStaffScopeOver, roleLabel } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
 import { usersApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
+import { initials } from '../lib/initials'
 import { usePageTitle } from '../lib/usePageTitle'
 
 const PAGE_SIZE = 20
@@ -88,83 +90,119 @@ export function UsersListPage() {
 
   return (
     <div className="page">
-      <div className="page-toolbar">
-        <Link className="button" to="/users/new">
-          Create user
-        </Link>
-      </div>
+      <section className="recent-enrollments directory-card">
+        <div className="recent-enrollments__header">
+          <div className="recent-enrollments__title">
+            <UserCog size={16} strokeWidth={1.75} aria-hidden="true" />
+            <h2>Users</h2>
+            {!loading && !error && data && <span className="onboarding-section__count">{data.count}</span>}
+          </div>
 
-      {loading && <p>Loading…</p>}
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      {actionError && (
-        <p className="form-error" role="alert">
-          {actionError}
-        </p>
-      )}
+          <Link className="button" to="/users/new">
+            <UserPlus size={16} strokeWidth={1.75} aria-hidden="true" />
+            Create user
+          </Link>
+        </div>
 
-      {!loading && !error && data && data.results.length === 0 && <p>No users found.</p>}
+        {loading && <p className="recent-enrollments__status">Loading…</p>}
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        {actionError && (
+          <p className="form-error" role="alert">
+            {actionError}
+          </p>
+        )}
 
-      {!loading && !error && data && data.results.length > 0 && (
-        <>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.results.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <Link to={`/users/${u.id}`}>{u.full_name || '(no name)'}</Link>
-                  </td>
-                  <td>{u.email}</td>
-                  <td>{roleLabel(u.role)}</td>
-                  <td>{u.is_active ? 'Active' : 'Deactivated'}</td>
-                  <td>
-                    <Link to={`/users/${u.id}`}>Edit</Link>{' '}
-                    <button type="button" disabled={pendingId === u.id} onClick={() => handleToggleActive(u)}>
-                      {u.is_active ? 'Deactivate' : 'Reactivate'}
-                    </button>{' '}
-                    {u.id !== actor.id && (
-                      <button
-                        type="button"
-                        className="button-danger"
-                        disabled={pendingId === u.id}
-                        onClick={() => handleDelete(u)}
+        {!loading && !error && data && data.results.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state__icon">
+              <UserCog size={22} strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <p>No users found.</p>
+          </div>
+        )}
+
+        {!loading && !error && data && data.results.length > 0 && (
+          <ul className="roster-list directory-card__list">
+            {data.results.map((u) => {
+              const isSelf = u.id === actor.id
+              const name = u.full_name || u.email
+              // Same rule as editableFields(): nobody deactivates or deletes
+              // themselves, and an Admin can only act on Tutors.
+              const canManage = !isSelf && hasStaffScopeOver(actor.role, u.role)
+              return (
+                <li key={u.id} className={`roster-row user-row${u.is_active ? '' : ' user-row--inactive'}`}>
+                  <div className="roster-row__who">
+                    <span className="avatar-badge avatar-badge--sm" aria-hidden="true">
+                      {initials(name)}
+                    </span>
+                    <div className="directory-row__identity">
+                      {/* Stretched link (see .roster-row__link in index.css): the
+                          anchor's text stays just the name, but its ::after covers
+                          the whole row. The action buttons sit above it on their
+                          own layer so they stay clickable. */}
+                      <Link to={isSelf ? '/me' : `/users/${u.id}`} className="roster-row__link">
+                        {u.full_name || '(no name)'}
+                      </Link>
+                      <span className="directory-row__subtext">{u.email}</span>
+                    </div>
+                  </div>
+
+                  <div className="user-row__side">
+                    <span className="directory-row__badges">
+                      {isSelf && <span className="stage-badge user-badge--self">You</span>}
+                      <span className="stage-badge role-badge">{roleLabel(u.role)}</span>
+                      <span
+                        className={`stage-badge user-status-badge user-status-badge--${u.is_active ? 'active' : 'inactive'}`}
                       >
-                        Delete
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        {u.is_active ? 'Active' : 'Deactivated'}
+                      </span>
+                    </span>
 
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button type="button" disabled={!data.previous} onClick={() => setPage((p) => p - 1)}>
-                Previous
-              </button>
-              <span>
-                Page {page} of {totalPages}
-              </span>
-              <button type="button" disabled={!data.next} onClick={() => setPage((p) => p + 1)}>
-                Next
-              </button>
-            </div>
-          )}
-        </>
-      )}
+                    {canManage && (
+                      <span className="user-row__actions">
+                        <button
+                          type="button"
+                          className="button button--secondary button--compact"
+                          disabled={pendingId === u.id}
+                          onClick={() => handleToggleActive(u)}
+                        >
+                          {u.is_active ? 'Deactivate' : 'Reactivate'}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--danger button--compact"
+                          disabled={pendingId === u.id}
+                          onClick={() => handleDelete(u)}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        {!loading && !error && totalPages > 1 && (
+          <div className="pagination">
+            <button type="button" disabled={!data.previous} onClick={() => setPage((p) => p - 1)}>
+              Previous
+            </button>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <button type="button" disabled={!data.next} onClick={() => setPage((p) => p + 1)}>
+              Next
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   )
 }
