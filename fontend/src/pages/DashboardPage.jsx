@@ -2,6 +2,7 @@ import { ArrowUpRight, BookOpen, GraduationCap, MessagesSquare, PartyPopper, Use
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { TutorDashboard } from '../components/dashboard/TutorDashboard'
 import { academicsApi, clientsApi, enquiriesApi, enrollmentsApi, tutorsApi } from '../lib/api'
 import { formatShortDate, isWithinDays } from '../lib/dateWindow'
 
@@ -83,7 +84,14 @@ function useAllEnrollments(enabled) {
   return state
 }
 
+// A tutor gets their own dashboard - their classes this week - rather than
+// this one with most of it hidden.
 export function DashboardPage() {
+  const { isStaffLevel } = useAuth()
+  return isStaffLevel ? <StaffDashboard /> : <TutorDashboard />
+}
+
+function StaffDashboard() {
   const { isStaffLevel } = useAuth()
   const sections = useMemo(
     () => DASHBOARD_CARDS.filter((item) => !item.staffOnly || isStaffLevel),

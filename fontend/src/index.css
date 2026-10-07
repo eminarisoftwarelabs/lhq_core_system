@@ -1390,6 +1390,49 @@ legend {
   color: var(--text-secondary);
 }
 
+/* -- Tutor dashboard: this week's classes (TutorDashboard) ------------------ */
+
+.week-class__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+}
+
+.week-class__today {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.week-class__topic {
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Nothing planned yet: a nudge, not an error - warning tint, dashed edge. */
+.week-class__topic--missing {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--warning) 55%, transparent);
+  color: var(--warning);
+}
+
 /* -- Directory list pages (StudentsListPage, SubjectsListPage) -------------
    Reuses .recent-enrollments' card chrome so a full record list reads as
    the same design language as the dashboard's "Recently enrolled" widget,

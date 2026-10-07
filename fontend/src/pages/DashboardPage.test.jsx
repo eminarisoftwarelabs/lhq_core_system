@@ -8,11 +8,21 @@ const mockSearchStudents = vi.fn()
 const mockListSubjects = vi.fn()
 const mockListTeaching = vi.fn()
 const mockListEnrollments = vi.fn()
+const mockListAllSubjects = vi.fn()
+const mockGetSubjectRoster = vi.fn()
+const mockListPlans = vi.fn()
 
 vi.mock('../lib/api', () => ({
+  lessonPlansApi: { list: (...args) => mockListPlans(...args) },
   enquiriesApi: { list: (...args) => mockListEnquiries(...args) },
-  clientsApi: { searchStudents: (...args) => mockSearchStudents(...args) },
-  academicsApi: { listSubjects: (...args) => mockListSubjects(...args) },
+  clientsApi: {
+    searchStudents: (...args) => mockSearchStudents(...args),
+    getSubjectRoster: (...args) => mockGetSubjectRoster(...args),
+  },
+  academicsApi: {
+    listSubjects: (...args) => mockListSubjects(...args),
+    listAllSubjects: (...args) => mockListAllSubjects(...args),
+  },
   tutorsApi: { listTeaching: (...args) => mockListTeaching(...args) },
   enrollmentsApi: { list: (...args) => mockListEnrollments(...args) },
 }))
@@ -36,7 +46,19 @@ function renderPage() {
   )
 }
 
+const TUTOR = { user: { full_name: '', email: 'tam@lhq.test', role: 'TUTOR' }, isStaffLevel: false }
+
 beforeEach(() => {
+  mockListAllSubjects.mockReset().mockResolvedValue([
+    { id: 1, name: 'Physics', timetable_slot: { day_of_week: 4, start_time: '14:00:00', end_time: '15:30:00' } },
+    { id: 2, name: 'Maths', timetable_slot: { day_of_week: 1, start_time: '09:00:00', end_time: '10:00:00' } },
+    { id: 3, name: 'Biology', timetable_slot: null },
+  ])
+  // Student 8 takes both Physics and Maths - 3 distinct students in all.
+  mockGetSubjectRoster.mockReset().mockImplementation((id) =>
+    Promise.resolve({ 1: [{ id: 7 }, { id: 8 }], 2: [{ id: 8 }], 3: [{ id: 9 }] }[id]),
+  )
+  mockListPlans.mockReset().mockResolvedValue([{ subject: 2, topic_name: 'Fractions' }])
   mockListEnquiries.mockReset().mockResolvedValue({ count: 4, results: [] })
   mockSearchStudents.mockReset().mockResolvedValue({ count: 12, results: [] })
   mockListSubjects.mockReset().mockResolvedValue({
@@ -140,16 +162,16 @@ describe('DashboardPage', () => {
     expect(mockListEnrollments).not.toHaveBeenCalled()
   })
 
-  it('hides the recent enrollments list, and never fetches it, for a non-staff (Tutor) user', async () => {
-    mockUseAuth.mockReturnValue({
-      user: { full_name: '', email: 'tam@lhq.test', role: 'TUTOR' },
-      isStaffLevel: false,
-    })
+  it("shows a tutor their own stat cards and nothing school-wide, fetching none of it", async () => {
+    mockUseAuth.mockReturnValue(TUTOR)
     renderPage()
 
-    expect(await screen.findByText('6')).toBeInTheDocument()
+    const subjects = await screen.findByRole('link', { name: /my subjects/i })
+    expect(subjects).toHaveTextContent('3')
+    expect(screen.getByRole('link', { name: /my students/i })).toHaveTextContent('3')
+    expect(screen.getByRole('link', { name: /topics this week/i })).toHaveTextContent('1/3')
+    expect(screen.getByRole('link', { name: /topics this week/i })).toHaveAttribute('href', '/timetable')
 
-    expect(screen.getByRole('link', { name: /active subjects/i })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /onboarding/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /enrolled students/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /tutors/i })).not.toBeInTheDocument()
@@ -161,9 +183,66 @@ describe('DashboardPage', () => {
     expect(mockListEnrollments).not.toHaveBeenCalled()
   })
 
+  it("lists a tutor's classes for the week in teaching order, with topic, time and class size", async () => {
+    mockUseAuth.mockReturnValue(TUTOR)
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: "This week's classes" })).toBeInTheDocument()
+    const rows = await screen.findAllByRole('listitem')
+    expect(rows.map((row) => row.querySelector('.week-class__name').firstChild.textContent)).toEqual([
+      'Maths',
+      'Physics',
+      'Biology',
+    ])
+
+    expect(rows[0]).toHaveTextContent('Tuesday 09:00–10:00 · 1 student')
+    expect(rows[0]).toHaveTextContent('Fractions')
+    expect(rows[1]).toHaveTextContent('Friday 14:00–15:30 · 2 students')
+    expect(rows[1]).toHaveTextContent('No topic planned')
+    expect(rows[2]).toHaveTextContent('Not on the timetable yet · 1 student')
+    expect(screen.getByRole('link', { name: /Maths/ })).toHaveAttribute('href', '/subjects/2')
+    expect(mockListAllSubjects).toHaveBeenCalledWith({ is_active: true })
+  })
+
+  it('tells a tutor with no subjects so, with zeroes rather than dashes', async () => {
+    mockUseAuth.mockReturnValue(TUTOR)
+    mockListAllSubjects.mockResolvedValue([])
+    renderPage()
+
+    expect(await screen.findByText('No subjects are assigned to you yet.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /my subjects/i })).toHaveTextContent('0')
+    expect(screen.getByRole('link', { name: /my students/i })).toHaveTextContent('0')
+    expect(mockGetSubjectRoster).not.toHaveBeenCalled()
+  })
+
+  it("still lists a tutor's classes when rosters and lesson plans fail, without guessing at the gaps", async () => {
+    mockUseAuth.mockReturnValue(TUTOR)
+    mockGetSubjectRoster.mockRejectedValue(new Error('boom'))
+    mockListPlans.mockRejectedValue(new Error('boom'))
+    renderPage()
+
+    const rows = await screen.findAllByRole('listitem')
+    expect(rows).toHaveLength(3)
+    expect(rows[0]).toHaveTextContent('Tuesday 09:00–10:00')
+    expect(rows[0]).not.toHaveTextContent('student')
+    // Unknown is not the same as "nothing planned".
+    expect(screen.queryByText('No topic planned')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /my students/i })).toHaveTextContent('—')
+    expect(screen.getByRole('link', { name: /topics this week/i })).toHaveTextContent('—')
+  })
+
+  it("says so when a tutor's subjects cannot be loaded at all", async () => {
+    mockUseAuth.mockReturnValue(TUTOR)
+    mockListAllSubjects.mockRejectedValue(new Error('boom'))
+    renderPage()
+
+    expect(await screen.findByText('Could not load your classes.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /my subjects/i })).toHaveTextContent('—')
+  })
+
   it('shows a dash instead of crashing when a count fails to load', async () => {
     mockListSubjects.mockReset().mockRejectedValue(new Error('network error'))
-    mockUseAuth.mockReturnValue({ user: { full_name: 'Tam', role: 'TUTOR' }, isStaffLevel: false })
+    mockUseAuth.mockReturnValue({ user: { full_name: 'Tam', role: 'OWNER' }, isStaffLevel: true })
     renderPage()
 
     expect(await screen.findByText('—')).toBeInTheDocument()
