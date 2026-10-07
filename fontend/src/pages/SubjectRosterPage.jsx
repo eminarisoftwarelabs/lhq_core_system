@@ -87,7 +87,7 @@ export function SubjectRosterPage() {
                 {students.map((student) => (
                   <tr key={student.id}>
                     <td>
-                      <Link to={`/students/${student.id}`}>{student.full_name}</Link>
+                      <Link to={`/students/${student.id}?subject=${id}`}>{student.full_name}</Link>
                     </td>
                     <td>{student.student_number}</td>
                     <td>{student.grade}</td>

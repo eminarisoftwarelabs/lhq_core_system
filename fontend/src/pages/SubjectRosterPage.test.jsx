@@ -57,7 +57,7 @@ describe('SubjectRosterPage', () => {
     ])
     renderPage()
 
-    expect(await screen.findByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/students/5')
+    expect(await screen.findByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/students/5?subject=1')
     expect(screen.getByText('STU-000001')).toBeInTheDocument()
     expect(screen.getByText('B+')).toBeInTheDocument()
   })

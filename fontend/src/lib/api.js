@@ -81,6 +81,9 @@ export const clientsApi = {
   getStudent: (id) => apiFetch(`/students/${id}/`),
   getStudentTimetable: (id) => apiFetch(`/students/${id}/timetable/`),
   getSubjectRoster: (subjectId) => apiFetch(`/subjects/${subjectId}/students/`),
+  listStudentNotes: (studentId, params = {}) => apiFetch(`/students/${studentId}/notes/${toQuery(params)}`),
+  addStudentNote: (studentId, payload) =>
+    apiFetch(`/students/${studentId}/notes/`, { method: 'POST', body: payload }),
 }
 
 export const enrollmentsApi = {
