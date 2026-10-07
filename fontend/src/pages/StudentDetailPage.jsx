@@ -1,6 +1,7 @@
 import { BookOpen, CalendarClock, GraduationCap, Phone, Plus, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { StudentNotesPanel } from '../components/StudentNotesPanel'
 import { clientsApi, enrollmentsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { dayLabel, ENROLLMENT_STATUS_LABELS, formatTime, LEARNING_MODE_LABELS, yearGroupLabel } from '../lib/constants'
@@ -139,6 +140,8 @@ export function StudentDetailPage() {
             </ul>
           )}
         </div>
+
+        <StudentNotesPanel studentId={student.id} sharedSubjects={student.shared_subjects} />
 
         <div className="detail-section">
           <div className="detail-section__header">

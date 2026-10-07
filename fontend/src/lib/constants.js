@@ -35,6 +35,15 @@ export const ENROLLMENT_STATUS_LABELS = {
   WITHDRAWN: 'Withdrawn',
 }
 
+// A tutor's assessment of a student is either about their academic progress
+// or their behavior - mirrors backend StudentNote.Category.
+export const NOTE_CATEGORIES = ['ACADEMIC', 'BEHAVIORAL']
+
+export const NOTE_CATEGORY_LABELS = {
+  ACADEMIC: 'Academic',
+  BEHAVIORAL: 'Behavioral',
+}
+
 export const INVOICE_STATUS_LABELS = {
   SENT: 'Sent',
   PARTIALLY_PAID: 'Partially paid',

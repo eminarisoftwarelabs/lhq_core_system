@@ -112,7 +112,7 @@ export function SubjectRosterPage() {
                           name, so its accessible name stays exactly that, but its ::after
                           (see index.css) covers the whole row via the row's
                           position:relative, making the entire row a click target. */}
-                      <Link to={`/students/${student.id}`} className="roster-row__link">
+                      <Link to={`/students/${student.id}?subject=${id}`} className="roster-row__link">
                         {student.full_name}
                       </Link>
                       <span className="directory-row__subtext">{subtext(student)}</span>
