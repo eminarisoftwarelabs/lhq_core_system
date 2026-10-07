@@ -30,6 +30,9 @@ uv run python manage.py runserver
 - `POST /api/auth/token/refresh/` — `{refresh}` → `{access, refresh}` (rotates the refresh token)
 - `POST /api/auth/setup-password/` — new-hire password setup, token from the onboarding email
 - `GET /api/me/`, `/api/users/` — require `Authorization: Bearer <access>`
+- `GET /api/students/{id}/` — staff get the full record; a Tutor gets a reduced one (no guardian or contact details, plus `shared_subjects`) and only for a student actively enrolled in one of their subjects (404 otherwise)
+- `GET /api/students/{id}/notes/` — tutors' academic/behavioral assessments on a student, newest first, paginated, `?category=ACADEMIC|BEHAVIORAL`. Visible to staff and to any tutor who teaches the student
+- `POST /api/students/{id}/notes/` — `{subject, category, text}`. Tutors only (anyone with a tutor profile), against a subject they teach the student in. Notes are append only: there is no edit or delete
 - `GET /api/schema/` — OpenAPI 3 schema
 - `GET /api/docs/` — Swagger UI
 - `GET /api/redoc/` — ReDoc

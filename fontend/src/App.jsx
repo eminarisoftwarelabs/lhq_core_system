@@ -17,7 +17,7 @@ import { LegalNoticePage } from './pages/legal/LegalNoticePage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SetupPasswordPage } from './pages/SetupPasswordPage'
-import { StudentDetailPage } from './pages/StudentDetailPage'
+import { StudentPage } from './pages/StudentPage'
 import { StudentsListPage } from './pages/StudentsListPage'
 import { SubjectCreatePage } from './pages/SubjectCreatePage'
 import { SubjectDetailPage } from './pages/SubjectDetailPage'
@@ -51,6 +51,9 @@ function App() {
 
             <Route path="/timetable" element={<TimetablePage />} />
 
+            {/* Open to a tutor for students on their roster; the API 404s any other. */}
+            <Route path="/students/:id" element={<StudentPage />} />
+
             <Route element={<ProtectedRoute staffOnly />}>
               <Route path="/users" element={<UsersListPage />} />
               <Route path="/users/new" element={<CreateUserPage />} />
@@ -59,7 +62,6 @@ function App() {
               <Route path="/subjects/new" element={<SubjectCreatePage />} />
 
               <Route path="/students" element={<StudentsListPage />} />
-              <Route path="/students/:id" element={<StudentDetailPage />} />
 
               <Route path="/enrollments/new" element={<EnrollmentCreatePage />} />
 

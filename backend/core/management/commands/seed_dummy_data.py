@@ -8,7 +8,7 @@ from django.utils import timezone
 from academics.models import Subject, TimetableSlot
 from accounts.models import EmploymentType, Role, TutorProfile, User
 from billing.services import record_payment
-from clients.models import Guardianship, Parent, Student
+from clients.models import Guardianship, Parent, Student, StudentNote
 from clients.services import generate_student_number
 from enquiries.models import Enquiry, EnquiryStage
 from enquiries.services import change_stage, create_enquiry, generate_invoice
@@ -22,6 +22,20 @@ DUMMY_PASSWORD = 'ChangeMe123!'
 # How long the roster students below (created already-enrolled, not via an
 # Enquiry) have been signed up for.
 ROSTER_ENROLLMENT_DURATION_WEEKS = 12
+
+# Two assessments per roster student (one of each type), written by the
+# tutor of the student's first subject, so the Assessments section has
+# something to show in a demo.
+SAMPLE_NOTES = [
+    (
+        StudentNote.Category.ACADEMIC,
+        'Working confidently through this term\'s topics. Needs a little more practice on timed exercises.',
+    ),
+    (
+        StudentNote.Category.BEHAVIORAL,
+        'Attentive and respectful in class, and contributes well to group discussion.',
+    ),
+]
 
 ADMIN = {
     'email': 'admin.demo@lhq.test',
@@ -248,6 +262,7 @@ class Command(BaseCommand):
             admin = self._get_or_create_staff_user(ADMIN, Role.ADMIN, EmploymentType.FULL_TIME)
             subjects_by_name = self._seed_tutors_and_subjects()
             self._seed_clients(subjects_by_name)
+            self._seed_student_notes(subjects_by_name)
             self._seed_enquiries(admin, subjects_by_name)
 
         self.stdout.write(self.style.SUCCESS('Dummy data seed complete.'))
@@ -350,6 +365,27 @@ class Command(BaseCommand):
                     )
                     enrollment.subjects.set(subjects_by_name[name] for name in child['subjects'])
                     self.stdout.write(f'Enrolled {student.full_name} in {", ".join(child["subjects"])}')
+
+    def _seed_student_notes(self, subjects_by_name):
+        for entry in PARENTS_AND_CHILDREN:
+            for child in entry['children']:
+                student = Student.objects.get(full_name=child['full_name'])
+                if StudentNote.objects.filter(student=student).exists():
+                    continue
+                subject = subjects_by_name[child['subjects'][0]]
+                if subject.tutor_id is None:
+                    continue
+                author = subject.tutor.user
+                for category, text in SAMPLE_NOTES:
+                    StudentNote.objects.create(
+                        student=student,
+                        subject=subject,
+                        author=author,
+                        author_name=author.full_name,
+                        category=category,
+                        text=text,
+                    )
+                self.stdout.write(f'Added assessments for {student.full_name}')
 
     # -- enquiries / enrollments / billing -------------------------------
 
