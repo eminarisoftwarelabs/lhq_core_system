@@ -94,6 +94,13 @@ export const clientsApi = {
   getSubjectRoster: (subjectId) => apiFetch(`/subjects/${subjectId}/students/`),
 }
 
+// A student's assessment record: tutors' academic and behavioural comments.
+// Append-only - there is no update or delete endpoint.
+export const assessmentsApi = {
+  listForStudent: (studentId, params = {}) => apiFetch(`/students/${studentId}/assessments/${toQuery(params)}`),
+  create: (studentId, payload) => apiFetch(`/students/${studentId}/assessments/`, { method: 'POST', body: payload }),
+}
+
 export const enrollmentsApi = {
   list: (params = {}) => apiFetch(`/enrollments/${toQuery(params)}`),
   listForStudent: (studentId) => enrollmentsApi.list({ student: studentId }),

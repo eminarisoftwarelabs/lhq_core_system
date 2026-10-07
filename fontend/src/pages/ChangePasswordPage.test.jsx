@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { ChangePasswordPage } from './ChangePasswordPage'
@@ -50,6 +50,26 @@ describe('ChangePasswordPage', () => {
     renderPage({ id: 1, must_change_password: false })
     expect(screen.getByRole('heading', { name: 'Change your password' })).toBeInTheDocument()
     expect(screen.queryByText(/you need to set a new password/i)).not.toBeInTheDocument()
+  })
+
+  it('offers Log out as the only way out when forced, and Cancel back to the profile when not', () => {
+    renderPage({ id: 1, must_change_password: true })
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Cancel' })).not.toBeInTheDocument()
+    cleanup()
+
+    renderPage({ id: 1, must_change_password: false })
+    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/me')
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()
+  })
+
+  it('lets each password be revealed on its own', () => {
+    renderPage({ id: 1, must_change_password: true })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show new password' }))
+    expect(screen.getByLabelText('New password')).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText('Current password')).toHaveAttribute('type', 'password')
+    expect(screen.getByLabelText('Confirm new password')).toHaveAttribute('type', 'password')
   })
 
   it('blocks submission client-side when new and confirm do not match, without calling the API', async () => {

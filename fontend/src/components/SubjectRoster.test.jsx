@@ -1,35 +1,37 @@
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SubjectRosterPage } from './SubjectRosterPage'
-import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
+import { SubjectRoster } from './SubjectRoster'
+import { ApiError } from '../lib/apiClient'
 
-const mockGetSubject = vi.fn()
 const mockGetSubjectRoster = vi.fn()
 
 vi.mock('../lib/api', () => ({
-  academicsApi: {
-    getSubject: (...args) => mockGetSubject(...args),
-  },
   clientsApi: {
     getSubjectRoster: (...args) => mockGetSubjectRoster(...args),
   },
 }))
 
+const mockUseAuth = vi.fn()
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => mockUseAuth(),
+}))
+
+const OWNER = { user: { id: 1, role: 'OWNER', tutor_profile: null }, isStaffLevel: true }
+const TUTOR = { user: { id: 2, role: 'TUTOR', tutor_profile: { id: 9 } }, isStaffLevel: false }
+
+const maths = { id: 1, name: 'Maths', tutor: 9 }
+
 function renderPage() {
   return render(
-    <PageHeaderProvider>
-      <MemoryRouter initialEntries={['/subjects/1/roster']}>
-        <Routes>
-          <Route path="/subjects/:id/roster" element={<SubjectRosterPage />} />
-        </Routes>
-      </MemoryRouter>
-    </PageHeaderProvider>,
+    <MemoryRouter>
+      <SubjectRoster subject={maths} />
+    </MemoryRouter>,
   )
 }
 
 beforeEach(() => {
-  mockGetSubject.mockReset().mockResolvedValue({ id: 1, name: 'Maths' })
+  mockUseAuth.mockReturnValue(OWNER)
   mockGetSubjectRoster.mockReset().mockResolvedValue([])
 })
 
@@ -37,12 +39,13 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('SubjectRosterPage', () => {
-  it('shows the subject name in the header and a link back to the subject', async () => {
+describe('SubjectRoster', () => {
+  it('asks for this subject\'s roster and titles the card', async () => {
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Maths roster' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Back to subject/ })).toHaveAttribute('href', '/subjects/1')
+    expect(await screen.findByText('0 active students')).toBeInTheDocument()
+    expect(screen.getByText('Class roster')).toBeInTheDocument()
+    expect(mockGetSubjectRoster).toHaveBeenCalledWith(1)
   })
 
   it('shows a message and an icon when no students are enrolled', async () => {
@@ -65,8 +68,24 @@ describe('SubjectRosterPage', () => {
     expect(screen.getByText('B+')).toBeInTheDocument()
     // Accessible name stays exactly the student's name even though the row
     // carries more visible text (number, grade) - see the stretched-link
-    // comment in SubjectRosterPage.jsx / index.css.
+    // comment in SubjectRoster.jsx / index.css.
     expect(link).toHaveAccessibleName('Alice Wang')
+  })
+
+  it("sends the class's tutor to the student's assessment page, not the staff-only record", async () => {
+    mockUseAuth.mockReturnValue(TUTOR)
+    mockGetSubjectRoster.mockResolvedValue([{ id: 5, full_name: 'Alice Wang', student_number: 'STU-000001' }])
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/subjects/1/students/5')
+  })
+
+  it('sends a staff member who teaches the class to the assessment page too', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 1, role: 'OWNER', tutor_profile: { id: 9 } }, isStaffLevel: true })
+    mockGetSubjectRoster.mockResolvedValue([{ id: 5, full_name: 'Alice Wang', student_number: 'STU-000001' }])
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/subjects/1/students/5')
   })
 
   it('shows initials, an aria-label on the grade badge, and the singular/plural header count', async () => {
@@ -94,11 +113,11 @@ describe('SubjectRosterPage', () => {
     expect(screen.getByText('2 active students')).toBeInTheDocument()
   })
 
-  it('shows "Subject not found." for a 404', async () => {
-    const { ApiError } = await import('../lib/apiClient')
-    mockGetSubject.mockRejectedValue(new ApiError(404, {}))
+  it('reports a failed load without a count', async () => {
+    mockGetSubjectRoster.mockRejectedValue(new ApiError(500, {}))
     renderPage()
 
-    expect(await screen.findByText('Subject not found.')).toBeInTheDocument()
+    expect(await screen.findByText('Could not load the class roster.')).toBeInTheDocument()
+    expect(screen.queryByText(/active student/)).not.toBeInTheDocument()
   })
 })

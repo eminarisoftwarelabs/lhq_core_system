@@ -1,6 +1,7 @@
 import { BookOpen, CalendarClock, GraduationCap, Phone, Plus, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { StudentAssessments } from '../components/assessments/StudentAssessments'
 import { clientsApi, enrollmentsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { dayLabel, ENROLLMENT_STATUS_LABELS, formatTime, LEARNING_MODE_LABELS, yearGroupLabel } from '../lib/constants'
@@ -229,6 +230,8 @@ export function StudentDetailPage() {
             </table>
           )}
         </div>
+
+        <StudentAssessments studentId={student.id} studentName={student.full_name} />
       </div>
     </div>
   )

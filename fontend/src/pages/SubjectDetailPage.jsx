@@ -1,8 +1,10 @@
-import { BookOpen, CalendarClock, Pencil, StickyNote, UserCog, Users, X } from 'lucide-react'
+import { BookOpen, CalendarClock, Pencil, StickyNote, UserCog, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { FieldErrors, NonFieldErrors } from '../components/FieldErrors'
+import { SubjectRoster } from '../components/SubjectRoster'
 import { useToast } from '../components/toast/useToast'
+import { canAssessSubject } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
 import { academicsApi, tutorsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
@@ -167,8 +169,10 @@ function TopicsPanel({ subject, canEdit, onChanged }) {
     try {
       await academicsApi.deleteTopic(topicId)
       onChanged()
-    } catch {
-      setError('Could not delete the topic.')
+    } catch (err) {
+      // The server explains a refusal (e.g. the topic is still planned
+      // for a lesson) - show that rather than a generic failure.
+      setError(err instanceof ApiError && err.data?.detail ? [].concat(err.data.detail).join(' ') : 'Could not delete the topic.')
     }
   }
 
@@ -225,7 +229,7 @@ function TopicsPanel({ subject, canEdit, onChanged }) {
 
 export function SubjectDetailPage() {
   const { id } = useParams()
-  const { isStaffLevel } = useAuth()
+  const { user, isStaffLevel } = useAuth()
   const [subject, setSubject] = useState(null)
   const [tutors, setTutors] = useState([])
   const [error, setError] = useState(null)
@@ -281,18 +285,14 @@ export function SubjectDetailPage() {
         >
           {subject.is_active ? 'Active' : 'Inactive'}
         </span>
-        <div className="invoice-header-actions">
-          <Link className="button button--secondary" to={`/subjects/${subject.id}/roster`}>
-            <Users size={16} strokeWidth={1.75} aria-hidden="true" />
-            View class roster
-          </Link>
-          {isStaffLevel && (
+        {isStaffLevel && (
+          <div className="invoice-header-actions">
             <Link className="button button--secondary" to={`/timetable?subject=${subject.id}`}>
               <CalendarClock size={16} strokeWidth={1.75} aria-hidden="true" />
               Manage timetable
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="detail-header__meta">
@@ -309,7 +309,17 @@ export function SubjectDetailPage() {
       <div className="form-card">
         {isStaffLevel && <DetailsSection subject={subject} tutors={tutors} onSaved={setSubject} />}
 
-        <TopicsPanel subject={subject} canEdit={isStaffLevel} onChanged={load} />
+        {/* Staff, or the subject's own tutor - the same person who plans its
+            lessons and so needs to add and remove what's on the list. */}
+        <TopicsPanel
+          subject={subject}
+          canEdit={isStaffLevel || canAssessSubject(user, subject)}
+          onChanged={load}
+        />
+      </div>
+
+      <div className="form-card">
+        <SubjectRoster subject={subject} />
       </div>
     </div>
   )

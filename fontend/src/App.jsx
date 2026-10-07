@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { RequirePasswordChange } from './components/RequirePasswordChange'
@@ -17,15 +17,22 @@ import { LegalNoticePage } from './pages/legal/LegalNoticePage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SetupPasswordPage } from './pages/SetupPasswordPage'
+import { StudentAssessmentPage } from './pages/StudentAssessmentPage'
 import { StudentDetailPage } from './pages/StudentDetailPage'
 import { StudentsListPage } from './pages/StudentsListPage'
 import { SubjectCreatePage } from './pages/SubjectCreatePage'
 import { SubjectDetailPage } from './pages/SubjectDetailPage'
-import { SubjectRosterPage } from './pages/SubjectRosterPage'
 import { SubjectsListPage } from './pages/SubjectsListPage'
 import { TimetablePage } from './pages/TimetablePage'
 import { UserDetailPage } from './pages/UserDetailPage'
 import { UsersListPage } from './pages/UsersListPage'
+
+// The roster used to be its own page; it now lives on the subject page.
+// Kept so old links and bookmarks still land somewhere useful.
+function RosterRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/subjects/${id}`} replace />
+}
 
 function App() {
   return (
@@ -47,7 +54,8 @@ function App() {
 
             <Route path="/subjects" element={<SubjectsListPage />} />
             <Route path="/subjects/:id" element={<SubjectDetailPage />} />
-            <Route path="/subjects/:id/roster" element={<SubjectRosterPage />} />
+            <Route path="/subjects/:id/roster" element={<RosterRedirect />} />
+            <Route path="/subjects/:id/students/:studentId" element={<StudentAssessmentPage />} />
 
             <Route path="/timetable" element={<TimetablePage />} />
 

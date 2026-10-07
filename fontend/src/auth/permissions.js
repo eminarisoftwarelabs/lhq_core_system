@@ -93,3 +93,13 @@ export function editableFields(actor, target) {
 export function canEdit(actor, target) {
   return editableFields(actor, target).length > 0
 }
+
+// can_assess(user, student, subject) in backend/assessments/services.py,
+// minus its enrollment check (the roster the UI links from is already the
+// subject's active students). Keyed on the tutor profile, not the role: an
+// Owner or Admin who teaches the subject can assess too, one who doesn't
+// cannot.
+export function canAssessSubject(user, subject) {
+  const tutorProfileId = user?.tutor_profile?.id
+  return tutorProfileId != null && subject?.tutor === tutorProfileId
+}

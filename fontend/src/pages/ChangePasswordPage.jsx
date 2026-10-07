@@ -1,7 +1,9 @@
+import { KeyRound, LogOut } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { FieldErrors, NonFieldErrors } from '../components/FieldErrors'
+import { PasswordField } from '../components/ui/PasswordField'
 import { authApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 
@@ -49,51 +51,67 @@ export function ChangePasswordPage() {
   return (
     <div className="auth-page">
       <form className="auth-form" onSubmit={handleSubmit}>
+        <span className="auth-form__icon">
+          <KeyRound size={22} strokeWidth={1.75} aria-hidden="true" />
+        </span>
         <h1>{forced ? 'Set a new password' : 'Change your password'}</h1>
-        {forced && <p className="form-note">You need to set a new password before continuing.</p>}
+        <p className="auth-form__subtitle">
+          {forced
+            ? 'You need to set a new password before continuing.'
+            : 'Enter your current password, then choose a new one.'}
+        </p>
         <NonFieldErrors errors={errors} />
 
-        <label htmlFor="current_password">Current password</label>
-        <input
+        <PasswordField
           id="current_password"
-          type="password"
+          label="Current password"
           autoComplete="current-password"
           value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
+          onChange={setCurrentPassword}
           required
-        />
-        <FieldErrors errors={errors} field="current_password" />
+        >
+          <FieldErrors errors={errors} field="current_password" />
+        </PasswordField>
 
-        <label htmlFor="new_password">New password</label>
-        <input
+        {/* minLength={8} on the new password is TEMPORARILY DISABLED FOR
+            TESTING, matching backend's AUTH_PASSWORD_VALIDATORS being
+            emptied out. Restore this before deploying anywhere real. */}
+        <PasswordField
           id="new_password"
-          type="password"
+          label="New password"
           autoComplete="new-password"
-          // minLength={8} - TEMPORARILY DISABLED FOR TESTING, matching
-          // backend's AUTH_PASSWORD_VALIDATORS being emptied out. Restore
-          // this before deploying anywhere real.
           value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
+          onChange={setNewPassword}
           required
-        />
-        <FieldErrors errors={errors} field="new_password" />
+        >
+          <FieldErrors errors={errors} field="new_password" />
+        </PasswordField>
 
-        <label htmlFor="confirm_password">Confirm new password</label>
-        <input
+        <PasswordField
           id="confirm_password"
-          type="password"
+          label="Confirm new password"
           autoComplete="new-password"
           value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
+          onChange={setConfirmPassword}
           required
         />
 
-        <button type="submit" disabled={submitting}>
+        <button type="submit" className="auth-form__submit" disabled={submitting}>
           {submitting ? 'Saving…' : 'Change password'}
         </button>
-        <button type="button" onClick={handleLogout}>
-          Log out
-        </button>
+
+        {/* Forced: the only other way out is to log out. Voluntary (from My
+            Profile): just go back. */}
+        {forced ? (
+          <button type="button" className="auth-form__escape" onClick={handleLogout}>
+            <LogOut size={15} strokeWidth={1.75} aria-hidden="true" />
+            Log out
+          </button>
+        ) : (
+          <Link className="auth-form__escape" to="/me">
+            Cancel
+          </Link>
+        )}
       </form>
     </div>
   )

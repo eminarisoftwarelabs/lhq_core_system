@@ -1,5 +1,5 @@
 // Shared by every avatar-badge chip (StudentDetailPage's student + guardian
-// avatars, SubjectRosterPage's roster rows) so the same name always renders
+// avatars, SubjectRoster's rows) so the same name always renders
 // the same initials rather than each page reimplementing this slightly
 // differently.
 export function initials(fullName) {

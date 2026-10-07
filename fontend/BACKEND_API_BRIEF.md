@@ -335,3 +335,56 @@ directly when deciding whether to show hourly-rate/availability UI.
 Write it test-first where it's reasonable to (component tests for the
 permission-gating logic in particular — the role matrices above are exactly
 the kind of logic that silently drifts if untested).
+
+## Assessments (tutor comments on a student)
+
+The whole of what a Tutor can do: see their assigned subjects
+(`GET /subjects/`), see a subject's roster (`GET /subjects/{id}/students/`),
+and assess the students on it. Everything else (students list and record,
+enrollments, enquiries, invoices, creating subjects or users) answers 403
+for a Tutor; other tutors' subjects and rosters answer 404.
+
+### `GET /students/{id}/assessments/`
+
+Unpaginated array, newest first. Optional `?category=ACADEMIC|BEHAVIOURAL`
+and `?subject=<id>`.
+
+```jsonc
+[
+  {
+    "id": 12,
+    "student": 5,
+    "subject": 4,
+    "subject_name": "Maths",
+    "author": 9,                 // user id, or null once that account is deleted
+    "author_name": "Grace Banda", // snapshot taken when written, never null
+    "category": "ACADEMIC",       // or "BEHAVIOURAL"
+    "comment": "Strong on fractions.",
+    "created_at": "2026-10-05T09:00:00Z"
+  }
+]
+```
+
+- Staff (Admin/Owner/SYS_ADMIN): any student.
+- Tutor: only a student with an active enrollment in a subject they teach,
+  and then the student's whole record, including other tutors' comments.
+  Otherwise 404 (indistinguishable from a student that doesn't exist).
+
+### `POST /students/{id}/assessments/`
+
+Body `{ "subject": 4, "category": "ACADEMIC", "comment": "..." }` → 201 with
+the object above. `student` and the author come from the URL and the token;
+sending them in the body is ignored.
+
+- 403 unless the caller is the tutor assigned to `subject` **and** the
+  student is actively enrolled in it. That includes staff: an Owner who
+  doesn't teach the subject can read but not write.
+- 400 for a blank comment or an unknown category.
+- There is no PATCH/PUT/DELETE (405). A comment stays on the record, and
+  survives its subject being reassigned and its author being deleted.
+
+UI: `/subjects/:id/students/:studentId` (`StudentAssessmentPage`) is the
+tutor's view of one student; the staff student record (`/students/:id`)
+shows the same list read-only. Both use
+`src/components/assessments/StudentAssessments.jsx`, and
+`canAssessSubject` in `src/auth/permissions.js` mirrors the write rule.

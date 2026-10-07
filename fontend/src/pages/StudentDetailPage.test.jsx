@@ -7,8 +7,12 @@ import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 const mockGetStudent = vi.fn()
 const mockGetStudentTimetable = vi.fn()
 const mockListForStudent = vi.fn()
+const mockListAssessments = vi.fn()
 
 vi.mock('../lib/api', () => ({
+  assessmentsApi: {
+    listForStudent: (...args) => mockListAssessments(...args),
+  },
   clientsApi: {
     getStudent: (...args) => mockGetStudent(...args),
     getStudentTimetable: (...args) => mockGetStudentTimetable(...args),
@@ -46,6 +50,7 @@ beforeEach(() => {
   mockGetStudent.mockReset().mockResolvedValue(baseStudent)
   mockGetStudentTimetable.mockReset().mockResolvedValue([])
   mockListForStudent.mockReset().mockResolvedValue({ results: [] })
+  mockListAssessments.mockReset().mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -175,5 +180,27 @@ describe('StudentDetailPage', () => {
     expect(await screen.findByText('Active')).toBeInTheDocument()
     expect(screen.getByText('Withdrawn')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Withdraw' })).toHaveLength(1)
+  })
+
+  it("shows the tutors' assessments on the record, read-only", async () => {
+    mockListAssessments.mockResolvedValue([
+      {
+        id: 3,
+        student: 1,
+        subject: 4,
+        subject_name: 'Maths',
+        author: 9,
+        author_name: 'Grace Banda',
+        category: 'BEHAVIOURAL',
+        comment: 'Talks over others.',
+        created_at: '2026-10-05T09:00:00Z',
+      },
+    ])
+    renderPage()
+
+    expect(await screen.findByText('Talks over others.')).toBeInTheDocument()
+    expect(screen.getByText('Grace Banda')).toBeInTheDocument()
+    expect(mockListAssessments).toHaveBeenCalledWith(1)
+    expect(screen.queryByRole('button', { name: 'Add assessment' })).not.toBeInTheDocument()
   })
 })

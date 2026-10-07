@@ -35,6 +35,13 @@ export const ENROLLMENT_STATUS_LABELS = {
   WITHDRAWN: 'Withdrawn',
 }
 
+export const ASSESSMENT_CATEGORIES = ['ACADEMIC', 'BEHAVIOURAL']
+
+export const ASSESSMENT_CATEGORY_LABELS = {
+  ACADEMIC: 'Academic',
+  BEHAVIOURAL: 'Behavioural',
+}
+
 export const INVOICE_STATUS_LABELS = {
   SENT: 'Sent',
   PARTIALLY_PAID: 'Partially paid',
