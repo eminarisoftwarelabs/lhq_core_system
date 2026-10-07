@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'enrollments',
     'enquiries',
     'billing',
+    'assessments',
 ]
 
 MIDDLEWARE = [

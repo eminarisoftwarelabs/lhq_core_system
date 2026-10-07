@@ -30,6 +30,8 @@ uv run python manage.py runserver
 - `POST /api/auth/token/refresh/` — `{refresh}` → `{access, refresh}` (rotates the refresh token)
 - `POST /api/auth/setup-password/` — new-hire password setup, token from the onboarding email
 - `GET /api/me/`, `/api/users/` — require `Authorization: Bearer <access>`
+- `GET /api/students/{id}/assessments/` — a student's assessment record (tutors' academic and behavioural comments), newest first; `?category=ACADEMIC|BEHAVIOURAL`, `?subject=<id>`. Staff: any student. Tutor: only a student they currently teach, else 404
+- `POST /api/students/{id}/assessments/` — `{subject, category, comment}`; only the tutor assigned to `subject`, and only for a student actively enrolled in it. Append-only: no edit or delete
 - `GET /api/schema/` — OpenAPI 3 schema
 - `GET /api/docs/` — Swagger UI
 - `GET /api/redoc/` — ReDoc

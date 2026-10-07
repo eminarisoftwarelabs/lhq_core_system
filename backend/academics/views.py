@@ -126,7 +126,8 @@ class TopicListCreateView(generics.ListCreateAPIView):
 
 
 class TopicDetailView(APIView):
-    """PATCH/DELETE: staff only."""
+    """PATCH: staff only. DELETE: staff, or the tutor of the topic's
+    Subject (they can add topics, so they can remove them too)."""
 
     permission_classes = [IsAuthenticated]
 
@@ -148,9 +149,9 @@ class TopicDetailView(APIView):
 
     @extend_schema(responses={204: None})
     def delete(self, request, pk):
-        if not request.user.is_staff_level:
-            raise PermissionDenied('You do not have permission to delete topics.')
         topic = self._get(pk)
+        if not _tutor_scoped_or_none(Subject.objects.filter(pk=topic.subject_id), request.user).exists():
+            raise PermissionDenied('You do not have permission to delete this topic.')
         try:
             topic.delete()
         except ProtectedError:

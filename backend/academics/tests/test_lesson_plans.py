@@ -227,6 +227,34 @@ class TopicRulesWithLessonPlansTests(APITestCase):
         resp = self.client.post(f'/api/subjects/{self.physics.id}/topics/', {'name': 'Forces'}, format='json')
         self.assertEqual(resp.status_code, 404)
 
+    def test_tutor_can_remove_a_topic_from_own_subject(self):
+        topic = Topic.objects.create(subject=self.maths, name='Ratios')
+        self.client.force_authenticate(self.tutor_user)
+        resp = self.client.delete(f'/api/topics/{topic.id}/')
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(Topic.objects.filter(pk=topic.id).exists())
+
+    def test_tutor_cannot_remove_a_topic_from_someone_elses_subject(self):
+        topic = Topic.objects.create(subject=self.physics, name='Forces')
+        self.client.force_authenticate(self.tutor_user)
+        resp = self.client.delete(f'/api/topics/{topic.id}/')
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(Topic.objects.filter(pk=topic.id).exists())
+
+    def test_tutor_still_cannot_rename_a_topic(self):
+        topic = Topic.objects.create(subject=self.maths, name='Ratios')
+        self.client.force_authenticate(self.tutor_user)
+        resp = self.client.patch(f'/api/topics/{topic.id}/', {'name': 'Renamed'}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_tutor_removing_a_planned_topic_gets_the_same_explanation(self):
+        topic = Topic.objects.create(subject=self.maths, name='Fractions')
+        LessonPlan.objects.create(subject=self.maths, week_start=MONDAY, topic=topic)
+        self.client.force_authenticate(self.tutor_user)
+        resp = self.client.delete(f'/api/topics/{topic.id}/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('1 lesson.', str(resp.data['detail']))
+
     def test_deleting_a_planned_topic_explains_instead_of_crashing(self):
         topic = Topic.objects.create(subject=self.maths, name='Fractions')
         LessonPlan.objects.create(subject=self.maths, week_start=MONDAY, topic=topic)
