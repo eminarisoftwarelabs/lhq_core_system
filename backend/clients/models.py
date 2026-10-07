@@ -57,3 +57,33 @@ class Guardianship(models.Model):
 
     def __str__(self):
         return f'{self.parent} -> {self.student} ({self.relationship})'
+
+
+class StudentNote(models.Model):
+    """A tutor's assessment or comment on a student, kept on the student
+    record for everyone with access to it. Append only by design: the API
+    exposes no edit or delete, so what a tutor wrote stays what was written."""
+
+    class Category(models.TextChoices):
+        ACADEMIC = 'ACADEMIC', 'Academic'
+        BEHAVIORAL = 'BEHAVIORAL', 'Behavioral'
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='notes')
+    # The subject the tutor teaches this student in. PROTECT so a subject
+    # with notes against it can't be deleted out from under the record.
+    subject = models.ForeignKey('academics.Subject', on_delete=models.PROTECT, related_name='student_notes')
+    # SET_NULL plus the name snapshot: removing a tutor's account must not
+    # remove or anonymise what they wrote about a student.
+    author = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='student_notes'
+    )
+    author_name = models.CharField(max_length=255)
+    category = models.CharField(max_length=20, choices=Category.choices)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f'StudentNote<{self.student.student_number}, {self.category}>'
