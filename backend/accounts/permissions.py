@@ -14,6 +14,16 @@ class IsStaffLevel(BasePermission):
         )
 
 
+class IsOwnerLevel(BasePermission):
+    """Owner/SYS_ADMIN only - one rung above IsStaffLevel. Guards what an
+    Admin shouldn't see: company-wide figures such as revenue (overview)."""
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and request.user.is_authenticated and request.user.has_at_least(Role.OWNER)
+        )
+
+
 def can_create_role(creator, target_role):
     """Whether `creator` is allowed to create an account with `target_role`.
 

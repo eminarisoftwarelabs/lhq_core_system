@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'enquiries',
     'billing',
     'assessments',
+    'overview',
 ]
 
 MIDDLEWARE = [

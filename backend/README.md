@@ -32,6 +32,7 @@ uv run python manage.py runserver
 - `GET /api/me/`, `/api/users/` — require `Authorization: Bearer <access>`
 - `GET /api/students/{id}/assessments/` — a student's assessment record (tutors' academic and behavioural comments), newest first; `?category=ACADEMIC|BEHAVIOURAL`, `?subject=<id>`. Staff: any student. Tutor: only a student they currently teach, else 404
 - `POST /api/students/{id}/assessments/` — `{subject, category, comment}`; only the tutor assigned to `subject`, and only for a student actively enrolled in it. Append-only: no edit or delete
+- `GET /api/overview/` — company overview for the Owner dashboard: counts, money, six-month enrollment trend, onboarding funnel; `?period=this_month|last_month|this_year`. Owner and SYS_ADMIN only (403 for Admin and Tutor)
 - `GET /api/schema/` — OpenAPI 3 schema
 - `GET /api/docs/` — Swagger UI
 - `GET /api/redoc/` — ReDoc
