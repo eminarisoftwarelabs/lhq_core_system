@@ -1,7 +1,9 @@
 import { ArrowUpRight, BookOpen, GraduationCap, MessagesSquare, PartyPopper, UserCog } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { canSeeCompanyOverview } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
+import { OwnerDashboard } from '../components/dashboard/OwnerDashboard'
 import { TutorDashboard } from '../components/dashboard/TutorDashboard'
 import { academicsApi, clientsApi, enquiriesApi, enrollmentsApi, tutorsApi } from '../lib/api'
 import { formatShortDate, isWithinDays } from '../lib/dateWindow'
@@ -84,10 +86,12 @@ function useAllEnrollments(enabled) {
   return state
 }
 
-// A tutor gets their own dashboard - their classes this week - rather than
-// this one with most of it hidden.
+// Three dashboards, one per kind of user: an Owner (or System Admin) gets
+// the company overview, a Tutor their own classes this week, and an Admin
+// the day-to-day staff dashboard below.
 export function DashboardPage() {
-  const { isStaffLevel } = useAuth()
+  const { user, isStaffLevel } = useAuth()
+  if (canSeeCompanyOverview(user?.role)) return <OwnerDashboard />
   return isStaffLevel ? <StaffDashboard /> : <TutorDashboard />
 }
 

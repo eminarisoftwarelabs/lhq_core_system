@@ -103,3 +103,9 @@ export function canAssessSubject(user, subject) {
   const tutorProfileId = user?.tutor_profile?.id
   return tutorProfileId != null && subject?.tutor === tutorProfileId
 }
+
+// IsOwnerLevel in backend/accounts/permissions.py - who gets the company
+// overview (GET /overview/), revenue included. An Admin does not.
+export function canSeeCompanyOverview(role) {
+  return role === 'OWNER' || role === 'SYS_ADMIN'
+}

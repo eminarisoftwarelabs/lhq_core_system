@@ -1433,6 +1433,342 @@ legend {
   color: var(--warning);
 }
 
+/* -- Owner dashboard: company overview (OwnerDashboard) --------------------- */
+
+.overview__error {
+  margin: var(--space-6) 0 0;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-6);
+  align-items: stretch;
+}
+
+/* Side-by-side cards share one height; the shorter one's content spreads
+   to fill it instead of leaving a gap under the card. */
+.overview-grid > .recent-enrollments,
+.overview-grid .viz-root {
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-grid .viz-root,
+.overview-grid .funnel {
+  flex: 1;
+}
+
+.overview-grid .funnel {
+  justify-content: space-between;
+}
+
+.money-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-3);
+  transition: opacity var(--transition-base);
+}
+
+/* A new period is on its way: the old figures stay readable, just dimmed. */
+.money-tiles--loading {
+  opacity: 0.55;
+}
+
+.money-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-radius: var(--radius-container);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.money-tile--link {
+  transition: border-color var(--transition-fast), box-shadow var(--transition-base);
+}
+
+.money-tile--link:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 20px -12px rgba(16, 16, 25, 0.2);
+}
+
+.money-tile__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.money-tile__label svg {
+  color: var(--warning);
+}
+
+.money-tile__value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.money-tile__note {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Chart colours. Two categorical series, validated for colour-blind
+   separation and contrast against each theme's card surface; the dark
+   steps are chosen for the dark surface, not an automatic flip. Text in a
+   chart always wears the app's text tokens, never a series colour. */
+.viz-root {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .viz-root {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+  }
+}
+
+:root[data-theme='dark'] .viz-root {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+}
+
+.viz-legend {
+  list-style: none;
+  display: flex;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.viz-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.viz-legend__swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.viz-legend__swatch--1 {
+  background: var(--series-1);
+}
+
+.viz-legend__swatch--2 {
+  background: var(--series-2);
+}
+
+.trend-chart {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.trend-chart__axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 160px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.trend-chart__plot {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
+.trend-chart__month {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-input);
+  outline: none;
+  transition: background var(--transition-fast);
+}
+
+.trend-chart__month:hover,
+.trend-chart__month:focus-visible {
+  background: var(--bg-surface);
+}
+
+.trend-chart__month:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+/* Columns grow from one shared baseline; 2px of surface between the pair. */
+.trend-chart__bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 160px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.trend-chart__bar {
+  width: 100%;
+  max-width: 18px;
+  border-radius: 4px 4px 0 0;
+  transition: height var(--transition-base);
+}
+
+.trend-chart__bar--1 {
+  background: var(--series-1);
+}
+
+.trend-chart__bar--2 {
+  background: var(--series-2);
+}
+
+.trend-chart__label {
+  padding-bottom: var(--space-1);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.viz-tooltip {
+  position: absolute;
+  bottom: calc(100% - 28px);
+  left: 50%;
+  z-index: 2;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  box-shadow: 0 8px 24px -8px rgba(16, 16, 25, 0.25);
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.viz-tooltip strong,
+.viz-tooltip b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.viz-tooltip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.viz-tooltip b {
+  margin-left: auto;
+  padding-left: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-chart__month:hover .viz-tooltip,
+.trend-chart__month:focus-visible .viz-tooltip {
+  display: flex;
+}
+
+/* Keep the first and last months' tooltips inside the card. */
+.trend-chart__month:first-child .viz-tooltip {
+  left: 0;
+  transform: none;
+}
+
+.trend-chart__month:last-child .viz-tooltip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.funnel__headline {
+  margin: 0 0 var(--space-4);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.funnel__headline strong {
+  margin-right: 4px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.funnel {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.funnel__row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 13px;
+}
+
+.funnel__label {
+  color: var(--text-secondary);
+}
+
+/* The count sits at the bar's tip; the track reserves room for it so the
+   longest bar never pushes its own number out of the card. */
+.funnel__track {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-right: var(--space-8);
+}
+
+.funnel__bar {
+  flex-shrink: 0;
+  min-width: 2px;
+  height: 14px;
+  border-radius: 0 4px 4px 0;
+  background: var(--series-1);
+  transition: width var(--transition-base);
+}
+
+.funnel__count {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* -- Directory list pages (StudentsListPage, SubjectsListPage) -------------
    Reuses .recent-enrollments' card chrome so a full record list reads as
    the same design language as the dashboard's "Recently enrolled" widget,

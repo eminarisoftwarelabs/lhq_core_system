@@ -124,3 +124,9 @@ export const billingApi = {
   recordPayment: (id, amount) =>
     apiFetch(`/invoices/${id}/record-payment/`, { method: 'POST', body: { amount } }),
 }
+
+// Company-wide figures for the Owner dashboard, summed server-side.
+// Owner and SYS_ADMIN only - 403 for everyone else.
+export const overviewApi = {
+  get: (period) => apiFetch(`/overview/${toQuery({ period })}`),
+}

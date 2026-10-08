@@ -388,3 +388,41 @@ tutor's view of one student; the staff student record (`/students/:id`)
 shows the same list read-only. Both use
 `src/components/assessments/StudentAssessments.jsx`, and
 `canAssessSubject` in `src/auth/permissions.js` mirrors the write rule.
+
+## Company overview (Owner dashboard)
+
+### `GET /overview/?period=this_month|last_month|this_year`
+
+Owner and SYS_ADMIN only; 403 for Admin and Tutor. `period` defaults to
+`this_month`; anything else is a 400. All sums are done server-side.
+
+```jsonc
+{
+  "period": { "key": "this_month", "start": "2026-10-01", "end": "2026-11-01" }, // end is exclusive
+  "counts": { "active_students": 42, "tutors": 7, "active_subjects": 9, "open_enquiries": 5 },
+  "money": {
+    "invoiced": "1250000.00",      // invoices created in the period
+    "collected": "900000.00",      // payments recorded in the period
+    "outstanding": "475000.50",    // owed as of today, whatever the period
+    "overdue_amount": "120000.00", // the part of that which is past its due date
+    "overdue_count": 2
+  },
+  "enrollment_trend": [             // six calendar months, oldest first, zero-filled
+    { "month": "2026-05", "enrolled": 2, "withdrawn": 0 }
+  ],
+  "funnel": {                       // every enquiry, by its current stage
+    "stages": [{ "stage": "INITIAL_CALL", "label": "Initial call", "count": 3 }],
+    "total": 20,
+    "enrolled": 15,
+    "conversion_rate": 0.75         // null when there are no enquiries
+  }
+}
+```
+
+`active_students` is distinct students with an ACTIVE enrollment, so it is
+lower than the Students list total, which also holds everyone who has left.
+
+UI: `DashboardPage` picks one of three dashboards by role -
+`OwnerDashboard` (Owner, SYS_ADMIN), the staff dashboard (Admin), or
+`TutorDashboard`. `canSeeCompanyOverview` in `src/auth/permissions.js`
+mirrors the backend's `IsOwnerLevel`.

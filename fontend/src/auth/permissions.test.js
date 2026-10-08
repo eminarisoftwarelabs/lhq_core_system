@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   assignableRoles,
   canAssessSubject,
+  canSeeCompanyOverview,
   canCreateRole,
   canEdit,
   canView,
@@ -229,5 +230,15 @@ describe('canAssessSubject', () => {
     expect(canAssessSubject({ role: 'TUTOR' }, { id: 1, tutor: null })).toBe(false)
     expect(canAssessSubject(null, maths)).toBe(false)
     expect(canAssessSubject({ role: 'TUTOR', tutor_profile: { id: 9 } }, null)).toBe(false)
+  })
+})
+
+describe('canSeeCompanyOverview', () => {
+  it('is Owner and System Admin only', () => {
+    expect(canSeeCompanyOverview('OWNER')).toBe(true)
+    expect(canSeeCompanyOverview('SYS_ADMIN')).toBe(true)
+    expect(canSeeCompanyOverview('ADMIN')).toBe(false)
+    expect(canSeeCompanyOverview('TUTOR')).toBe(false)
+    expect(canSeeCompanyOverview(undefined)).toBe(false)
   })
 })
