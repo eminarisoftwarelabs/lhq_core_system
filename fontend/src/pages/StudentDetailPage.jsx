@@ -150,26 +150,28 @@ export function StudentDetailPage() {
           </div>
           {timetable.length === 0 && <p className="form-note">No active subjects.</p>}
           {timetable.length > 0 && (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Subject</th>
-                  <th>Day</th>
-                  <th>Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {timetable.map((entry) => (
-                  <tr key={entry.subject_id}>
-                    <td>{entry.subject_name}</td>
-                    <td>{entry.day_of_week !== null ? dayLabel(entry.day_of_week) : 'Not set'}</td>
-                    <td>
-                      {entry.start_time ? `${formatTime(entry.start_time)}–${formatTime(entry.end_time)}` : '—'}
-                    </td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Day</th>
+                    <th>Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {timetable.map((entry) => (
+                    <tr key={entry.subject_id}>
+                      <td>{entry.subject_name}</td>
+                      <td>{entry.day_of_week !== null ? dayLabel(entry.day_of_week) : 'Not set'}</td>
+                      <td>
+                        {entry.start_time ? `${formatTime(entry.start_time)}–${formatTime(entry.end_time)}` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -187,47 +189,49 @@ export function StudentDetailPage() {
           )}
           {enrollments.length === 0 && <p className="form-note">No enrollments yet.</p>}
           {enrollments.length > 0 && (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Subjects</th>
-                  <th>Dates</th>
-                  <th>Mode</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enrollments.map((enrollment) => (
-                  <tr key={enrollment.id}>
-                    <td>{enrollment.subject_names.join(', ') || '—'}</td>
-                    <td>
-                      {enrollment.start_date} – {enrollment.end_date}
-                    </td>
-                    <td>{LEARNING_MODE_LABELS[enrollment.learning_mode]}</td>
-                    <td>
-                      <span
-                        className={`stage-badge enrollment-status-badge enrollment-status-badge--${enrollment.status.toLowerCase()}`}
-                      >
-                        {ENROLLMENT_STATUS_LABELS[enrollment.status]}
-                      </span>
-                    </td>
-                    <td>
-                      {enrollment.status === 'ACTIVE' && (
-                        <button
-                          type="button"
-                          className="button-danger"
-                          disabled={withdrawingId === enrollment.id}
-                          onClick={() => handleWithdraw(enrollment)}
-                        >
-                          Withdraw
-                        </button>
-                      )}
-                    </td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Subjects</th>
+                    <th>Dates</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {enrollments.map((enrollment) => (
+                    <tr key={enrollment.id}>
+                      <td>{enrollment.subject_names.join(', ') || '—'}</td>
+                      <td>
+                        {enrollment.start_date} – {enrollment.end_date}
+                      </td>
+                      <td>{LEARNING_MODE_LABELS[enrollment.learning_mode]}</td>
+                      <td>
+                        <span
+                          className={`stage-badge enrollment-status-badge enrollment-status-badge--${enrollment.status.toLowerCase()}`}
+                        >
+                          {ENROLLMENT_STATUS_LABELS[enrollment.status]}
+                        </span>
+                      </td>
+                      <td>
+                        {enrollment.status === 'ACTIVE' && (
+                          <button
+                            type="button"
+                            className="button-danger"
+                            disabled={withdrawingId === enrollment.id}
+                            onClick={() => handleWithdraw(enrollment)}
+                          >
+                            Withdraw
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

@@ -467,30 +467,32 @@ function InvoiceHistory({ invoices }) {
         </span>
         Invoicing
       </div>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Total</th>
-            <th>Balance due</th>
-            <th>Status</th>
-            <th>Due date</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {invoices.map((invoice) => (
-            <tr key={invoice.id}>
-              <td>{formatMoney(invoice.total)}</td>
-              <td>{formatMoney(invoice.balance_due)}</td>
-              <td>{INVOICE_STATUS_LABELS[invoice.status]}</td>
-              <td>{invoice.due_date}</td>
-              <td>
-                <Link to={`/invoices/${invoice.id}`}>View invoice</Link>
-              </td>
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Total</th>
+              <th>Balance due</th>
+              <th>Status</th>
+              <th>Due date</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {invoices.map((invoice) => (
+              <tr key={invoice.id}>
+                <td>{formatMoney(invoice.total)}</td>
+                <td>{formatMoney(invoice.balance_due)}</td>
+                <td>{INVOICE_STATUS_LABELS[invoice.status]}</td>
+                <td>{invoice.due_date}</td>
+                <td>
+                  <Link to={`/invoices/${invoice.id}`}>View invoice</Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

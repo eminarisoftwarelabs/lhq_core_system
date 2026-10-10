@@ -115,25 +115,29 @@ function EnrollmentTrend({ rows }) {
         </div>
       </div>
 
-      <table className="visually-hidden">
-        <caption>Enrollments and withdrawals per month, last six months</caption>
-        <thead>
-          <tr>
-            <th scope="col">Month</th>
-            <th scope="col">Enrolled</th>
-            <th scope="col">Withdrawn</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.month}>
-              <th scope="row">{monthLabel(row.month, { month: 'long', year: 'numeric' })}</th>
-              <td>{row.enrolled}</td>
-              <td>{row.withdrawn}</td>
+      {/* A <table> ignores the 1px width .visually-hidden sets (tables size to
+          their content), so it widened the page on phones. The wrapper clips it. */}
+      <div className="visually-hidden">
+        <table>
+          <caption>Enrollments and withdrawals per month, last six months</caption>
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col">Enrolled</th>
+              <th scope="col">Withdrawn</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.month}>
+                <th scope="row">{monthLabel(row.month, { month: 'long', year: 'numeric' })}</th>
+                <td>{row.enrolled}</td>
+                <td>{row.withdrawn}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

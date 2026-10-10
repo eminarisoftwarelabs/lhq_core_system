@@ -1441,7 +1441,7 @@ legend {
 
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: var(--space-6);
   align-items: stretch;
 }
@@ -1879,10 +1879,21 @@ legend {
 }
 
 /* Narrow, tall lanes rather than wide short boxes - reads intentional
-   ("this is a pipeline column") instead of leaving dead space in a big box. */
+   ("this is a pipeline column") instead of leaving dead space in a big box.
+
+   The three stages are one left-to-right pipeline, so they only ever show
+   as three lanes across or as one stacked column - never two up with the
+   third orphaned underneath, which is what auto-fit did at in-between
+   widths. The switch keys off the page's own width (a container query)
+   rather than the viewport, because the sidebar can be expanded or
+   collapsed at the same screen size. */
+.page--onboarding {
+  container: onboarding / inline-size;
+}
+
 .onboarding-board {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(272px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-6);
   align-items: stretch;
 }
@@ -1986,6 +1997,11 @@ legend {
   min-height: 0;
   flex-direction: column;
   overflow-y: auto;
+  /* The list is a scroll container, so the rows' hover fill bleeds into
+     this padding rather than a negative row margin (which made the list
+     scroll sideways by 8px). */
+  padding: 0 var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
 }
 
 .onboarding-row {
@@ -1994,7 +2010,6 @@ legend {
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-2);
-  margin: 0 calc(-1 * var(--space-2));
   border-radius: var(--radius-input);
   border-bottom: 1px solid var(--border-default);
   text-decoration: none;
@@ -2139,6 +2154,66 @@ legend {
   opacity: 1;
   transform: translate(0, 0);
   color: var(--text-nav-hover);
+}
+
+/* Three lanes, but tight: give the rows back some of the card padding. */
+@container onboarding (min-width: 672px) and (max-width: 900px) {
+  .onboarding-board {
+    gap: var(--space-4);
+  }
+
+  .onboarding-section__header,
+  .onboarding-section__body {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  /* A ~220px lane can't fit the name beside "26d in stage" without cutting
+     both to a few letters: stack them and let the next action wrap. */
+  .onboarding-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+  }
+
+  .onboarding-row__action {
+    white-space: normal;
+  }
+
+  /* The parent popover is wider than a tight lane's name: anchor it to the
+     row and span the lane, so it can't push the list into a sideways scroll. */
+  .onboarding-row {
+    position: relative;
+  }
+
+  .onboarding-row__name-wrap {
+    position: static;
+  }
+
+  .onboarding-row__parent-popover {
+    left: var(--space-2);
+    right: var(--space-2);
+    top: 36px;
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/* Too narrow for three readable lanes: stack them, and let each card be as
+   short as its content instead of a fixed-height lane. */
+@container onboarding (max-width: 671px) {
+  .onboarding-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .onboarding-section {
+    min-height: 0;
+    max-height: 440px;
+  }
+
+  .onboarding-section__status {
+    padding: var(--space-6) 0;
+  }
 }
 
 /* -- Timetable (TimetablePage) ---------------------------------------------
@@ -2837,6 +2912,7 @@ legend {
   width: 100%;
   max-width: 540px;
   max-height: calc(100vh - 2 * var(--space-4));
+  max-height: calc(100dvh - 2 * var(--space-4));
   overflow-y: auto;
   border-radius: var(--radius-container-lg);
   border: 1px solid var(--border-default);
@@ -3133,7 +3209,7 @@ legend {
   font-size: 13px;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1279px) {
   .tt-grid__day-full {
     display: none;
   }
@@ -3217,6 +3293,7 @@ legend {
 
   .tt-toolbar__actions {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .tt-toolbar__actions > * {
@@ -3858,7 +3935,7 @@ legend {
 }
 
 .next-action__form .field {
-  min-width: 220px;
+  min-width: min(220px, 100%);
 }
 
 .next-action__form input {
@@ -4504,6 +4581,13 @@ legend {
   max-width: none;
 }
 
+/* Wraps every .data-table: a table can't shrink below its content, so on a
+   phone it scrolls sideways inside its card instead of bursting out of it. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -5137,11 +5221,29 @@ legend {
   .app-header {
     padding: var(--space-4) var(--space-6) var(--space-3);
   }
+
+  /* Beside the sidebar the header title runs out of room on laptops and
+     tablets: let a long name ("Full Name (STU-000007)") take a second line
+     rather than truncate. */
+  .app-header__title,
+  .app-header__greeting {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (max-width: 1023px) {
   :root {
     --sidebar-width: 240px;
+  }
+
+  .app-header__title,
+  .app-header__greeting {
+    font-size: 24px;
   }
 
   .sidebar__inner {
@@ -5202,8 +5304,55 @@ legend {
     font-size: 26px;
   }
 
+  /* Four icon buttons share the header on a phone, leaving the title about
+     135px: at full size it truncated to a word and a half. Smaller type on
+     up to two lines keeps a full name readable. */
+  .app-header {
+    gap: var(--space-2);
+  }
+
+  .app-header__spacer {
+    gap: var(--space-2);
+  }
+
+  .app-header__title,
+  .app-header__greeting {
+    font-size: 18px;
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+
   .user-row {
     flex-wrap: wrap;
+  }
+
+  /* 32px of card padding each side is a fifth of a 320px screen. */
+  .form-card {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  /* Tighter cells buy a table ~30px on a phone, and the outer cells sit
+     flush with the card's own padding. */
+  .data-table th,
+  .data-table td {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+
+  .data-table th:first-child,
+  .data-table td:first-child {
+    padding-left: 0;
+  }
+
+  .data-table th:last-child,
+  .data-table td:last-child {
+    padding-right: 0;
+  }
+
+  /* A long unbroken term ("20,000.00/session") may break so the amount
+     column stays on screen without a sideways swipe. */
+  .invoice-line-items td:first-child {
+    overflow-wrap: anywhere;
   }
 
   .form-row--2col {
@@ -5246,6 +5395,19 @@ legend {
   .user-menu__panel {
     min-width: 220px;
   }
+
+  /* "Lesson hours 07:00-18:00 | Whole day 07:00-21:00" can't fit one line:
+     drop each range under its label. */
+  .tt-hours-toggle button.period-toggle__option {
+    flex-direction: column;
+    gap: 0;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .tt-hours-toggle__range {
+    margin-left: 0;
+  }
 }
 
 /* -- Print ---------------------------------------------------------------
@@ -5254,6 +5416,10 @@ legend {
    clean, standalone document rather than the full sidebar/nav layout. Any
    page can opt an element out of printing with the .no-print utility. */
 @media print {
+  .table-scroll {
+    overflow: visible !important;
+  }
+
   .sidebar,
   .sidebar-backdrop,
   .sidebar-toggle,

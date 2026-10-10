@@ -138,28 +138,30 @@ export function InvoiceDetailPage() {
           </div>
 
           {lineItems.length > 0 ? (
-            <table className="data-table invoice-line-items">
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th className="invoice-line-items__amount">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.description}</td>
-                    <td className="invoice-line-items__amount">{formatSignedMoney(item.amount)}</td>
+            <div className="table-scroll">
+              <table className="data-table invoice-line-items">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th className="invoice-line-items__amount">Amount</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="invoice-line-items__total-row">
-                  <td>Total</td>
-                  <td className="invoice-line-items__amount">{formatMoney(invoice.total)}</td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {lineItems.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.description}</td>
+                      <td className="invoice-line-items__amount">{formatSignedMoney(item.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="invoice-line-items__total-row">
+                    <td>Total</td>
+                    <td className="invoice-line-items__amount">{formatMoney(invoice.total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           ) : (
             <p className="invoice-line-items__total-row invoice-line-items__total-row--plain">
               Total: {formatMoney(invoice.total)}
@@ -201,24 +203,26 @@ export function InvoiceDetailPage() {
           </div>
           {invoice.payments.length === 0 && <p className="form-note">No payments recorded yet.</p>}
           {invoice.payments.length > 0 && (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Amount</th>
-                  <th>Recorded by</th>
-                  <th>Paid at</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.payments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td>{formatMoney(payment.amount)}</td>
-                    <td>{payment.recorded_by_name || '—'}</td>
-                    <td>{new Date(payment.paid_at).toLocaleString()}</td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Amount</th>
+                    <th>Recorded by</th>
+                    <th>Paid at</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {invoice.payments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td>{formatMoney(payment.amount)}</td>
+                      <td>{payment.recorded_by_name || '—'}</td>
+                      <td>{new Date(payment.paid_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
