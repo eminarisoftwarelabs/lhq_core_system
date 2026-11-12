@@ -1,33 +1,86 @@
 :root {
+  /* -- Brand palette ---------------------------------------------------- */
+  /* LHQ's own colors, from Wanangwa's Quotes & Invoices tool. Components do
+     not read these directly: they read the semantic tokens below, which map
+     onto the brand per theme. --brand-whatsapp is reserved for WhatsApp send
+     actions in a later task. */
+  --brand-navy: #073763;
+  --brand-navy-hover: #0a4a85;
+  --brand-gold: #f4b223;
+  --brand-gold-hover: #e5a00d;
+  --brand-ink: #1d2433;
+  --brand-muted: #5f6b7d;
+  --brand-line: #dde2ea;
+  --brand-page: #eef1f5;
+  --brand-panel: #ffffff;
+  --brand-field: #f6f8fb;
+  --brand-danger: #b42318;
+  --brand-success: #1f7a4d;
+  --brand-whatsapp: #1f9d55;
+
   /* -- Design tokens -------------------------------------------------- */
   --color-black: #000000;
   --color-white: #ffffff;
 
-  --bg-page: #f5f5f8;
-  --bg-sidebar: #f7f7fa;
-  --bg-surface: #ffffff;
-  --bg-surface-muted: #f3f3f7;
+  --bg-page: var(--brand-page);
+  --bg-sidebar: var(--brand-panel);
+  --bg-surface: var(--brand-panel);
+  --bg-surface-muted: #f3f5f8;
+  --bg-field: var(--brand-field);
+  --bg-field-focus: var(--brand-panel);
 
-  --text-primary: #111111;
-  --text-secondary: #666666;
-  --text-nav: #66699d;
-  --text-nav-hover: #45477a;
+  --text-primary: var(--brand-ink);
+  --text-secondary: var(--brand-muted);
+  --text-nav: var(--brand-muted);
+  --text-nav-hover: var(--brand-navy);
   --text-nav-active: #ffffff;
 
-  --border-default: #dddde6;
-  --border-strong: #c7c7d6;
+  --border-default: var(--brand-line);
+  --border-strong: #b9c1cd;
 
-  --danger: #c0362c;
-  --danger-bg: rgba(192, 54, 44, 0.08);
-  --success: #1a7f37;
+  --danger: var(--brand-danger);
+  --danger-bg: rgba(180, 35, 24, 0.08);
+  --success: var(--brand-success);
   --warning: #9a5b00;
 
-  --nav-active-bg: #000000;
-  --nav-hover-bg: #ececf3;
-  --focus-ring: #66699d;
+  --nav-active-bg: var(--brand-navy);
+  --nav-hover-bg: #e6edf6;
+  --focus-ring: #4d7fc0;
+
+  /* Primary action: gold with navy text, like the tool's Download PDF. */
+  --button-primary-bg: var(--brand-gold);
+  --button-primary-hover-bg: var(--brand-gold-hover);
+  --button-primary-fg: var(--brand-navy);
+
+  /* A chosen option (subject chip, switch, picked day): navy, white text. */
+  --selected-bg: var(--brand-navy);
+  --selected-hover-bg: var(--brand-navy-hover);
+  --selected-fg: #ffffff;
+
+  /* The top bar is navy in both themes, so it carries its own text and
+     hover colors instead of borrowing the page's. */
+  --header-bg: var(--brand-navy);
+  /* Gold accent line under the bar, like the tool's tuition card. */
+  --header-border: var(--brand-gold);
+  --header-fg: #ffffff;
+  --header-fg-muted: rgba(255, 255, 255, 0.82);
+  --header-hover-bg: rgba(255, 255, 255, 0.14);
+  --header-focus-ring: var(--brand-gold);
+
+  /* The logo artwork is navy on transparent, so it always sits on a white
+     chip that reads on any background, dark mode included. */
+  --logo-chip-bg: #ffffff;
+
+  /* Brand accent for decoration (not actions): gold with navy on it. */
+  --accent: var(--brand-gold);
+  --accent-fg: var(--brand-navy);
 
   --font-primary:
     'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* For printed quotes, invoices, receipts and tuition cards (later tasks).
+     Carlito is metrically identical to Calibri, which the tool's documents
+     use; real Calibri wins where it is installed. Not used by the app UI. */
+  --font-document: 'Calibri', 'Carlito', 'Segoe UI', sans-serif;
 
   /* Spacing scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 */
   --space-1: 4px;
@@ -62,57 +115,94 @@
 
 /* Dark palette applies when the OS prefers dark and the user hasn't
    explicitly chosen light (via ThemeToggle), or when they've explicitly
-   chosen dark regardless of OS preference. */
+   chosen dark regardless of OS preference. Deep navy surfaces with gold as
+   the accent (primary buttons, focus); a lifted navy-blue marks the active
+   nav item and selections, since brand navy would vanish on these surfaces.
+   The two blocks below must stay identical. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg-page: #101019;
-    --bg-sidebar: #16171f;
-    --bg-surface: #1a1b25;
-    --bg-surface-muted: #20212c;
+    --bg-page: #0b1a2c;
+    --bg-sidebar: #0d2035;
+    --bg-surface: #0f243c;
+    --bg-surface-muted: #163150;
+    --bg-field: #0a1b2e;
+    --bg-field-focus: #12304f;
 
-    --text-primary: #f3f3f7;
-    --text-secondary: #9d9dbe;
-    --text-nav: #9d9dbe;
-    --text-nav-hover: #c2c2f5;
-    --text-nav-active: #101019;
+    --text-primary: #eef2f7;
+    --text-secondary: #9fb0c6;
+    --text-nav: #a9b8cc;
+    --text-nav-hover: #ffffff;
+    --text-nav-active: #ffffff;
 
-    --border-default: #2e303f;
-    --border-strong: #3d3f52;
+    --border-default: #1f3a5a;
+    --border-strong: #2f5078;
 
     --danger: #f28b82;
     --danger-bg: rgba(242, 139, 130, 0.12);
-    --success: #81c995;
+    --success: #6fcf97;
     --warning: #f2b866;
 
-    --nav-active-bg: #ffffff;
-    --nav-hover-bg: #20212c;
-    --focus-ring: #9e9ef0;
+    --nav-active-bg: #1e5a96;
+    --nav-hover-bg: #163150;
+    --focus-ring: var(--brand-gold);
+
+    --button-primary-bg: var(--brand-gold);
+    --button-primary-hover-bg: #ffc94a;
+    --button-primary-fg: var(--brand-navy);
+
+    --selected-bg: #1e5a96;
+    --selected-hover-bg: #2367a8;
+    --selected-fg: #ffffff;
+
+    --header-bg: #061428;
+    --header-border: var(--brand-gold);
+    --header-fg: #ffffff;
+    --header-fg-muted: rgba(255, 255, 255, 0.8);
+    --header-hover-bg: rgba(255, 255, 255, 0.1);
+    --header-focus-ring: var(--brand-gold);
   }
 }
 
 :root[data-theme='dark'] {
-  --bg-page: #101019;
-  --bg-sidebar: #16171f;
-  --bg-surface: #1a1b25;
-  --bg-surface-muted: #20212c;
+  --bg-page: #0b1a2c;
+  --bg-sidebar: #0d2035;
+  --bg-surface: #0f243c;
+  --bg-surface-muted: #163150;
+  --bg-field: #0a1b2e;
+  --bg-field-focus: #12304f;
 
-  --text-primary: #f3f3f7;
-  --text-secondary: #9d9dbe;
-  --text-nav: #9d9dbe;
-  --text-nav-hover: #c2c2f5;
-  --text-nav-active: #101019;
+  --text-primary: #eef2f7;
+  --text-secondary: #9fb0c6;
+  --text-nav: #a9b8cc;
+  --text-nav-hover: #ffffff;
+  --text-nav-active: #ffffff;
 
-  --border-default: #2e303f;
-  --border-strong: #3d3f52;
+  --border-default: #1f3a5a;
+  --border-strong: #2f5078;
 
   --danger: #f28b82;
   --danger-bg: rgba(242, 139, 130, 0.12);
-  --success: #81c995;
+  --success: #6fcf97;
   --warning: #f2b866;
 
-  --nav-active-bg: #ffffff;
-  --nav-hover-bg: #20212c;
-  --focus-ring: #9e9ef0;
+  --nav-active-bg: #1e5a96;
+  --nav-hover-bg: #163150;
+  --focus-ring: var(--brand-gold);
+
+  --button-primary-bg: var(--brand-gold);
+  --button-primary-hover-bg: #ffc94a;
+  --button-primary-fg: var(--brand-navy);
+
+  --selected-bg: #1e5a96;
+  --selected-hover-bg: #2367a8;
+  --selected-fg: #ffffff;
+
+  --header-bg: #061428;
+  --header-border: var(--brand-gold);
+  --header-fg: #ffffff;
+  --header-fg-muted: rgba(255, 255, 255, 0.8);
+  --header-hover-bg: rgba(255, 255, 255, 0.1);
+  --header-focus-ring: var(--brand-gold);
 
   color-scheme: dark;
 }
@@ -167,153 +257,34 @@ a {
 
 /* -- Buttons ------------------------------------------------------------ */
 
+/* Every color here comes from a token that already flips per theme, so the
+   buttons need no dark-mode rules of their own. (They used to have them: a
+   hardcoded black/white flip at (0,2,1) that outranked every component's
+   own button styling in dark mode and had to be patched variant by
+   variant. Keep it that way: theme a button by its tokens, not by adding a
+   `:root[data-theme='dark'] button` rule.) */
 button,
 .button {
   font: inherit;
-  font-weight: 500;
+  font-weight: 700;
   padding: 11px 20px;
   min-height: 44px;
   border-radius: var(--radius-button);
   border: 1px solid transparent;
-  background: var(--color-black);
-  color: var(--color-white);
+  background: var(--button-primary-bg);
+  color: var(--button-primary-fg);
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  transition: background var(--transition-fast), opacity var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
 }
 
 button:hover,
 .button:hover {
-  background: #313149;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) button,
-  :root:not([data-theme='light']) .button {
-    background: var(--color-white);
-    color: var(--color-black);
-  }
-
-  :root:not([data-theme='light']) button:hover,
-  :root:not([data-theme='light']) .button:hover {
-    background: #dadae7;
-  }
-}
-
-:root[data-theme='dark'] button,
-:root[data-theme='dark'] .button {
-  background: var(--color-white);
-  color: var(--color-black);
-}
-
-:root[data-theme='dark'] button:hover,
-:root[data-theme='dark'] .button:hover {
-  background: #dadae7;
-}
-
-/* The generic dark-mode overrides above match any element with the .button
-   class - including a variant like .button--secondary - at equal
-   specificity ((0,2,0), attribute + class), so without these, source order
-   alone decided it and the generic black/white flip always won, silently
-   erasing every variant's own color in dark mode. These come later in the
-   file so the tie resolves in the variant's favor instead. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .button--secondary {
-    background: var(--bg-surface-muted);
-    color: var(--text-primary);
-  }
-
-  :root:not([data-theme='light']) .button--secondary:hover {
-    background: var(--nav-hover-bg);
-  }
-
-  :root:not([data-theme='light']) .button--danger,
-  :root:not([data-theme='light']) .button-danger {
-    background: transparent;
-    color: var(--danger);
-  }
-
-  :root:not([data-theme='light']) .button--ghost,
-  :root:not([data-theme='light']) .topic-chip__remove {
-    background: transparent;
-    color: var(--text-primary);
-  }
-}
-
-:root[data-theme='dark'] .button--secondary {
-  background: var(--bg-surface-muted);
-  color: var(--text-primary);
-}
-
-:root[data-theme='dark'] .button--secondary:hover {
-  background: var(--nav-hover-bg);
-}
-
-:root[data-theme='dark'] .button--danger,
-:root[data-theme='dark'] .button-danger {
-  background: transparent;
-  color: var(--danger);
-}
-
-:root[data-theme='dark'] .button--ghost,
-:root[data-theme='dark'] .topic-chip__remove {
-  background: transparent;
-  color: var(--text-primary);
-}
-
-/* Hover needs the same treatment: the generic dark `.button:hover` rule
-   (0,3,0) otherwise outranks `.button--danger:hover` (0,2,0) and paints a
-   light grey fill under the pink danger text - unreadable. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .button--danger:hover,
-  :root:not([data-theme='light']) .button-danger:hover {
-    background: var(--danger-bg);
-  }
-}
-
-:root[data-theme='dark'] .button--danger:hover,
-:root[data-theme='dark'] .button-danger:hover {
-  background: var(--danger-bg);
-}
-
-/* Same trap for the ghost variant: without these the generic dark hover
-   paints #dadae7 under light --text-primary text. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .button--ghost:hover {
-    background: var(--nav-hover-bg);
-  }
-}
-
-:root[data-theme='dark'] .button--ghost:hover {
-  background: var(--nav-hover-bg);
-}
-
-/* And for .icon-button (header theme toggle, user menu, dialog close):
-   the generic dark `button` rules rendered them as solid white tiles. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .icon-button {
-    background: transparent;
-    color: var(--text-nav);
-  }
-
-  :root:not([data-theme='light']) .icon-button:hover {
-    background: var(--nav-hover-bg);
-    color: var(--text-nav-hover);
-  }
-}
-
-:root[data-theme='dark'] .icon-button {
-  background: transparent;
-  color: var(--text-nav);
-}
-
-:root[data-theme='dark'] .icon-button:hover {
-  background: var(--nav-hover-bg);
-  color: var(--text-nav-hover);
+  background: var(--button-primary-hover-bg);
 }
 
 button:disabled,
@@ -326,26 +297,31 @@ button:disabled,
   background: transparent;
   color: var(--danger);
   border-color: var(--danger);
+  font-weight: 500;
 }
 
 .button-danger:hover {
   background: var(--danger-bg);
 }
 
+/* White with a line border, like the tool's plain buttons. */
 .button--secondary {
-  background: var(--bg-surface-muted);
+  background: var(--bg-surface);
   color: var(--text-primary);
   border-color: var(--border-default);
+  font-weight: 500;
 }
 
 .button--secondary:hover {
-  background: var(--nav-hover-bg);
+  background: var(--bg-surface-muted);
+  border-color: var(--border-strong);
 }
 
 .button--danger {
   background: transparent;
   color: var(--danger);
   border-color: var(--danger);
+  font-weight: 500;
 }
 
 .button--danger:hover {
@@ -355,6 +331,7 @@ button:disabled,
 .button--ghost {
   background: transparent;
   color: var(--text-primary);
+  font-weight: 500;
   border: none;
   padding: var(--space-2) var(--space-3);
   min-height: 0;
@@ -402,11 +379,18 @@ textarea {
   padding: 10px 12px;
   border-radius: var(--radius-input);
   border: 1px solid var(--border-default);
-  background: var(--bg-surface);
+  background: var(--bg-field);
   color: var(--text-primary);
   width: 100%;
   max-width: 360px;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+/* A field lifts to the panel color while it has focus, as in the tool. */
+input:focus,
+select:focus,
+textarea:focus {
+  background-color: var(--bg-field-focus);
 }
 
 input:focus-visible,
@@ -432,7 +416,7 @@ label {
 /* A track-and-thumb switch skinned onto the native checkbox via
    appearance:none, rather than an extra wrapper span - same box the
    browser already gives us, so no markup changes needed anywhere
-   .checkbox-label is used. Matches the black/white "selected" language
+   .checkbox-label is used. Matches the navy "selected" language
    .subject-chip--selected already established. [type="checkbox"] (not
    just `input`) bumps specificity above the global `input` rule's
    width:100%/padding/max-width, same (0,1,1)+type weight beating (0,0,1). */
@@ -467,38 +451,18 @@ label {
 }
 
 .checkbox-label input[type='checkbox']:checked {
-  background: var(--color-black);
-  border-color: var(--color-black);
+  background: var(--selected-bg);
+  border-color: var(--selected-bg);
 }
 
 .checkbox-label input[type='checkbox']:checked::before {
   transform: translateX(16px);
-  background: var(--color-white);
+  background: var(--selected-fg);
 }
 
 .checkbox-label input[type='checkbox']:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .checkbox-label input[type='checkbox']:checked {
-    background: var(--color-white);
-    border-color: var(--color-white);
-  }
-
-  :root:not([data-theme='light']) .checkbox-label input[type='checkbox']:checked::before {
-    background: var(--color-black);
-  }
-}
-
-:root[data-theme='dark'] .checkbox-label input[type='checkbox']:checked {
-  background: var(--color-white);
-  border-color: var(--color-white);
-}
-
-:root[data-theme='dark'] .checkbox-label input[type='checkbox']:checked::before {
-  background: var(--color-black);
 }
 
 fieldset {
@@ -604,9 +568,8 @@ legend {
 }
 
 /* The quiet way out under the primary action (Log out / Cancel). Selectors
-   carry the element + two classes on purpose: the global dark-mode
-   `:root[data-theme='dark'] button` flip is (0,2,1) and its :hover (0,3,1),
-   so anything lighter would be repainted solid white in dark mode. */
+   carry the element + two classes so they outrank the global `button` and
+   `button:hover` rules. */
 .auth-form button.auth-form__escape,
 .auth-form a.auth-form__escape {
   display: inline-flex;
@@ -736,8 +699,8 @@ legend {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--nav-active-bg);
-  color: var(--text-nav-active);
+  background: var(--header-bg);
+  color: var(--header-fg);
   padding: var(--space-12);
 }
 
@@ -752,8 +715,8 @@ legend {
   width: 64px;
   height: 64px;
   border-radius: var(--radius-container);
-  background: var(--text-nav-active);
-  color: var(--nav-active-bg);
+  background: var(--accent);
+  color: var(--accent-fg);
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -876,9 +839,21 @@ legend {
     padding-right: 0;
   }
 
-  .sidebar--collapsed .sidebar__logo-text,
-  .sidebar--collapsed .sidebar__footer {
+  .sidebar--collapsed .sidebar__footer,
+  .sidebar--collapsed .sidebar__logo-full {
     display: none;
+  }
+
+  /* A square chip with the arrow mark, not the full logo squashed into
+     the 56px rail. */
+  .sidebar--collapsed .sidebar__logo-chip {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .sidebar--collapsed .sidebar__logo-mark {
+    display: block;
   }
 
   .sidebar--collapsed .nav-item {
@@ -917,43 +892,29 @@ legend {
   background: var(--nav-hover-bg);
 }
 
-.sidebar__logo-mark {
-  flex-shrink: 0;
+/* The logo artwork is navy on transparent: the chip keeps it readable on
+   the dark sidebar too. */
+.sidebar__logo-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  padding: 6px 10px;
   border-radius: 10px;
-  background: var(--color-black);
-  color: var(--color-white);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  background: var(--logo-chip-bg);
+  box-shadow: 0 0 0 1px var(--border-default);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .sidebar__logo-mark {
-    background: var(--color-white);
-    color: var(--color-black);
-  }
+.sidebar__logo-full {
+  display: block;
+  width: auto;
+  height: 44px;
 }
 
-:root[data-theme='dark'] .sidebar__logo-mark {
-  background: var(--color-white);
-  color: var(--color-black);
-}
-
-.sidebar__logo-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-}
-
-.sidebar__logo-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
+/* Only shown in the collapsed sidebar (see .sidebar--collapsed below). */
+.sidebar__logo-mark {
+  display: none;
+  width: auto;
+  height: 22px;
 }
 
 .sidebar__nav {
@@ -1055,8 +1016,26 @@ legend {
   gap: var(--space-3);
   padding: var(--space-4) var(--space-12) var(--space-3);
   margin-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border-default);
-  background: var(--bg-page);
+  border-bottom: 2px solid var(--header-border);
+  background: var(--header-bg);
+  color: var(--header-fg);
+}
+
+/* Icon buttons on the navy bar (menu, back, theme, account). The user
+   menu's dropdown panel is white and keeps its own colors: none of its
+   items are .icon-button. */
+.app-header .icon-button {
+  color: var(--header-fg-muted);
+}
+
+.app-header .icon-button:hover {
+  background: var(--header-hover-bg);
+  color: var(--header-fg);
+}
+
+/* The default blue ring is lost against navy; gold reads on it. */
+.app-header .icon-button:focus-visible {
+  outline-color: var(--header-focus-ring);
 }
 
 .app-header__menu-toggle {
@@ -1080,7 +1059,7 @@ legend {
   font-weight: 500;
   line-height: 1.2;
   letter-spacing: -0.01em;
-  color: var(--text-primary);
+  color: var(--header-fg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1094,6 +1073,7 @@ legend {
    the page, just relocated into the header bar instead of the page body. */
 .app-header__title {
   margin: 0;
+  color: var(--header-fg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1105,8 +1085,8 @@ legend {
   position: relative;
 }
 
-.user-menu__trigger {
-  color: var(--text-primary);
+.app-header .user-menu__trigger {
+  color: var(--header-fg);
 }
 
 .user-menu__panel {
@@ -4115,14 +4095,10 @@ legend {
    into a popover under a trigger button that looks like the other inputs.
 
    Every rdp nav/day cell (and our own trigger) is a real button element,
-   and this app's global button and button-hover background/color rule
-   (and its dark-mode flip) targets the bare element - at least one of
-   those always has higher specificity than a plain class selector, ours
-   or react-day-picker's own (confirmed: the dark-mode flip is (0,2,1),
-   beating a two-class popover-scoped selector at (0,2,0)). Rather than
-   chase 3+ levels of nesting to out-specify each combination, every
-   override below carries !important, scoped tightly to
-   .date-picker-field so it can't leak. */
+   and this app's global button and button-hover rules target the bare
+   element. These overrides carry !important, scoped tightly to
+   .date-picker-field so it can't leak. (They were written when a dark-mode
+   button flip at (0,2,1) also had to be beaten; that rule is gone.) */
 .date-picker-field {
   position: relative;
 }
@@ -4142,14 +4118,15 @@ legend {
   text-align: left;
   cursor: pointer;
   color: var(--text-primary) !important;
-  background: var(--bg-surface) !important;
+  background: var(--bg-field) !important;
   border: 1px solid var(--border-default) !important;
   border-radius: var(--radius-input) !important;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
 }
 
-.date-picker-field__trigger:hover {
-  background: var(--bg-surface-muted) !important;
+.date-picker-field__trigger:hover,
+.date-picker-field__trigger[aria-expanded='true'] {
+  background: var(--bg-field-focus) !important;
   color: var(--text-primary) !important;
 }
 
@@ -4394,7 +4371,7 @@ legend {
 
 /* Unselected only. A bare .subject-chip:hover would outrank
    .subject-chip--selected on specificity (0,2,0 vs 0,1,0) and repaint a
-   selected chip's label to --text-primary - near-black text on the black
+   selected chip's label to --text-primary - dark text on the navy
    selected fill, i.e. the word vanishes on hover in light mode. */
 .subject-chip:not(.subject-chip--selected):hover {
   border-color: var(--border-strong);
@@ -4414,49 +4391,22 @@ legend {
 }
 
 .subject-chip--selected {
-  background: var(--color-black);
-  border-color: var(--color-black);
-  color: var(--color-white);
+  background: var(--selected-bg);
+  border-color: var(--selected-bg);
+  color: var(--selected-fg);
 }
 
-/* Selected chips get the same hover lift as a primary button (#313149 light,
-   #dadae7 dark) so the label keeps its contrast instead of inheriting the
-   unselected hover color. */
+/* Selected chips get their own hover lift so the label keeps its contrast
+   instead of inheriting the unselected hover color. */
 .subject-chip--selected:hover {
-  background: #313149;
-  border-color: #313149;
-  color: var(--color-white);
+  background: var(--selected-hover-bg);
+  border-color: var(--selected-hover-bg);
+  color: var(--selected-fg);
 }
 
 .subject-chip--selected .subject-chip__check {
   width: 13px;
   opacity: 1;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .subject-chip--selected {
-    background: var(--color-white);
-    border-color: var(--color-white);
-    color: var(--color-black);
-  }
-
-  :root:not([data-theme='light']) .subject-chip--selected:hover {
-    background: #dadae7;
-    border-color: #dadae7;
-    color: var(--color-black);
-  }
-}
-
-:root[data-theme='dark'] .subject-chip--selected {
-  background: var(--color-white);
-  border-color: var(--color-white);
-  color: var(--color-black);
-}
-
-:root[data-theme='dark'] .subject-chip--selected:hover {
-  background: #dadae7;
-  border-color: #dadae7;
-  color: var(--color-black);
 }
 
 /* Visually hidden but still in the accessibility tree and keyboard-reachable

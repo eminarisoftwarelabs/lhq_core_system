@@ -2,7 +2,15 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cwd } from 'node:process'
 import { describe, expect, it } from 'vitest'
-import { THEMES, computeProperty, contrastRatio, flattenOver, parseCss, resolveRootVars } from '../test-utils/cssCascade'
+import {
+  THEMES,
+  computeProperty,
+  contrastRatio,
+  flattenOver,
+  parseCss,
+  resolveRootVars,
+  resolveValue,
+} from '../test-utils/cssCascade'
 
 /* Regression gate for a specific, repeatable failure: a base `:hover` rule
  * outranking a selected/active state rule on specificity, so the label is
@@ -36,7 +44,8 @@ function resolvedBackground(el, theme) {
   // Read the page color from the theme's resolved root tokens: looking it up
   // as a property on an `html` element only ever matched the light :root
   // block, so every dark-theme fallback was scored against a light page.
-  const page = resolveRootVars(rules, theme)[PAGE_FALLBACK] ?? '#ffffff'
+  // Resolve through var() chains: --bg-page is itself `var(--brand-page)`.
+  const page = resolveValue(`var(${PAGE_FALLBACK}, #ffffff)`, resolveRootVars(rules, theme))
   const bg = computed(el, theme, 'background') || computed(el, theme, 'background-color')
   if (bg && bg.value !== 'transparent' && bg.value !== 'none') return flattenOver(bg.value, page)
   return page
