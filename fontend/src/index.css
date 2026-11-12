@@ -1,36 +1,33 @@
 :root {
   /* -- Design tokens -------------------------------------------------- */
   --color-black: #000000;
-  --brand-navy: #073763;
-  --brand-gold: #f4b223;
-  --brand-gold-hover: #e0a010;
   --color-white: #ffffff;
 
-  --bg-page: #eef1f5;
-  --bg-sidebar: #ffffff;
+  --bg-page: #f5f5f8;
+  --bg-sidebar: #f7f7fa;
   --bg-surface: #ffffff;
-  --bg-surface-muted: #f6f8fb;
+  --bg-surface-muted: #f3f3f7;
 
-  --text-primary: #1d2433;
-  --text-secondary: #5f6b7d;
-  --text-nav: #3d5a80;
-  --text-nav-hover: #073763;
+  --text-primary: #111111;
+  --text-secondary: #666666;
+  --text-nav: #66699d;
+  --text-nav-hover: #45477a;
   --text-nav-active: #ffffff;
 
-  --border-default: #dde2ea;
-  --border-strong: #c3cbd8;
+  --border-default: #dddde6;
+  --border-strong: #c7c7d6;
 
-  --danger: #b42318;
+  --danger: #c0362c;
   --danger-bg: rgba(192, 54, 44, 0.08);
-  --success: #1f7a4d;
+  --success: #1a7f37;
   --warning: #9a5b00;
 
-  --nav-active-bg: #073763;
-  --nav-hover-bg: #e6ecf3;
-  --focus-ring: #073763;
+  --nav-active-bg: #000000;
+  --nav-hover-bg: #ececf3;
+  --focus-ring: #66699d;
 
   --font-primary:
-    'Carlito', 'Calibri', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   /* Spacing scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 */
   --space-1: 4px;
@@ -178,8 +175,8 @@ button,
   min-height: 44px;
   border-radius: var(--radius-button);
   border: 1px solid transparent;
-  background: var(--brand-gold);
-  color: var(--brand-navy);
+  background: var(--color-black);
+  color: var(--color-white);
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
@@ -191,7 +188,7 @@ button,
 
 button:hover,
 .button:hover {
-  background: var(--brand-gold-hover);
+  background: #313149;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -928,8 +925,8 @@ legend {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--brand-navy);
-  color: var(--brand-gold);
+  background: var(--color-black);
+  color: var(--color-white);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
