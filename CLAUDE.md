@@ -19,7 +19,7 @@ Internal ops system for LHQ Learning Hub (Lilongwe). Built by Eminari Software L
   4. `git push -u origin <branch>` then `gh pr create --base v2-develop` with a summary and how to test. If `gh` is not available, push and tell Eddie to open the PR on GitHub.
   5. Stop. Eddie reviews the diff and merges. Do not merge PRs yourself.
 - Tag `v1-holiday-system` marks the old build.
-- Staging: Railway deploys `v2-develop`; Vercel builds a preview per branch.
+- Staging: backend host not decided yet. Develop and test locally.
 
 ## Commands
 
@@ -44,7 +44,7 @@ Run the relevant tests and the build before saying a task is done.
 ## Conventions
 
 - Roles: TUTOR, ADMIN, OWNER, SYS_ADMIN on a single `User` model. Permission classes live in `accounts/permissions.py`.
-- Django apps: accounts, academics, clients, enquiries, enrollments, billing, assessments, overview, core. New domain logic goes in the app it belongs to, with business rules in `services.py`, not views.
+- Django apps: accounts, academics, clients, enquiries, enrollments, billing, assessments, overview, core, plus `onboarding` from Task 4. New domain logic goes in the app it belongs to, with business rules in `services.py`, not views.
 - Money is in MWK. Balances and overdue flags are computed, not stored.
 - Frontend: plain `fetch` through `src/lib/apiClient.js`. No new state or UI libraries without asking.
 - Styling: all colors, spacing and radii come from tokens in `fontend/src/index.css` (`:root`, plus dark overrides). Never hardcode a color in a component. The `src/styles/*.test.js` files check contrast and responsiveness; keep them passing.
@@ -53,4 +53,4 @@ Run the relevant tests and the build before saying a task is done.
 
 ## Design source of truth
 
-The spec "LHQ Spec: Tutor Assignment Flow" (Claude Docs) holds the design: tutor assignment, master timetable, tuition cards, public intake link, billing, and the build plan (Tasks 0 to 8). Each task arrives as a brief. Build only what the brief covers. If something in the brief is unclear or conflicts with the code, stop and ask rather than guess.
+`docs/v2/README.md` holds the plan, the decisions and the model map. Each task is a self-contained brief in `docs/v2/task-<n>-<name>.md`. Build only what the brief covers. If something in a brief is unclear or conflicts with the code, stop and ask rather than guess.
