@@ -29,7 +29,7 @@ export function EnrollmentCreatePage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    academicsApi.listSubjects({ is_active: true }).then((res) => setSubjects(res.results))
+    academicsApi.listAllSubjects({ is_active: true }).then(setSubjects)
   }, [])
 
   useEffect(() => {

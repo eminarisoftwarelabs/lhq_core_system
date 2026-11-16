@@ -69,7 +69,8 @@ Build a fetch wrapper that:
   "is_active": true,
   "date_joined": "2026-08-20T12:00:00Z",
   "last_login": null,              // ISO datetime or null
-  "tutor_profile": null,           // null, or { "hourly_rate": "40.00", "is_available": true }
+  "tutor_profile": null,           // null, or { "id": 4, "hourly_rate": "40.00", "is_available": true,
+                                   //   "can_take_new_students": false }  (read-only flag, see "Tutors and subjects")
   "teaches": false,                // true iff tutor_profile exists — independent of role
   "is_staff_level": true           // true for ADMIN / OWNER / SYS_ADMIN, false for TUTOR
 }
@@ -301,11 +302,9 @@ directly when deciding whether to show hourly-rate/availability UI.
 - **No email sending.** `setup-password` is live but unreachable from a
   real onboarding flow until email exists — don't build a "check your email"
   screen that promises something that won't happen.
-- **No Subject/TutorProfile endpoints beyond the nested `tutor_profile`
-  field** on the user create/update requests above. There's a `Subject`
-  model in the backend (subject-to-tutor assignment) but no REST endpoint
-  for it yet — don't build a subjects UI against this API; ask if you need
-  it, it isn't here.
+- **No per-subject pay.** A tutor has one `hourly_rate` on `tutor_profile`.
+- **No matching of students to tutors yet.** `can_take_new_students` is
+  there for that later feature; nothing reads it yet.
 - **No full user replace (`PUT`)** — only `PATCH`. Don't build a form that
   sends a full object; send only changed fields.
 
@@ -338,11 +337,13 @@ the kind of logic that silently drifts if untested).
 
 ## Assessments (tutor comments on a student)
 
-The whole of what a Tutor can do: see their assigned subjects
-(`GET /subjects/`), see a subject's roster (`GET /subjects/{id}/students/`),
-and assess the students on it. Everything else (students list and record,
-enrollments, enquiries, invoices, creating subjects or users) answers 403
-for a Tutor; other tutors' subjects and rosters answer 404.
+The whole of what a Tutor can do here: see the subjects they teach
+(`GET /subjects/?mine=true`), see one of those subjects' roster
+(`GET /subjects/{id}/students/`), and assess the students on it. Everything
+else (students list and record, enrollments, enquiries, invoices, creating
+subjects or users) answers 403 for a Tutor; the roster of a subject they
+don't teach answers 404. The subject catalog itself is visible to everyone
+(see "Tutors and subjects").
 
 ### `GET /students/{id}/assessments/`
 
@@ -376,8 +377,8 @@ Body `{ "subject": 4, "category": "ACADEMIC", "comment": "..." }` → 201 with
 the object above. `student` and the author come from the URL and the token;
 sending them in the body is ignored.
 
-- 403 unless the caller is the tutor assigned to `subject` **and** the
-  student is actively enrolled in it. That includes staff: an Owner who
+- 403 unless the caller teaches `subject` (a `TutorSubject` link) **and**
+  the student is actively enrolled in it. That includes staff: an Owner who
   doesn't teach the subject can read but not write.
 - 400 for a blank comment or an unknown category.
 - There is no PATCH/PUT/DELETE (405). A comment stays on the record, and
@@ -387,7 +388,8 @@ UI: `/subjects/:id/students/:studentId` (`StudentAssessmentPage`) is the
 tutor's view of one student; the staff student record (`/students/:id`)
 shows the same list read-only. Both use
 `src/components/assessments/StudentAssessments.jsx`, and
-`canAssessSubject` in `src/auth/permissions.js` mirrors the write rule.
+`canAssessSubject` in `src/auth/permissions.js` mirrors the write rule,
+using the subject's `taught_by_me` flag.
 
 ## Company overview (Owner dashboard)
 
@@ -426,3 +428,149 @@ UI: `DashboardPage` picks one of three dashboards by role -
 `OwnerDashboard` (Owner, SYS_ADMIN), the staff dashboard (Admin), or
 `TutorDashboard`. `canSeeCompanyOverview` in `src/auth/permissions.js`
 mirrors the backend's `IsOwnerLevel`.
+
+## Tutors and subjects
+
+A **subject** is a catalog entry at one **level** ("IGCSE Physics"), with
+the official Cambridge topic list. Many tutors can teach a subject and a
+tutor can teach many (`TutorSubject`). Each tutor also has **working hours**.
+A tutor proposes changes to their own subjects and hours; nothing live
+changes until staff approve. Staff can also edit any tutor directly.
+
+Weekdays are `0` = Monday ... `6` = Sunday (all seven allowed for working
+hours). Times are `"HH:MM"`. Tutor ids in `/tutors/{id}/...` are
+**TutorProfile** ids (`user.tutor_profile.id`), not User ids.
+
+### `GET /levels/`
+
+Unpaginated, curriculum order:
+`[{ "id": 3, "name": "IGCSE", "order": 3, "year_groups": [10, 11], "is_active": true }]`.
+Seeded: Primary (Year 6), Lower Secondary (Years 7 to 9), IGCSE, A Level.
+
+### `GET /subjects/`
+
+Paginated (`count/next/previous/results`); `academicsApi.listAllSubjects`
+walks every page. Any signed-in user. Filters: `?level=<id>`,
+`?is_active=true|false`, `?mine=true` (subjects the caller teaches),
+`?taught=true` (subjects at least one tutor teaches).
+
+```jsonc
+{
+  "id": 12,
+  "level": 3,
+  "level_name": "IGCSE",
+  "name": "Physics",
+  "code": "0625",              // Cambridge syllabus code, may be ""
+  "has_paper": true,           // Core and Extended papers apply
+  "is_active": true,
+  "timetable_slot": null,      // old holiday timetable, unchanged
+  "taught_by_me": false,       // whether the caller teaches it
+  "tutors": [{ "id": 4, "name": "Tam Tutor" }]   // STAFF RESPONSES ONLY
+}
+```
+
+A tutor's response never has `tutors`: tutors don't see who else teaches.
+`POST /subjects/` and `PATCH /subjects/{id}/` are staff only; `level` is
+required and `name` is unique per level. `GET /subjects/{id}/` is open to
+any signed-in user (catalog entry).
+
+### `GET /subjects/{id}/topics/`
+
+Read-only (topics come from `seed_cambridge_topics`), grouped by chapter in
+syllabus order:
+
+```jsonc
+[
+  { "chapter": "Number",
+    "topics": [{ "id": 1, "number": "1.17", "name": "Exponential growth and decay",
+                 "extended_only": true, "order": 2 }] }
+]
+```
+
+The old `POST /subjects/{id}/topics/` and `PATCH/DELETE /topics/{id}/` are
+gone.
+
+### `GET` / `PUT /tutors/{id}/subjects/`
+
+GET: staff, or the tutor themself (anyone else 404). Returns
+`[{ "id", "name", "level", "level_name", "code", "has_paper" }]`.
+PUT body `{ "subjects": [12, 15] }` replaces the whole set **now**, no
+approval. Staff with authority over the account only (Owner/SYS_ADMIN over
+anyone, Admin over Tutors); a tutor gets 403. Unknown or inactive ids: 400
+`{ "subjects": ["Unknown or inactive subject id: 99."] }`.
+
+### `GET` / `PUT /tutors/{id}/working-hours/`
+
+Same access rules. Returns and accepts
+`[{ "weekday": 0, "start_time": "08:00", "end_time": "12:00" }]`, sorted by
+day then start. PUT body `{ "working_hours": [...] }` replaces the week.
+A day may hold several blocks; blocks may touch but not overlap. 400 shapes:
+`{ "working_hours": ["Monday 11:00 to 13:00 overlaps Monday 08:00 to 12:00."] }`,
+`["Row 2: weekday must be 0 (Monday) to 6 (Sunday)."]`,
+`["Friday 13:00 to 12:00: start must be before end."]`.
+
+### Change request object
+
+```jsonc
+{
+  "id": 7,
+  "tutor": 4,                  // TutorProfile id
+  "tutor_user": 21,            // User id, for linking to /users/{id}
+  "tutor_name": "Tam Tutor",
+  "kind": "SUBJECTS",          // or "WORKING_HOURS"
+  "proposed": [ /* subjects as objects (like /tutors/{id}/subjects/), or hour blocks */ ],
+  "note": "I can cover Physics now",
+  "status": "PENDING",         // PENDING | APPROVED | REJECTED | CANCELLED
+  "created_at": "2026-11-15T09:00:00Z",
+  "reviewed_by_name": null,
+  "reviewed_at": null,
+  "reject_reason": "",
+  "current": [ /* staff responses only: the tutor's live set now */ ]
+}
+```
+
+### `GET` / `POST /tutors/me/change-requests/`
+
+The caller's own requests, newest first (last 20); 404 if they have no
+tutor profile. POST `{ "kind", "proposed", "note" }` → 201. `proposed` is
+the **whole** new set (subject ids, or hour blocks) and is validated with
+the same rules as the PUTs above. Only one PENDING request per kind: a new
+one cancels the old. Staff who can review it get a notification.
+
+### `POST /tutors/me/change-requests/{id}/cancel/`
+
+Withdraw your own pending request → the updated object. Someone else's id:
+404. Not pending: 400.
+
+### `GET /change-requests/?status=PENDING[&tutor=<tutor profile id>]`
+
+Staff only, unpaginated, newest first, with `current` next to `proposed`.
+An Admin only sees requests from role=TUTOR accounts.
+
+### `POST /change-requests/{id}/approve/` and `.../reject/`
+
+Approve applies `proposed` as the tutor's new live set in one transaction,
+re-validated at that moment (400 if, say, a subject was deactivated since).
+Reject needs `{ "reason": "..." }` (400 if blank) and changes nothing live.
+Either notifies the tutor. A request that isn't pending: 400
+`{ "detail": ["This request is already approved."] }`.
+
+### `GET /notifications/` and `POST /notifications/{id}/read/`
+
+The caller's own: `{ "unread_count": 2, "results": [{ "id", "message",
+"link", "created_at", "read_at", "is_read" }] }` (the latest 20). `link` is
+a frontend path. Mark-read is idempotent; someone else's id is 404.
+
+### `tutor_can_take_new_students`
+
+`tutor_profile.can_take_new_students` is true when the account is active,
+`is_available` is set, and the tutor has at least one subject and one
+working-hours block. The UI warns on a tutor's profile when subjects or
+hours are missing.
+
+UI: Subjects page (`SubjectsListPage`, grouped by level), subject detail
+(topics by chapter, Extended badges), `TutorTeachingPanel` on a tutor's
+profile (`/users/:id`, saves directly) and on My Profile (`/me`, sends a
+change request), the review queue at `/users/change-requests`
+(`ChangeRequestsPage`), and the header bell (`NotificationBell`).
+

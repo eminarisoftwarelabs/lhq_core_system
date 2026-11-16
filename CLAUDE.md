@@ -19,13 +19,15 @@ Internal ops system for LHQ Learning Hub (Lilongwe). Built by Eminari Software L
   4. `git push -u origin <branch>` then `gh pr create --base v2-develop` with a summary and how to test. If `gh` is not available, push and tell Eddie to open the PR on GitHub.
   5. Stop. Eddie reviews the diff and merges. Do not merge PRs yourself.
 - Tag `v1-holiday-system` marks the old build.
-- Staging: Railway deploys `v2-develop`; Vercel builds a preview per branch.
+- Staging: the backend host is not decided yet, so test locally. Vercel builds a frontend preview per branch.
 
 ## Commands
 
 Backend (from `backend/`):
 ```
 uv run python manage.py migrate
+uv run python manage.py seed_cambridge_topics   # subject catalog + topics (idempotent)
+uv run python manage.py seed_dummy_data         # demo tutors, students, enquiries (idempotent)
 uv run python manage.py runserver
 uv run python manage.py test
 ```
@@ -53,4 +55,4 @@ Run the relevant tests and the build before saying a task is done.
 
 ## Design source of truth
 
-The spec "LHQ Spec: Tutor Assignment Flow" (Claude Docs) holds the design: tutor assignment, master timetable, tuition cards, public intake link, billing, and the build plan (Tasks 0 to 8). Each task arrives as a brief. Build only what the brief covers. If something in the brief is unclear or conflicts with the code, stop and ask rather than guess.
+Each feature arrives as a brief (in `build-plan/` or pasted into the session). Build only what the brief covers. If something in the brief is unclear or conflicts with the code, stop and ask rather than guess.

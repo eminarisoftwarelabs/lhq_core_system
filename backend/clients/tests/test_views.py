@@ -2,7 +2,8 @@ from datetime import date
 
 from rest_framework.test import APITestCase
 
-from academics.models import Subject, TimetableSlot
+from academics.models import TimetableSlot
+from academics.testing import make_subject
 from accounts.models import Role, TutorProfile, User
 from clients.models import Guardianship, Parent, Student
 from enrollments.models import Enrollment, EnrollmentStatus, LearningMode
@@ -98,7 +99,7 @@ class StudentTimetableTests(APITestCase):
     def setUp(self):
         self.owner = make_user(Role.OWNER)
         self.student = Student.objects.create(student_number='STU-000001', full_name='Alice Wang', grade='7')
-        self.subject = Subject.objects.create(name='Maths')
+        self.subject = make_subject('Maths')
         TimetableSlot.objects.create(subject=self.subject, day_of_week=2, start_time='15:00', end_time='16:00')
 
     def test_active_enrollment_subject_appears_in_timetable(self):
@@ -143,7 +144,7 @@ class SubjectRosterTests(APITestCase):
         self.other_tutor_user = make_user(Role.TUTOR, email='other@lhq.test')
         self.other_tutor_profile = TutorProfile.objects.create(user=self.other_tutor_user)
 
-        self.subject = Subject.objects.create(name='Maths', tutor=self.tutor_profile)
+        self.subject = make_subject('Maths', tutors=[self.tutor_profile])
         self.student = Student.objects.create(student_number='STU-000001', full_name='Alice Wang', grade='7')
 
         enrollment = Enrollment.objects.create(

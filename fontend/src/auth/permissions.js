@@ -96,12 +96,12 @@ export function canEdit(actor, target) {
 
 // can_assess(user, student, subject) in backend/assessments/services.py,
 // minus its enrollment check (the roster the UI links from is already the
-// subject's active students). Keyed on the tutor profile, not the role: an
-// Owner or Admin who teaches the subject can assess too, one who doesn't
-// cannot.
+// subject's active students). Keyed on teaching, not the role: an Owner or
+// Admin who teaches the subject can assess too, one who doesn't cannot.
+// `taught_by_me` is computed by the server for the signed-in viewer, since
+// a tutor's subject responses don't list who else teaches it.
 export function canAssessSubject(user, subject) {
-  const tutorProfileId = user?.tutor_profile?.id
-  return tutorProfileId != null && subject?.tutor === tutorProfileId
+  return user?.tutor_profile != null && subject?.taught_by_me === true
 }
 
 // IsOwnerLevel in backend/accounts/permissions.py - who gets the company

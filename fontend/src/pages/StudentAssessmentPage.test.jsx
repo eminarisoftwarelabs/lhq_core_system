@@ -54,7 +54,7 @@ function renderPage(path = '/subjects/1/students/5') {
 
 beforeEach(() => {
   mockUseAuth.mockReturnValue(TUTOR)
-  mockGetSubject.mockReset().mockResolvedValue({ id: 1, name: 'Maths', tutor: 9 })
+  mockGetSubject.mockReset().mockResolvedValue({ id: 1, name: 'Maths', taught_by_me: true })
   mockGetSubjectRoster.mockReset().mockResolvedValue([alice])
   mockListAssessments.mockReset().mockResolvedValue([])
 })

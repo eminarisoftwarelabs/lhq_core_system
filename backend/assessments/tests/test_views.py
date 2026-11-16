@@ -2,7 +2,7 @@ from datetime import date
 
 from rest_framework.test import APITestCase
 
-from academics.models import Subject
+from academics.testing import make_subject, teach
 from accounts.models import Role, TutorProfile, User
 from assessments.models import Assessment, AssessmentCategory
 from clients.models import Student
@@ -35,9 +35,9 @@ class AssessmentApiTests(APITestCase):
         self.other_tutor_user = make_user(Role.TUTOR, email='other@lhq.test', full_name='Peter Phiri')
         self.other_tutor = TutorProfile.objects.create(user=self.other_tutor_user)
 
-        self.maths = Subject.objects.create(name='Maths', tutor=self.tutor)
-        self.physics = Subject.objects.create(name='Physics', tutor=self.other_tutor)
-        self.unassigned = Subject.objects.create(name='Chemistry')
+        self.maths = make_subject('Maths', tutors=[self.tutor])
+        self.physics = make_subject('Physics', tutors=[self.other_tutor])
+        self.unassigned = make_subject('Chemistry')
 
         # Alice takes both classes, Bob only Physics.
         self.alice = Student.objects.create(student_number='STU-000001', full_name='Alice Wang')
@@ -120,8 +120,7 @@ class AssessmentApiTests(APITestCase):
 
     def test_tutor_cannot_assess_a_student_not_enrolled_in_that_subject(self):
         # Grace also teaches Chemistry, which Alice doesn't take.
-        self.unassigned.tutor = self.tutor
-        self.unassigned.save()
+        teach(self.tutor, self.unassigned)
         self.client.force_authenticate(self.tutor_user)
         resp = self._post(self.alice, self.unassigned)
         self.assertEqual(resp.status_code, 403)
@@ -141,8 +140,7 @@ class AssessmentApiTests(APITestCase):
 
     def test_staff_who_teach_the_subject_can_write(self):
         # TutorProfile isn't tied to role=TUTOR: an Owner can also teach.
-        self.unassigned.tutor = TutorProfile.objects.create(user=self.owner)
-        self.unassigned.save()
+        teach(TutorProfile.objects.create(user=self.owner), self.unassigned)
         enroll(self.bob, [self.unassigned])
         self.client.force_authenticate(self.owner)
         self.assertEqual(self._post(self.bob, self.unassigned).status_code, 201)
@@ -232,10 +230,9 @@ class AssessmentApiTests(APITestCase):
 
     def test_comment_survives_its_author_being_deleted(self):
         assessment = self._make(self.alice, self.physics, self.other_tutor_user, comment='Keeps trying.')
-        # Mirrors accounts.UserDetailView.delete's precondition: subjects
-        # are reassigned before a teaching account can be removed.
-        self.physics.tutor = None
-        self.physics.save()
+        # Mirrors accounts.UserDetailView.delete's precondition: a teaching
+        # account's subjects are removed before the account can be.
+        self.other_tutor.subject_links.all().delete()
         self.other_tutor.delete()
         self.other_tutor_user.delete()
 
@@ -249,8 +246,8 @@ class AssessmentApiTests(APITestCase):
 
     def test_comment_survives_the_tutor_being_reassigned(self):
         self._make(self.alice, self.maths, self.tutor_user, comment='Before the handover.')
-        self.maths.tutor = self.other_tutor
-        self.maths.save()
+        self.tutor.subject_links.filter(subject=self.maths).delete()
+        teach(self.other_tutor, self.maths)
         self.client.force_authenticate(self.other_tutor_user)
         resp = self.client.get(self._url(self.alice))
         self.assertEqual(resp.data[0]['comment'], 'Before the handover.')
@@ -265,8 +262,8 @@ class TutorBoundaryTests(APITestCase):
     def setUp(self):
         self.tutor_user = make_user(Role.TUTOR)
         self.tutor = TutorProfile.objects.create(user=self.tutor_user)
-        self.maths = Subject.objects.create(name='Maths', tutor=self.tutor)
-        self.physics = Subject.objects.create(name='Physics')
+        self.maths = make_subject('Maths', tutors=[self.tutor])
+        self.physics = make_subject('Physics')
         self.alice = Student.objects.create(student_number='STU-000001', full_name='Alice Wang')
         enroll(self.alice, [self.maths])
         self.client.force_authenticate(self.tutor_user)
@@ -305,10 +302,12 @@ class TutorBoundaryTests(APITestCase):
             self.client.patch(f'/api/subjects/{self.maths.id}/', {'name': 'Renamed'}, format='json').status_code, 403
         )
 
-    def test_tutor_sees_only_their_own_subjects_and_rosters(self):
-        subjects = self.client.get('/api/subjects/')
-        self.assertEqual([row['name'] for row in subjects.data['results']], ['Maths'])
-        self.assertEqual(self.client.get(f'/api/subjects/{self.physics.id}/').status_code, 404)
+    def test_tutor_sees_the_catalog_but_only_their_own_rosters(self):
+        # The catalog is public to tutors (they pick what they teach from
+        # it); who teaches what and who is enrolled are not.
+        mine = self.client.get('/api/subjects/?mine=true')
+        self.assertEqual([row['name'] for row in mine.data['results']], ['Maths'])
+        self.assertEqual(self.client.get(f'/api/subjects/{self.physics.id}/').status_code, 200)
         self.assertEqual(self.client.get(f'/api/subjects/{self.physics.id}/students/').status_code, 404)
 
         roster = self.client.get(f'/api/subjects/{self.maths.id}/students/')

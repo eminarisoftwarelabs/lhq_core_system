@@ -1,6 +1,8 @@
 import { KeyRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { hasStaffScopeOver } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
+import { TutorTeachingPanel } from '../components/tutors/TutorTeachingPanel'
 import { UserEditForm } from '../components/UserEditForm'
 import { UserProfileHeader } from '../components/UserProfileHeader'
 import { usePageTitle } from '../lib/usePageTitle'
@@ -21,6 +23,18 @@ export function ProfilePage() {
       <div className="form-card">
         <UserEditForm actor={user} target={user} onSaved={setUser} />
       </div>
+
+      {user.teaches && user.tutor_profile && (
+        <div className="form-card">
+          {/* A tutor's own changes wait for an admin. An Owner or System
+              Admin who teaches has authority over their own account, so
+              their changes apply directly - same rule as the server. */}
+          <TutorTeachingPanel
+            tutorId={user.tutor_profile.id}
+            mode={hasStaffScopeOver(user.role, user.role) ? 'direct' : 'request'}
+          />
+        </div>
+      )}
     </div>
   )
 }

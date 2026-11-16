@@ -2,7 +2,7 @@ from datetime import date
 
 from rest_framework.test import APITestCase
 
-from academics.models import Subject
+from academics.testing import make_subject
 from accounts.models import Role, User
 from clients.models import Student
 from enrollments.models import Enrollment, EnrollmentStatus, LearningMode
@@ -21,7 +21,7 @@ class EnrollmentCreateTests(APITestCase):
     def setUp(self):
         self.owner = make_user(Role.OWNER)
         self.student = Student.objects.create(student_number='STU-000001', full_name='Alice', grade='7')
-        self.subject = Subject.objects.create(name='Maths')
+        self.subject = make_subject('Maths')
 
     def test_create_with_explicit_end_date(self):
         self.client.force_authenticate(self.owner)

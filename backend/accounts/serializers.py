@@ -5,16 +5,27 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 
-from .models import Role, TutorProfile, User
+from academics.models import Subject
+
+from .models import ChangeKind, Role, TutorChangeRequest, TutorProfile, User
+from .services import current_value, tutor_can_take_new_students
 
 
 class TutorProfileSerializer(serializers.ModelSerializer):
+    # False until the tutor has at least one subject and one working-hours
+    # block (and is active and available) - see
+    # accounts.services.tutor_can_take_new_students.
+    can_take_new_students = serializers.SerializerMethodField()
+
     class Meta:
         model = TutorProfile
-        # 'id' is read-only by default (it's the PK) - exposed so callers
-        # like academics.Subject's tutor picker can reference this profile,
-        # since Subject.tutor is a TutorProfile id, not a User id.
-        fields = ['id', 'hourly_rate', 'is_available']
+        # 'id' is read-only by default (it's the PK) - exposed because the
+        # /tutors/{id}/... endpoints are keyed by TutorProfile id, not User id.
+        fields = ['id', 'hourly_rate', 'is_available', 'can_take_new_students']
+        read_only_fields = ['id', 'can_take_new_students']
+
+    def get_can_take_new_students(self, obj) -> bool:
+        return tutor_can_take_new_students(obj)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -211,3 +222,108 @@ class ChangePasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError({'new_password': exc.messages})
 
         return attrs
+
+
+# -- tutor subjects, working hours, change requests --------------------------
+
+
+class TutorSubjectItemSerializer(serializers.Serializer):
+    """A subject as it appears on a tutor's profile."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    level = serializers.IntegerField(source='level_id')
+    level_name = serializers.CharField(source='level.name')
+    code = serializers.CharField()
+    has_paper = serializers.BooleanField()
+
+
+class WorkingHoursItemSerializer(serializers.Serializer):
+    weekday = serializers.IntegerField(min_value=0, max_value=6)
+    start_time = serializers.CharField()
+    end_time = serializers.CharField()
+
+
+class TutorSubjectsWriteSerializer(serializers.Serializer):
+    # Shape only; accounts.services.validate_subject_ids owns the rules.
+    subjects = serializers.ListField(child=serializers.JSONField())
+
+
+class WorkingHoursWriteSerializer(serializers.Serializer):
+    working_hours = serializers.ListField(child=serializers.JSONField())
+
+
+class ChangeRequestSubmitSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=ChangeKind.choices)
+    proposed = serializers.JSONField()
+    note = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+
+
+class RejectSerializer(serializers.Serializer):
+    reason = serializers.CharField(allow_blank=True, max_length=1000)
+
+
+def subjects_for_ids(ids):
+    """Subject ids -> serialised subjects in id order. An id no longer in
+    the catalog shows as a placeholder rather than vanishing, so a
+    reviewer still sees that the tutor asked for it."""
+    by_id = {s.id: s for s in Subject.objects.select_related('level').filter(id__in=ids)}
+    out = []
+    for i in ids:
+        subject = by_id.get(i)
+        if subject is None:
+            out.append({'id': i, 'name': f'Subject {i} (removed)', 'level': None, 'level_name': '', 'code': '', 'has_paper': False})
+        else:
+            out.append(TutorSubjectItemSerializer(subject).data)
+    return sorted(out, key=lambda s: (s['level'] is None, s['level_name'], s['name']))
+
+
+def resolve_value(kind, value):
+    return subjects_for_ids(value) if kind == ChangeKind.SUBJECTS else value
+
+
+class ChangeRequestSerializer(serializers.ModelSerializer):
+    """`proposed` comes resolved (subjects as objects, not ids). Staff
+    review responses also carry `current` - the tutor's live set now - so
+    the two can be compared side by side."""
+
+    tutor_name = serializers.SerializerMethodField()
+    # The tutor's User id, for linking to their profile page.
+    tutor_user = serializers.IntegerField(source='tutor.user_id', read_only=True)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.full_name', read_only=True, default=None)
+    proposed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TutorChangeRequest
+        fields = [
+            'id',
+            'tutor',
+            'tutor_user',
+            'tutor_name',
+            'kind',
+            'proposed',
+            'note',
+            'status',
+            'created_at',
+            'reviewed_by_name',
+            'reviewed_at',
+            'reject_reason',
+        ]
+        read_only_fields = fields
+
+    def get_tutor_name(self, obj) -> str:
+        return obj.tutor.user.full_name or obj.tutor.user.email
+
+    def get_proposed(self, obj) -> list:
+        return resolve_value(obj.kind, obj.proposed)
+
+
+class StaffChangeRequestSerializer(ChangeRequestSerializer):
+    current = serializers.SerializerMethodField()
+
+    class Meta(ChangeRequestSerializer.Meta):
+        fields = ChangeRequestSerializer.Meta.fields + ['current']
+        read_only_fields = fields
+
+    def get_current(self, obj) -> list:
+        return resolve_value(obj.kind, current_value(obj.tutor, obj.kind))

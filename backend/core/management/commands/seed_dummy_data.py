@@ -5,8 +5,8 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from academics.models import Subject, TimetableSlot
-from accounts.models import EmploymentType, Role, TutorProfile, User
+from academics.models import Level, Subject, TimetableSlot
+from accounts.models import EmploymentType, Role, TutorProfile, TutorSubject, User, WorkingHours
 from billing.services import record_payment
 from clients.models import Guardianship, Parent, Student
 from clients.services import generate_student_number
@@ -31,6 +31,20 @@ ADMIN = {
 }
 
 TUTORS = [
+    # Easy-to-remember login for manual testing.
+    {
+        'email': 'tutor@lhq.test',
+        'full_name': 'Test Tutor',
+        'employee_id': 'DUMMY-TUT-00',
+        'phone': '0999000000',
+        'hourly_rate': Decimal('6000.00'),
+        'subjects': ['Mathematics', 'Physics'],
+        'working_hours': [
+            (0, time(14, 0), time(18, 0)),
+            (2, time(14, 0), time(18, 0)),
+            (4, time(14, 0), time(17, 0)),
+        ],
+    },
     {
         'email': 'chisomo.phiri@lhq.test',
         'full_name': 'Chisomo Phiri',
@@ -38,6 +52,14 @@ TUTORS = [
         'phone': '0999223344',
         'hourly_rate': Decimal('6000.00'),
         'subjects': ['Mathematics', 'Chemistry'],
+        # Two blocks on Monday to show a split day, plus a Saturday.
+        'working_hours': [
+            (0, time(8, 0), time(12, 0)),
+            (0, time(14, 0), time(17, 0)),
+            (2, time(14, 0), time(18, 0)),
+            (3, time(14, 0), time(18, 0)),
+            (5, time(9, 0), time(12, 0)),
+        ],
     },
     {
         'email': 'thandiwe.mvula@lhq.test',
@@ -45,7 +67,10 @@ TUTORS = [
         'employee_id': 'DUMMY-TUT-02',
         'phone': '0888334455',
         'hourly_rate': Decimal('5500.00'),
-        'subjects': ['English'],
+        'subjects': ['English Language'],
+        # Deliberately none: shows the "won't be suggested for new
+        # students" warning until hours are set.
+        'working_hours': [],
     },
     {
         'email': 'blessings.nyirenda@lhq.test',
@@ -54,13 +79,23 @@ TUTORS = [
         'phone': '0991556677',
         'hourly_rate': Decimal('6500.00'),
         'subjects': ['Physics', 'Biology'],
+        'working_hours': [
+            (1, time(14, 0), time(18, 0)),
+            (2, time(14, 0), time(16, 0)),
+            (4, time(13, 0), time(17, 0)),
+        ],
     },
 ]
+
+# Every dummy subject is an IGCSE subject. Same (level, name) key as
+# seed_cambridge_topics, so running both leaves one row per subject.
+DUMMY_SUBJECT_LEVEL = 'IGCSE'
+SUBJECTS_WITH_PAPER = {'Mathematics', 'Physics', 'Chemistry', 'Biology'}
 
 # subject name -> (day_of_week, start_time, end_time). 0=Monday ... 4=Friday.
 SUBJECT_SLOTS = {
     'Mathematics': (0, time(14, 0), time(15, 30)),
-    'English': (1, time(15, 0), time(16, 30)),
+    'English Language': (1, time(15, 0), time(16, 30)),
     'Physics': (2, time(14, 0), time(15, 30)),
     'Chemistry': (3, time(15, 0), time(16, 30)),
     'Biology': (4, time(14, 0), time(15, 30)),
@@ -88,7 +123,7 @@ PARENTS_AND_CHILDREN = [
                 'full_name': 'Chisomo Banda',
                 'year_group': 5,
                 'school': 'Bishop Mackenzie International School',
-                'subjects': ['English'],
+                'subjects': ['English Language'],
                 'learning_mode': LearningMode.IN_PERSON,
             },
         ],
@@ -172,7 +207,7 @@ ENQUIRIES = [
         },
         'student_year_group': 9,
         'student_school': 'Robert Laws Secondary School',
-        'subjects': ['English', 'Physics'],
+        'subjects': ['English Language', 'Physics'],
         'duration_weeks': 8,
         'learning_mode': LearningMode.ONLINE,
         'start_offset_days': 14,
@@ -277,7 +312,22 @@ class Command(BaseCommand):
 
     def _seed_tutors_and_subjects(self):
         """Returns {subject_name: Subject} for every subject in SUBJECT_SLOTS."""
-        tutors_by_subject = {}
+        level = Level.objects.get(name=DUMMY_SUBJECT_LEVEL)  # seeded by academics migration 0006
+        subjects = {}
+        for subject_name, (day, start, end) in SUBJECT_SLOTS.items():
+            subject, created = Subject.objects.get_or_create(
+                level=level,
+                name=subject_name,
+                defaults={'is_active': True, 'has_paper': subject_name in SUBJECTS_WITH_PAPER},
+            )
+            if created:
+                self.stdout.write(f'Created subject {subject}')
+            TimetableSlot.objects.get_or_create(
+                subject=subject,
+                defaults={'day_of_week': day, 'start_time': start, 'end_time': end},
+            )
+            subjects[subject_name] = subject
+
         for tutor_data in TUTORS:
             user = self._get_or_create_staff_user(tutor_data, Role.TUTOR, EmploymentType.PART_TIME)
             tutor_profile, _ = TutorProfile.objects.get_or_create(
@@ -285,26 +335,16 @@ class Command(BaseCommand):
                 defaults={'hourly_rate': tutor_data['hourly_rate'], 'is_available': True},
             )
             for subject_name in tutor_data['subjects']:
-                tutors_by_subject[subject_name] = tutor_profile
-
-        subjects = {}
-        for subject_name, (day, start, end) in SUBJECT_SLOTS.items():
-            tutor_profile = tutors_by_subject.get(subject_name)
-            subject, created = Subject.objects.get_or_create(
-                name=subject_name,
-                defaults={'tutor': tutor_profile, 'is_active': True},
-            )
-            if not created and subject.tutor_id is None and tutor_profile is not None:
-                subject.tutor = tutor_profile
-                subject.save(update_fields=['tutor'])
-            if created:
-                self.stdout.write(f'Created subject {subject.name}')
-
-            TimetableSlot.objects.get_or_create(
-                subject=subject,
-                defaults={'day_of_week': day, 'start_time': start, 'end_time': end},
-            )
-            subjects[subject_name] = subject
+                TutorSubject.objects.get_or_create(tutor=tutor_profile, subject=subjects[subject_name])
+            # Only seed hours for a tutor with none, so hours someone set
+            # by hand survive a re-run.
+            if not tutor_profile.working_hours.exists():
+                WorkingHours.objects.bulk_create(
+                    [
+                        WorkingHours(tutor=tutor_profile, weekday=weekday, start_time=start, end_time=end)
+                        for weekday, start, end in tutor_data['working_hours']
+                    ]
+                )
         return subjects
 
     # -- clients --------------------------------------------------------

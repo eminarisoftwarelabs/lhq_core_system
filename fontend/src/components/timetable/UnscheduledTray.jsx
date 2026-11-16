@@ -1,5 +1,6 @@
 import { CalendarCheck, GripVertical, Plus, UserCog } from 'lucide-react'
 import { DEFAULT_SESSION_MINUTES, DRAG_TYPE, encodeDrag } from '../../lib/timetableGrid'
+import { tutorNames } from '../../lib/tutorTeaching'
 
 /**
  * Subjects with no session yet. Each can be dragged straight onto the
@@ -39,7 +40,7 @@ export function UnscheduledTray({ subjects, onSchedule, onDragStart, onDragEnd }
                   <span className="tt-tray__name">{subject.name}</span>
                   <span className="tt-tray__tutor">
                     <UserCog size={11} strokeWidth={1.75} aria-hidden="true" />
-                    {subject.tutor_name || 'Unassigned'}
+                    {tutorNames(subject) || 'Unassigned'}
                   </span>
                 </span>
                 <button

@@ -1,0 +1,72 @@
+{
+  "Primary": {
+    "Mathematics": {
+      "code": "0096",
+      "years": [6],
+      "topics": [
+        {"group": "Number"},
+        "Counting and sequences",
+        "Integers and powers",
+        {"group": "Geometry"},
+        "Angles"
+      ]
+    }
+  },
+  "Lower Secondary": {
+    "Science": {
+      "code": "0893",
+      "years": [7, 8, 9],
+      "skills": ["Thinking and working scientifically"],
+      "topics": [
+        "Scientific enquiry",
+        {"group": "Biology"},
+        "Cells",
+        "Cells"
+      ]
+    }
+  },
+  "IGCSE": {
+    "Mathematics": {
+      "code": "0580",
+      "years": [10, 11],
+      "topics": [
+        {"t": "Number", "sub": [
+          {"n": "1.1", "t": "Types of number"},
+          {"n": "1.17", "t": "Exponential growth and decay", "ext": true}
+        ]},
+        {"t": "Algebra and graphs", "sub": [
+          {"n": "2.1", "t": "Introduction to algebra"},
+          {"n": "2.12", "t": "Differentiation", "ext": true}
+        ]}
+      ]
+    },
+    "Physics": {
+      "code": "0625",
+      "years": [10, 11],
+      "topics": [
+        {"t": "Motion, forces and energy", "sub": [
+          {"n": "1.1", "t": "Physical quantities and measurement techniques"}
+        ]}
+      ]
+    },
+    "Geography": {
+      "code": "0460",
+      "years": [10, 11],
+      "topics": [
+        {"group": "Population and settlement"},
+        "Population dynamics"
+      ]
+    }
+  },
+  "A Level": {
+    "Physics": {
+      "code": "9702",
+      "years": [12, 13],
+      "topics": [
+        {"t": "Physical quantities and units", "sub": [
+          {"n": "1.1", "t": "Physical quantities"}
+        ]}
+      ]
+    }
+  }
+}

@@ -141,7 +141,9 @@ class ListUsersView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = User.objects.select_related('tutor_profile').all()
+        qs = User.objects.select_related('tutor_profile').prefetch_related(
+            'tutor_profile__subject_links', 'tutor_profile__working_hours'
+        )
         allowed_roles = [role for role in Role.values if can_create_role(self.request.user, role)]
         return qs.filter(role__in=allowed_roles)
 
@@ -252,12 +254,12 @@ class UserDetailView(APIView):
             raise PermissionDenied('You do not have permission to delete this user.')
 
         tutor_profile = getattr(instance, 'tutor_profile', None)
-        if tutor_profile is not None and tutor_profile.subjects.exists():
+        if tutor_profile is not None and tutor_profile.subject_links.exists():
             raise ValidationError(
                 {
                     'detail': [
-                        'Cannot delete: this user has subjects assigned. '
-                        'Reassign or remove those first.'
+                        'Cannot delete: this user still teaches subjects. '
+                        'Remove their subjects first.'
                     ]
                 }
             )

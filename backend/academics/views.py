@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.db.models import ProtectedError
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
@@ -7,16 +6,18 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import LessonPlan, School, Subject, Topic
+from .models import LessonPlan, Level, School, Subject, Topic
 from .serializers import (
+    ChapterSerializer,
     CopyWeekSerializer,
     LessonPlanRangeSerializer,
     LessonPlanSerializer,
     LessonPlanWriteSerializer,
+    LevelSerializer,
     SchoolSerializer,
     SubjectSerializer,
-    TopicSerializer,
 )
+from .services import plannable_subjects, taught_subjects, topics_by_chapter
 
 
 class SchoolListView(generics.ListAPIView):
@@ -34,141 +35,105 @@ class SchoolListView(generics.ListAPIView):
         return qs
 
 
-def _tutor_scoped_or_none(qs, user):
-    """Staff see everything; a Tutor sees only Subjects assigned to them."""
-    if user.is_staff_level:
-        return qs
-    tutor_profile = getattr(user, 'tutor_profile', None)
-    return qs.filter(tutor=tutor_profile) if tutor_profile else qs.none()
+class LevelListView(generics.ListAPIView):
+    """GET /levels/ - every level, in curriculum order. Unpaginated (four
+    rows)."""
+
+    serializer_class = LevelSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    queryset = Level.objects.all()
+
+
+def _truthy(value):
+    return value is not None and value.lower() in ('1', 'true', 'yes')
+
+
+def subject_queryset():
+    return Subject.objects.select_related('level', 'timetable_slot').prefetch_related('tutor_links__tutor__user')
 
 
 class SubjectListCreateView(generics.ListCreateAPIView):
-    """GET: staff see every Subject; a Tutor sees only their own
-    (subject.tutor == request.user.tutor_profile). ?is_active=true/false
-    filters either way - the onboarding subject picker uses is_active=true.
+    """GET: the subject catalog, visible to everyone signed in (a tutor
+    needs it to pick what they teach). Filters: ?level=<id>,
+    ?is_active=true/false, ?mine=true (subjects the viewer teaches),
+    ?taught=true (subjects at least one tutor teaches).
+    Staff responses list each subject's tutors; tutor responses do not.
     POST: staff only."""
 
     serializer_class = SubjectSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = Subject.objects.select_related('tutor__user', 'timetable_slot').prefetch_related('topics')
-        qs = _tutor_scoped_or_none(qs, self.request.user)
-        is_active = self.request.query_params.get('is_active')
+        qs = subject_queryset()
+        params = self.request.query_params
+        level = params.get('level')
+        if level:
+            if not level.isdigit():
+                raise ValidationError({'level': ['Must be a level id.']})
+            qs = qs.filter(level_id=int(level))
+        is_active = params.get('is_active')
         if is_active is not None:
-            qs = qs.filter(is_active=is_active.lower() in ('1', 'true', 'yes'))
+            qs = qs.filter(is_active=_truthy(is_active))
+        if _truthy(params.get('mine')):
+            qs = qs.filter(pk__in=taught_subjects(self.request.user))
+        if _truthy(params.get('taught')):
+            qs = qs.filter(tutor_links__isnull=False).distinct()
         return qs
 
-    def perform_create(self, serializer):
-        if not self.request.user.is_staff_level:
+    def create(self, request, *args, **kwargs):
+        # Refuse before validating, so a tutor gets 403 rather than a 400
+        # describing fields they could never send.
+        if not request.user.is_staff_level:
             raise PermissionDenied('You do not have permission to create subjects.')
-        serializer.save()
+        return super().create(request, *args, **kwargs)
 
 
 class SubjectDetailView(APIView):
-    """GET: staff any Subject, Tutor only their own (404 otherwise, hiding
-    existence the same way accounts.UserDetailView does). PATCH: staff
-    only, including reassigning tutor."""
-
-    permission_classes = [IsAuthenticated]
-
-    def _get(self, request, pk):
-        try:
-            subject = Subject.objects.select_related('tutor__user', 'timetable_slot').prefetch_related(
-                'topics'
-            ).get(pk=pk)
-        except Subject.DoesNotExist:
-            raise NotFound()
-        if not _tutor_scoped_or_none(Subject.objects.filter(pk=pk), request.user).exists():
-            raise NotFound()
-        return subject
-
-    @extend_schema(responses=SubjectSerializer)
-    def get(self, request, pk):
-        return Response(SubjectSerializer(self._get(request, pk)).data)
-
-    @extend_schema(request=SubjectSerializer, responses=SubjectSerializer)
-    def patch(self, request, pk):
-        subject = self._get(request, pk)
-        if not request.user.is_staff_level:
-            raise PermissionDenied('You do not have permission to edit subjects.')
-        serializer = SubjectSerializer(subject, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(SubjectSerializer(subject).data)
-
-
-class TopicListCreateView(generics.ListCreateAPIView):
-    """Nested under a Subject. GET: same visibility as the parent Subject.
-    POST: staff, or the Subject's own Tutor - planning lessons ahead often
-    needs a topic nobody has added yet (see LessonPlan)."""
-
-    serializer_class = TopicSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_subject(self):
-        try:
-            subject = Subject.objects.get(pk=self.kwargs['subject_id'])
-        except Subject.DoesNotExist:
-            raise NotFound()
-        if not _tutor_scoped_or_none(
-            Subject.objects.filter(pk=subject.pk), self.request.user
-        ).exists():
-            raise NotFound()
-        return subject
-
-    def get_queryset(self):
-        return Topic.objects.filter(subject=self.get_subject())
-
-    def perform_create(self, serializer):
-        # get_subject() already 404s a Tutor on anyone else's Subject.
-        serializer.save(subject=self.get_subject())
-
-
-class TopicDetailView(APIView):
-    """PATCH: staff only. DELETE: staff, or the tutor of the topic's
-    Subject (they can add topics, so they can remove them too)."""
+    """GET: any signed-in user (catalog entry). PATCH: staff only."""
 
     permission_classes = [IsAuthenticated]
 
     def _get(self, pk):
         try:
-            return Topic.objects.select_related('subject').get(pk=pk)
-        except Topic.DoesNotExist:
+            return subject_queryset().get(pk=pk)
+        except Subject.DoesNotExist:
             raise NotFound()
 
-    @extend_schema(request=TopicSerializer, responses=TopicSerializer)
+    @extend_schema(responses=SubjectSerializer)
+    def get(self, request, pk):
+        return Response(SubjectSerializer(self._get(pk), context={'request': request}).data)
+
+    @extend_schema(request=SubjectSerializer, responses=SubjectSerializer)
     def patch(self, request, pk):
+        subject = self._get(pk)
         if not request.user.is_staff_level:
-            raise PermissionDenied('You do not have permission to edit topics.')
-        topic = self._get(pk)
-        serializer = TopicSerializer(topic, data=request.data, partial=True)
+            raise PermissionDenied('You do not have permission to edit subjects.')
+        serializer = SubjectSerializer(subject, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(TopicSerializer(topic).data)
+        return Response(SubjectSerializer(self._get(pk), context={'request': request}).data)
 
-    @extend_schema(responses={204: None})
-    def delete(self, request, pk):
-        topic = self._get(pk)
-        if not _tutor_scoped_or_none(Subject.objects.filter(pk=topic.subject_id), request.user).exists():
-            raise PermissionDenied('You do not have permission to delete this topic.')
-        try:
-            topic.delete()
-        except ProtectedError:
-            planned = topic.lesson_plans.count()
-            raise ValidationError(
-                {
-                    'detail': f'"{topic.name}" is planned for {planned} lesson{"s" if planned != 1 else ""}. '
-                    'Change those lesson plans first.'
-                }
-            )
-        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class SubjectTopicsView(APIView):
+    """GET /subjects/{id}/topics/ - the subject's official syllabus,
+    grouped by chapter in syllabus order: [{chapter, topics: [...]}].
+    Read-only: topics come from seed_cambridge_topics, not typing."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses=ChapterSerializer(many=True))
+    def get(self, request, subject_id):
+        if not Subject.objects.filter(pk=subject_id).exists():
+            raise NotFound()
+        topics = Topic.objects.filter(subject_id=subject_id).order_by('order', 'id')
+        return Response(ChapterSerializer(topics_by_chapter(topics), many=True).data)
 
 
 def _plannable_subject(request, subject_id):
     """The Subject a user may read or write lesson plans for: staff any,
-    a Tutor only their own (404 otherwise, same as SubjectDetailView)."""
-    subject = _tutor_scoped_or_none(Subject.objects.filter(pk=subject_id), request.user).first()
+    anyone else only a subject they teach (404 otherwise)."""
+    subject = plannable_subjects(request.user).filter(pk=subject_id).first()
     if subject is None:
         raise NotFound()
     return subject
@@ -191,7 +156,7 @@ class LessonPlanListView(APIView):
     def get(self, request):
         params = LessonPlanRangeSerializer(data=request.query_params)
         params.is_valid(raise_exception=True)
-        subjects = _tutor_scoped_or_none(Subject.objects.all(), request.user)
+        subjects = plannable_subjects(request.user)
         plans = LessonPlan.objects.select_related('topic', 'updated_by').filter(
             subject__in=subjects,
             week_start__gte=params.validated_data['from_week'],
@@ -240,7 +205,7 @@ class LessonPlanCopyWeekView(APIView):
         payload = CopyWeekSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         source, target = payload.validated_data['from_week'], payload.validated_data['to_week']
-        subjects = _tutor_scoped_or_none(Subject.objects.all(), request.user)
+        subjects = plannable_subjects(request.user)
 
         copied = skipped = 0
         with transaction.atomic():

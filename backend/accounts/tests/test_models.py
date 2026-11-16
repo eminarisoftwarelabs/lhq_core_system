@@ -2,7 +2,8 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from academics.models import Subject
-from accounts.models import Role, TutorProfile, User
+from academics.testing import make_subject
+from accounts.models import Role, TutorProfile, TutorSubject, User
 
 
 class UserManagerTests(TestCase):
@@ -108,13 +109,14 @@ class TutorProfileModelTests(TestCase):
         profile = TutorProfile.objects.create(user=owner, hourly_rate='25.00')
         self.assertEqual(profile.user.role, Role.OWNER)
 
-    def test_deleting_tutor_protected_by_subject_assignment(self):
+    def test_deleting_a_tutor_profile_removes_only_their_links_not_the_subject(self):
         tutor_user = User.objects.create_user(
             email='tutor@lhq.test', full_name='Tutor', role=Role.TUTOR
         )
         profile = TutorProfile.objects.create(user=tutor_user)
-        Subject.objects.create(name='Maths', tutor=profile)
+        subject = make_subject('Maths', tutors=[profile])
 
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                profile.delete()
+        profile.delete()
+
+        self.assertFalse(TutorSubject.objects.filter(subject=subject).exists())
+        self.assertTrue(Subject.objects.filter(pk=subject.pk).exists())

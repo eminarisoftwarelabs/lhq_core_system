@@ -97,18 +97,10 @@ beforeEach(() => {
   mockListPlans.mockReset().mockResolvedValue([{ subject: 2, topic_name: 'Fractions' }])
   mockListEnquiries.mockReset().mockResolvedValue({ count: 4, results: [] })
   mockSearchStudents.mockReset().mockResolvedValue({ count: 12, results: [] })
-  mockListSubjects.mockReset().mockResolvedValue({
-    count: 9,
-    results: [
-      { id: 1, is_active: true },
-      { id: 2, is_active: true },
-      { id: 3, is_active: false },
-      { id: 4, is_active: true },
-      { id: 5, is_active: true },
-      { id: 6, is_active: true },
-      { id: 7, is_active: true },
-    ],
-  })
+  // The server does the filtering: 6 of the 9 subjects are active.
+  mockListSubjects
+    .mockReset()
+    .mockImplementation((params = {}) => Promise.resolve({ count: params.is_active ? 6 : 9, results: [] }))
   mockListTeaching.mockReset().mockResolvedValue([
     { id: 1, name: 'A' },
     { id: 2, name: 'B' },
@@ -239,7 +231,7 @@ describe('DashboardPage', () => {
     expect(rows[1]).toHaveTextContent('No topic planned')
     expect(rows[2]).toHaveTextContent('Not on the timetable yet · 1 student')
     expect(screen.getByRole('link', { name: /Maths/ })).toHaveAttribute('href', '/subjects/2')
-    expect(mockListAllSubjects).toHaveBeenCalledWith({ is_active: true })
+    expect(mockListAllSubjects).toHaveBeenCalledWith({ is_active: true, mine: true })
   })
 
   it('tells a tutor with no subjects so, with zeroes rather than dashes', async () => {

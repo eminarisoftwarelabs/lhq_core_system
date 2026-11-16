@@ -9,7 +9,7 @@ import { encodeDrag } from '../lib/timetableGrid'
 
 const mockListAllSubjects = vi.fn()
 const mockUpdateSubject = vi.fn()
-const mockCreateTopic = vi.fn()
+const mockListTopics = vi.fn()
 const mockListPlans = vi.fn()
 const mockSetPlan = vi.fn()
 const mockCopyWeek = vi.fn()
@@ -18,7 +18,7 @@ vi.mock('../lib/api', () => ({
   academicsApi: {
     listAllSubjects: (...args) => mockListAllSubjects(...args),
     updateSubject: (...args) => mockUpdateSubject(...args),
-    createTopic: (...args) => mockCreateTopic(...args),
+    listTopics: (...args) => mockListTopics(...args),
   },
   lessonPlansApi: {
     list: (...args) => mockListPlans(...args),
@@ -34,16 +34,17 @@ vi.mock('../auth/useAuth', () => ({
 
 const slot = (day, start, end) => ({ day_of_week: day, start_time: `${start}:00`, end_time: `${end}:00` })
 
-const fractions = { id: 11, subject: 1, name: 'Fractions' }
-const decimals = { id: 12, subject: 1, name: 'Decimals' }
+const fractions = { id: 11, number: '', name: 'Fractions', extended_only: false }
+const decimals = { id: 12, number: '', name: 'Decimals', extended_only: false }
+const tam = { id: 9, name: 'Tam Tutor' }
+// Maths' syllabus, as GET /subjects/1/topics/ returns it.
+const mathsChapters = [{ chapter: 'Number', topics: [decimals, fractions] }]
 const maths = {
   id: 1,
   name: 'Maths',
-  tutor: 9,
-  tutor_name: 'Tam Tutor',
+  tutors: [tam],
   is_active: true,
   timetable_slot: slot(1, '14:00', '15:30'),
-  topics: [decimals, fractions],
 }
 // This week (the fake "now" is Wed 23 Sep 2026) starts Monday 21 Sep.
 const THIS_WEEK = '2026-09-21'
@@ -55,10 +56,10 @@ const plan = (subject, week, topic) => ({
   topic_name: topic.name,
   updated_by_name: 'Tam Tutor',
 })
-const english = { id: 2, name: 'English', tutor: null, tutor_name: null, is_active: true, timetable_slot: slot(1, '09:00', '10:00') }
-const chemistry = { id: 3, name: 'Chemistry', tutor: 9, tutor_name: 'Tam Tutor', is_active: true, timetable_slot: null }
+const english = { id: 2, name: 'English', tutors: [], is_active: true, timetable_slot: slot(1, '09:00', '10:00') }
+const chemistry = { id: 3, name: 'Chemistry', tutors: [tam], is_active: true, timetable_slot: null }
 // A slot saved before the Mon-Fri rule: shown as unscheduled so it can be re-placed.
-const artClub = { id: 4, name: 'Art Club', tutor: null, tutor_name: null, is_active: true, timetable_slot: slot(5, '09:00', '10:00') }
+const artClub = { id: 4, name: 'Art Club', tutors: [], is_active: true, timetable_slot: slot(5, '09:00', '10:00') }
 
 function renderPage(initialEntries = ['/timetable']) {
   return render(
@@ -105,7 +106,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date(2026, 8, 23, 10, 0))
   mockListAllSubjects.mockReset().mockResolvedValue([maths, english, chemistry, artClub])
   mockUpdateSubject.mockReset()
-  mockCreateTopic.mockReset()
+  mockListTopics.mockReset().mockResolvedValue(mathsChapters)
   mockListPlans.mockReset().mockResolvedValue([])
   mockSetPlan.mockReset()
   mockCopyWeek.mockReset()
@@ -592,24 +593,20 @@ describe('TimetablePage weeks and lesson plans', () => {
     expect(within(screen.getByRole('button', { name: /Edit Maths/ })).getByText('No topic planned')).toBeInTheDocument()
   })
 
-  it('+ New topic creates the topic and plans it for that week', async () => {
-    const ratios = { id: 13, subject: 1, name: 'Ratios' }
-    mockCreateTopic.mockResolvedValue(ratios)
-    mockSetPlan.mockResolvedValue(plan(1, '2026-09-28', ratios))
+  it('offers the syllabus topics grouped by chapter, and no way to type a new one', async () => {
+    mockListTopics.mockResolvedValue([
+      { chapter: 'Number', topics: [fractions] },
+      { chapter: 'Algebra', topics: [{ id: 14, number: '2.12', name: 'Differentiation', extended_only: true }] },
+    ])
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: /Edit Maths/ }))
-    const row = within(screen.getByRole('dialog')).getAllByRole('listitem')[1]
+    const row = within(screen.getByRole('dialog')).getAllByRole('listitem')[0]
     await waitFor(() => expect(within(row).getByRole('combobox')).not.toBeDisabled())
 
-    fireEvent.change(within(row).getByRole('combobox'), { target: { value: '__new__' } })
-    fireEvent.change(within(row).getByRole('textbox'), { target: { value: 'Ratios' } })
-    fireEvent.click(within(row).getByRole('button', { name: 'Add' }))
-
-    await waitFor(() => expect(mockCreateTopic).toHaveBeenCalledWith(1, { name: 'Ratios' }))
-    await waitFor(() => expect(mockSetPlan).toHaveBeenCalledWith(1, '2026-09-28', 13))
-    // The new topic is now offered in every week's dropdown.
-    const firstRow = within(screen.getByRole('dialog')).getAllByRole('listitem')[0]
-    expect(within(firstRow).getByRole('option', { name: 'Ratios' })).toBeInTheDocument()
+    expect(within(row).getByRole('group', { name: 'Algebra' })).toBeInTheDocument()
+    expect(within(row).getByRole('option', { name: '2.12 Differentiation (Extended)' })).toBeInTheDocument()
+    expect(within(row).queryByRole('option', { name: /New topic/ })).not.toBeInTheDocument()
+    expect(mockListTopics).toHaveBeenCalledWith(1)
   })
 
   it('a failed save shows the reason on that week\'s row', async () => {
@@ -642,5 +639,23 @@ describe('TimetablePage weeks and lesson plans', () => {
 
     expect(await screen.findByText('Plans unavailable')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Edit Maths/ })).toBeInTheDocument()
+  })
+})
+
+describe('TimetablePage subject loading', () => {
+  it('loads only the subjects a tutor teaches', async () => {
+    mockUseAuth.mockReturnValue({ isStaffLevel: false })
+    renderPage()
+    await screen.findByRole('button', { name: /Maths/ })
+    expect(mockListAllSubjects).toHaveBeenCalledWith({ mine: true })
+  })
+
+  it('leaves out catalog subjects that have neither a slot nor a tutor', async () => {
+    const latin = { id: 5, name: 'Latin', tutors: [], is_active: true, timetable_slot: null }
+    mockListAllSubjects.mockResolvedValue([maths, english, chemistry, artClub, latin])
+    renderPage()
+    expect(await screen.findByText('Chemistry')).toBeInTheDocument()
+    expect(screen.queryByText('Latin')).not.toBeInTheDocument()
+    expect(mockListAllSubjects).toHaveBeenCalledWith()
   })
 })

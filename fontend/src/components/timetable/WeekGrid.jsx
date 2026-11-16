@@ -12,6 +12,7 @@ import {
   WEEKDAYS,
 } from '../../lib/timetableGrid'
 import { dateInWeek, formatDayMonth } from '../../lib/weeks'
+import { tutorNames } from '../../lib/tutorTeaching'
 
 // How much a block can show depends on its height (its length):
 //   an hour or more  -> name / topic / time / tutor, one per line
@@ -118,14 +119,14 @@ function SessionBlock({
         {time}
         <span className="tt-session__tutor">
           <UserCog size={11} strokeWidth={1.75} aria-hidden="true" />
-          {subject.tutor_name || 'Unassigned'}
+          {tutorNames(subject) || 'Unassigned'}
         </span>
       </>
     )
   }
 
   const topicText = plan ? `, topic: ${plan.topic_name}` : ''
-  const title = `${subject.name}${topicText}, ${dayLabel} ${range}${subject.tutor_name ? `, ${subject.tutor_name}` : ''}${clash ? ' (tutor double-booked)' : ''}`
+  const title = `${subject.name}${topicText}, ${dayLabel} ${range}${tutorNames(subject) ? `, ${tutorNames(subject)}` : ''}${clash ? ' (tutor double-booked)' : ''}`
 
   // Chrome always centres a <button>'s content vertically, so when a
   // block's lines don't all fit it would clip the name off the top. The

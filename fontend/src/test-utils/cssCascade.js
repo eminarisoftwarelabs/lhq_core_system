@@ -349,12 +349,26 @@ export function toRgb(color) {
 }
 
 /**
+ * `color-mix(in srgb, <color> N%, transparent)` - the tint form the
+ * stylesheet uses for badges and highlights - is the same paint as
+ * rgba(<color>, N/100). Other color-mix forms are returned unchanged.
+ */
+export function colorMixToRgba(color) {
+  const mix = /^color-mix\(in srgb,\s*(.+?)\s+(\d+(?:\.\d+)?)%,\s*transparent\)$/i.exec(color.trim())
+  if (!mix) return color
+  const rgb = toRgb(mix[1])
+  if (!rgb) return color
+  return `rgba(${rgb.join(', ')}, ${Number(mix[2]) / 100})`
+}
+
+/**
  * Flatten a translucent rgba() color onto the opaque color behind it, the
  * way the browser paints it. toRgb() drops alpha, so without this a
  * `--danger-bg` tint (8-12% alpha) would be scored as if it were solid.
  * Opaque colors come back unchanged.
  */
 export function flattenOver(color, base) {
+  color = colorMixToRgba(color)
   const rgba = /^rgba\(([^)]+)\)$/.exec(color.trim().toLowerCase())
   if (!rgba) return color
   const parts = rgba[1].split(',').map((p) => parseFloat(p))

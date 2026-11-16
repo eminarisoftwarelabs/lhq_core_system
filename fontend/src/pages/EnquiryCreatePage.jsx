@@ -42,7 +42,7 @@ export function EnquiryCreatePage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    academicsApi.listSubjects({ is_active: true }).then((res) => setSubjects(res.results))
+    academicsApi.listAllSubjects({ is_active: true }).then(setSubjects)
     academicsApi.listSchools({ is_active: true }).then((res) => setSchools(res.results))
   }, [])
 

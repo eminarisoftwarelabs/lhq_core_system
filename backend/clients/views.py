@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from academics.models import Subject
+from academics.services import teaches
 from accounts.permissions import IsStaffLevel
 from enrollments.models import Enrollment, EnrollmentStatus
 
@@ -83,7 +84,7 @@ class StudentTimetableView(APIView):
 class SubjectRosterView(APIView):
     """GET /api/subjects/{id}/students/ - class roster: active students
     enrolled in this subject. Staff see any subject's roster; a Tutor sees
-    only their own subject's roster (the "tutor's class roster" the
+    only the roster of a subject they teach (the "tutor's class roster" the
     handover doc describes), 404 otherwise - same existence-hiding
     convention as academics.SubjectDetailView."""
 
@@ -92,15 +93,13 @@ class SubjectRosterView(APIView):
     @extend_schema(responses=StudentSerializer(many=True))
     def get(self, request, pk):
         try:
-            subject = Subject.objects.select_related('tutor').get(pk=pk)
+            subject = Subject.objects.get(pk=pk)
         except Subject.DoesNotExist:
             raise NotFound()
 
         user = request.user
-        if not user.is_staff_level:
-            tutor_profile = getattr(user, 'tutor_profile', None)
-            if not tutor_profile or subject.tutor_id != tutor_profile.id:
-                raise NotFound()
+        if not user.is_staff_level and not teaches(user, subject):
+            raise NotFound()
 
         students = (
             Student.objects.filter(enrollments__subjects=subject, enrollments__status=EnrollmentStatus.ACTIVE)

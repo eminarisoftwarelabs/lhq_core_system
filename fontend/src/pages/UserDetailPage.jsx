@@ -1,7 +1,9 @@
 import { ArrowLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { hasStaffScopeOver } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
+import { TutorTeachingPanel } from '../components/tutors/TutorTeachingPanel'
 import { UserEditForm } from '../components/UserEditForm'
 import { UserProfileHeader } from '../components/UserProfileHeader'
 import { usersApi } from '../lib/api'
@@ -64,6 +66,19 @@ export function UserDetailPage() {
             users from showing the previous user's values. */}
         <UserEditForm key={target.id} actor={actor} target={target} onSaved={setTarget} />
       </div>
+
+      {target.teaches && target.tutor_profile && (
+        <div className="form-card">
+          {/* Staff with authority over this account edit directly and
+              review the tutor's requests; anyone else (an Admin looking
+              at an Owner who teaches) only reads. */}
+          <TutorTeachingPanel
+            key={target.tutor_profile.id}
+            tutorId={target.tutor_profile.id}
+            mode={hasStaffScopeOver(actor.role, target.role) ? 'direct' : 'readonly'}
+          />
+        </div>
+      )}
     </div>
   )
 }

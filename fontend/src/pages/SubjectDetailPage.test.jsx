@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SubjectDetailPage } from './SubjectDetailPage'
@@ -7,23 +7,19 @@ import { ToastProvider } from '../components/toast/ToastProvider'
 
 const mockGetSubject = vi.fn()
 const mockUpdateSubject = vi.fn()
-const mockCreateTopic = vi.fn()
-const mockDeleteTopic = vi.fn()
-const mockListTeaching = vi.fn()
+const mockListTopics = vi.fn()
+const mockListLevels = vi.fn()
 const mockGetSubjectRoster = vi.fn()
 
 vi.mock('../lib/api', () => ({
   academicsApi: {
     getSubject: (...args) => mockGetSubject(...args),
     updateSubject: (...args) => mockUpdateSubject(...args),
-    createTopic: (...args) => mockCreateTopic(...args),
-    deleteTopic: (...args) => mockDeleteTopic(...args),
+    listTopics: (...args) => mockListTopics(...args),
+    listLevels: (...args) => mockListLevels(...args),
   },
   clientsApi: {
     getSubjectRoster: (...args) => mockGetSubjectRoster(...args),
-  },
-  tutorsApi: {
-    listTeaching: (...args) => mockListTeaching(...args),
   },
 }))
 
@@ -32,15 +28,34 @@ vi.mock('../auth/useAuth', () => ({
   useAuth: () => mockUseAuth(),
 }))
 
+const levels = [
+  { id: 3, name: 'IGCSE' },
+  { id: 4, name: 'A Level' },
+]
+
 const baseSubject = {
   id: 1,
-  name: 'Maths',
-  tutor: 9,
-  tutor_name: 'Tam Tutor',
+  name: 'Mathematics',
+  level: 3,
+  level_name: 'IGCSE',
+  code: '0580',
+  has_paper: true,
   is_active: true,
+  taught_by_me: false,
+  tutors: [{ id: 9, name: 'Tam Tutor' }],
   timetable_slot: { day_of_week: 1, start_time: '14:00:00', end_time: '15:00:00' },
-  topics: [],
 }
+
+const chapters = [
+  {
+    chapter: 'Number',
+    topics: [
+      { id: 11, number: '1.1', name: 'Types of number', extended_only: false, order: 1 },
+      { id: 12, number: '1.17', name: 'Exponential growth and decay', extended_only: true, order: 2 },
+    ],
+  },
+  { chapter: 'Algebra and graphs', topics: [{ id: 13, number: '2.1', name: 'Introduction', extended_only: false, order: 3 }] },
+]
 
 function renderPage() {
   return render(
@@ -56,14 +71,15 @@ function renderPage() {
   )
 }
 
+const tutorUser = { id: 2, role: 'TUTOR', tutor_profile: { id: 9 } }
+
 beforeEach(() => {
-  mockUseAuth.mockReturnValue({ isStaffLevel: true })
+  mockUseAuth.mockReturnValue({ user: { id: 1, role: 'OWNER' }, isStaffLevel: true })
   mockGetSubject.mockReset().mockResolvedValue(baseSubject)
   mockUpdateSubject.mockReset()
-  mockCreateTopic.mockReset()
-  mockDeleteTopic.mockReset()
+  mockListTopics.mockReset().mockResolvedValue(chapters)
+  mockListLevels.mockReset().mockResolvedValue(levels)
   mockGetSubjectRoster.mockReset().mockResolvedValue([])
-  mockListTeaching.mockReset().mockResolvedValue([{ id: 9, name: 'Tam Tutor' }])
 })
 
 afterEach(() => {
@@ -71,185 +87,117 @@ afterEach(() => {
 })
 
 describe('SubjectDetailPage', () => {
-  it('shows the subject name, status badge, tutor, timetable, and a link to the timetable', async () => {
+  it('shows name, level and code, the Core / Extended flag, status, tutors and timetable', async () => {
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Maths' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mathematics' })).toBeInTheDocument()
+    expect(screen.getByText('IGCSE · 0580')).toBeInTheDocument()
+    expect(screen.getByText('Core / Extended')).toBeInTheDocument()
     expect(screen.getByText('Active')).toBeInTheDocument()
     expect(screen.getByText('Tam Tutor', { selector: '.detail-header__parent' })).toBeInTheDocument()
     expect(screen.getByText('Tuesday 14:00–15:00')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Manage timetable/ })).toHaveAttribute('href', '/timetable?subject=1')
+    expect(screen.getByRole('link', { name: 'Manage timetable' })).toHaveAttribute('href', '/timetable?subject=1')
   })
 
-  it('shows "Unassigned", "Inactive", and "No timetable slot" as fallbacks', async () => {
-    mockGetSubject.mockResolvedValue({ ...baseSubject, tutor: null, tutor_name: null, is_active: false, timetable_slot: null })
+  it('lists topics grouped by chapter with an Extended badge on extended-only topics', async () => {
     renderPage()
 
-    await screen.findByRole('heading', { name: 'Maths' })
-    expect(screen.getByText('Inactive')).toBeInTheDocument()
-    expect(screen.getByText('Unassigned', { selector: '.detail-header__parent' })).toBeInTheDocument()
-    expect(screen.getByText('No timetable slot')).toBeInTheDocument()
+    const number = await screen.findByRole('region', { name: 'Number' })
+    const exponential = within(number).getByText('Exponential growth and decay').closest('li')
+    expect(within(exponential).getByText('Extended')).toBeInTheDocument()
+    expect(within(exponential).getByText('1.17')).toBeInTheDocument()
+    expect(within(within(number).getByText('Types of number').closest('li')).queryByText('Extended')).toBeNull()
+    expect(screen.getByRole('region', { name: 'Algebra and graphs' })).toBeInTheDocument()
+    expect(mockListTopics).toHaveBeenCalledWith(1)
+    // Read-only: no way to add or remove topics.
+    expect(screen.queryByLabelText(/Add a topic/)).not.toBeInTheDocument()
   })
 
-  it('shows a collapsed summary with an Edit button for staff, not an open form', async () => {
+  it('says when a subject has no topics loaded', async () => {
+    mockListTopics.mockResolvedValue([])
     renderPage()
-
-    await screen.findByRole('heading', { name: 'Maths' })
-    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+    expect(await screen.findByText('No topics loaded for this subject yet.')).toBeInTheDocument()
   })
 
-  it('reveals the edit form, pre-filled from the subject, when Edit is clicked - with no timetable fields', async () => {
+  it('edits catalog fields for staff, including the level', async () => {
+    mockUpdateSubject.mockResolvedValue({ ...baseSubject, code: '0607', level: 4, level_name: 'A Level' })
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    await screen.findByRole('heading', { name: 'Mathematics' })
 
-    expect(screen.getByLabelText('Name')).toHaveValue('Maths')
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Day')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/timetable slot/i)).not.toBeInTheDocument()
-  })
-
-  it('saves changes without touching the timetable slot, shows a toast, and collapses back to the summary', async () => {
-    mockUpdateSubject.mockResolvedValue({ ...baseSubject, name: 'Advanced Maths' })
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
-
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Advanced Maths' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await waitFor(() => expect(screen.getByLabelText('Level')).toHaveValue('3'))
+    fireEvent.change(screen.getByLabelText('Syllabus code'), { target: { value: '0607' } })
+    fireEvent.change(screen.getByLabelText('Level'), { target: { value: '4' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(mockUpdateSubject).toHaveBeenCalledWith(1, {
-        name: 'Advanced Maths',
+        name: 'Mathematics',
+        level: 4,
+        code: '0607',
+        has_paper: true,
         is_active: true,
-        tutor: 9,
       }),
     )
     expect(await screen.findByText('Changes saved')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    expect(screen.getByText('A Level · 0607')).toBeInTheDocument()
   })
 
-  it('cancels out of the edit form without saving', async () => {
+  it('shows who teaches it in the staff summary, and a hint when nobody does', async () => {
+    mockGetSubject.mockResolvedValue({ ...baseSubject, tutors: [] })
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
-    expect(screen.getByLabelText('Name')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
-    expect(mockUpdateSubject).not.toHaveBeenCalled()
+    expect(await screen.findByText(/No tutors yet\. Set subjects on a tutor/)).toBeInTheDocument()
   })
 
-  it('hides the edit affordance and the Manage timetable link for a Tutor, but still shows read-only info', async () => {
-    mockUseAuth.mockReturnValue({ isStaffLevel: false })
+  it('gives a tutor the catalog view with no edit, no tutors and no timetable link', async () => {
+    mockUseAuth.mockReturnValue({ user: tutorUser, isStaffLevel: false })
+    mockGetSubject.mockResolvedValue({ ...baseSubject, tutors: undefined })
     renderPage()
 
-    await screen.findByRole('heading', { name: 'Maths' })
+    expect(await screen.findByRole('heading', { name: 'Mathematics' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Manage timetable/ })).not.toBeInTheDocument()
-    expect(screen.getByText('Tam Tutor')).toBeInTheDocument()
-    expect(screen.getByText('Active')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Manage timetable' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Tam Tutor')).not.toBeInTheDocument()
+    expect(mockListLevels).not.toHaveBeenCalled()
   })
 
-  it('shows "No topics yet." when there are none', async () => {
+  it('shows the roster to a tutor who teaches the subject, linking to assessments', async () => {
+    mockUseAuth.mockReturnValue({ user: tutorUser, isStaffLevel: false })
+    mockGetSubject.mockResolvedValue({ ...baseSubject, tutors: undefined, taught_by_me: true })
+    mockGetSubjectRoster.mockResolvedValue([{ id: 5, full_name: 'Alice Wang', student_number: 'STU-000001' }])
     renderPage()
 
-    expect(await screen.findByText('No topics yet.')).toBeInTheDocument()
+    expect(await screen.findByText('You teach this')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/subjects/1/students/5')
   })
 
-  it('lists topics as chips and lets staff remove one', async () => {
-    mockGetSubject.mockResolvedValue({
-      ...baseSubject,
-      topics: [
-        { id: 1, name: 'Algebra' },
-        { id: 2, name: 'Geometry' },
-      ],
-    })
+  it('does not load the roster for a tutor who does not teach the subject', async () => {
+    mockUseAuth.mockReturnValue({ user: tutorUser, isStaffLevel: false })
+    mockGetSubject.mockResolvedValue({ ...baseSubject, tutors: undefined, taught_by_me: false })
     renderPage()
 
-    expect(await screen.findByText('Algebra')).toBeInTheDocument()
-    expect(screen.getByText('Geometry')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Algebra' }))
-    await waitFor(() => expect(mockDeleteTopic).toHaveBeenCalledWith(1))
+    await screen.findByRole('heading', { name: 'Mathematics' })
+    expect(mockGetSubjectRoster).not.toHaveBeenCalled()
+    expect(screen.queryByText('Class roster')).not.toBeInTheDocument()
   })
 
-  it("lets the subject's own tutor add and remove topics", async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'TUTOR', tutor_profile: { id: 9 } }, isStaffLevel: false })
-    mockGetSubject.mockResolvedValue({ ...baseSubject, topics: [{ id: 3, name: 'Fractions' }] })
-    mockDeleteTopic.mockResolvedValue(null)
-    renderPage()
-
-    expect(await screen.findByLabelText('Add a topic')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Fractions' }))
-    await waitFor(() => expect(mockDeleteTopic).toHaveBeenCalledWith(3))
-    // Still no subject edit form or timetable link - topics only.
-    expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Manage timetable/ })).not.toBeInTheDocument()
-  })
-
-  it("shows the server's reason when a topic can't be removed", async () => {
-    const { ApiError } = await import('../lib/apiClient')
-    mockGetSubject.mockResolvedValue({ ...baseSubject, topics: [{ id: 3, name: 'Fractions' }] })
-    mockDeleteTopic.mockRejectedValue(
-      new ApiError(400, { detail: '"Fractions" is planned for 2 lessons. Change those lesson plans first.' }),
-    )
-    renderPage()
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove Fractions' }))
-    expect(
-      await screen.findByText('"Fractions" is planned for 2 lessons. Change those lesson plans first.'),
-    ).toBeInTheDocument()
-  })
-
-  it('does not show remove buttons or the add-topic form for a Tutor who does not teach the subject', async () => {
-    mockUseAuth.mockReturnValue({ isStaffLevel: false })
-    mockGetSubject.mockResolvedValue({ ...baseSubject, topics: [{ id: 1, name: 'Algebra' }] })
-    renderPage()
-
-    await screen.findByText('Algebra')
-    expect(screen.queryByRole('button', { name: 'Remove Algebra' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Add a topic')).not.toBeInTheDocument()
-  })
-
-  it('adds a topic', async () => {
-    renderPage()
-    await screen.findByLabelText('Add a topic')
-
-    fireEvent.change(screen.getByLabelText('Add a topic'), { target: { value: 'Trigonometry' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add topic' }))
-
-    await waitFor(() => expect(mockCreateTopic).toHaveBeenCalledWith(1, { name: 'Trigonometry' }))
-  })
-
-  it('shows the class roster in its own card below the topics, with no separate roster button', async () => {
+  it('shows staff the roster in its own card below the topics', async () => {
     mockGetSubjectRoster.mockResolvedValue([{ id: 5, full_name: 'Alice Wang', student_number: 'STU-000001' }])
     renderPage()
 
     expect(await screen.findByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/students/5')
-    expect(screen.getByText('1 active student')).toBeInTheDocument()
-    expect(mockGetSubjectRoster).toHaveBeenCalledWith(1)
-    expect(screen.queryByRole('link', { name: /View class roster/ })).not.toBeInTheDocument()
-
     const cards = document.querySelectorAll('.form-card')
     expect(cards).toHaveLength(2)
     expect(cards[0]).toHaveTextContent('Topics')
     expect(cards[1]).toHaveTextContent('Class roster')
   })
 
-  it("links a tutor's roster rows to the assessment page", async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'TUTOR', tutor_profile: { id: 9 } }, isStaffLevel: false })
-    mockGetSubjectRoster.mockResolvedValue([{ id: 5, full_name: 'Alice Wang', student_number: 'STU-000001' }])
+  it('still shows the subject when topics fail to load', async () => {
+    mockListTopics.mockRejectedValue(new Error('boom'))
     renderPage()
 
-    expect(await screen.findByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/subjects/1/students/5')
-  })
-
-  it('still shows the subject when the roster fails to load', async () => {
-    mockGetSubjectRoster.mockRejectedValue(new Error('boom'))
-    renderPage()
-
-    expect(await screen.findByRole('heading', { name: 'Maths' })).toBeInTheDocument()
-    expect(await screen.findByText('Could not load the class roster.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mathematics' })).toBeInTheDocument()
+    expect(await screen.findByText('Could not load the topics.')).toBeInTheDocument()
   })
 
   it('shows "Subject not found." for a 404', async () => {

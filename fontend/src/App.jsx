@@ -3,6 +3,7 @@ import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { RequirePasswordChange } from './components/RequirePasswordChange'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
+import { ChangeRequestsPage } from './pages/ChangeRequestsPage'
 import { CreateUserPage } from './pages/CreateUserPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { EnquiriesListPage } from './pages/EnquiriesListPage'
@@ -62,6 +63,7 @@ function App() {
             <Route element={<ProtectedRoute staffOnly />}>
               <Route path="/users" element={<UsersListPage />} />
               <Route path="/users/new" element={<CreateUserPage />} />
+              <Route path="/users/change-requests" element={<ChangeRequestsPage />} />
               <Route path="/users/:id" element={<UserDetailPage />} />
 
               <Route path="/subjects/new" element={<SubjectCreatePage />} />

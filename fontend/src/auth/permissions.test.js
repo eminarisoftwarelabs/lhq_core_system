@@ -207,28 +207,29 @@ describe('canEdit', () => {
 })
 
 describe('canAssessSubject', () => {
-  const maths = { id: 1, tutor: 9 }
+  const taught = { id: 1, taught_by_me: true }
+  const notTaught = { id: 2, taught_by_me: false }
 
-  it('allows the tutor assigned to the subject', () => {
-    expect(canAssessSubject({ role: 'TUTOR', tutor_profile: { id: 9 } }, maths)).toBe(true)
+  it('allows a tutor who teaches the subject', () => {
+    expect(canAssessSubject({ role: 'TUTOR', tutor_profile: { id: 9 } }, taught)).toBe(true)
   })
 
   it('allows a staff member who teaches the subject', () => {
-    expect(canAssessSubject({ role: 'OWNER', tutor_profile: { id: 9 } }, maths)).toBe(true)
+    expect(canAssessSubject({ role: 'OWNER', tutor_profile: { id: 9 } }, taught)).toBe(true)
   })
 
-  it('refuses a tutor assigned to a different subject', () => {
-    expect(canAssessSubject({ role: 'TUTOR', tutor_profile: { id: 4 } }, maths)).toBe(false)
+  it('refuses a tutor who does not teach it', () => {
+    expect(canAssessSubject({ role: 'TUTOR', tutor_profile: { id: 4 } }, notTaught)).toBe(false)
   })
 
   it('refuses staff who do not teach', () => {
-    expect(canAssessSubject({ role: 'OWNER', tutor_profile: null }, maths)).toBe(false)
+    expect(canAssessSubject({ role: 'OWNER', tutor_profile: null }, taught)).toBe(false)
   })
 
-  it('refuses when the subject is unassigned or anything is missing', () => {
-    expect(canAssessSubject({ role: 'TUTOR', tutor_profile: { id: 9 } }, { id: 1, tutor: null })).toBe(false)
-    expect(canAssessSubject({ role: 'TUTOR' }, { id: 1, tutor: null })).toBe(false)
-    expect(canAssessSubject(null, maths)).toBe(false)
+  it('refuses when anything is missing', () => {
+    expect(canAssessSubject({ role: 'TUTOR', tutor_profile: { id: 9 } }, { id: 1 })).toBe(false)
+    expect(canAssessSubject({ role: 'TUTOR' }, taught)).toBe(false)
+    expect(canAssessSubject(null, taught)).toBe(false)
     expect(canAssessSubject({ role: 'TUTOR', tutor_profile: { id: 9 } }, null)).toBe(false)
   })
 })

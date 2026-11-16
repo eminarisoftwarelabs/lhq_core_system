@@ -108,3 +108,102 @@ class TutorProfile(models.Model):
 
     def __str__(self):
         return f'TutorProfile<{self.user.email}>'
+
+
+class TutorSubject(models.Model):
+    """A subject a tutor can teach. Live data: only staff write it
+    directly, a tutor's own changes go through TutorChangeRequest."""
+
+    tutor = models.ForeignKey(TutorProfile, on_delete=models.CASCADE, related_name='subject_links')
+    subject = models.ForeignKey('academics.Subject', on_delete=models.CASCADE, related_name='tutor_links')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['tutor', 'subject'], name='unique_tutor_subject'),
+        ]
+
+    def __str__(self):
+        return f'{self.tutor} teaches {self.subject}'
+
+
+# 0=Monday ... 6=Sunday, same numbering as Python's date.weekday(). Working
+# hours cover the whole week, unlike the Monday-Friday timetable slots.
+WEEKDAY_CHOICES = [
+    (0, 'Monday'),
+    (1, 'Tuesday'),
+    (2, 'Wednesday'),
+    (3, 'Thursday'),
+    (4, 'Friday'),
+    (5, 'Saturday'),
+    (6, 'Sunday'),
+]
+
+
+class WorkingHours(models.Model):
+    """One block of time a tutor is available on a weekday. A day can hold
+    several blocks (08:00-12:00 and 14:00-17:00); blocks on the same day
+    never overlap - see accounts.services.validate_working_hours, the one
+    place that rule lives."""
+
+    tutor = models.ForeignKey(TutorProfile, on_delete=models.CASCADE, related_name='working_hours')
+    weekday = models.PositiveSmallIntegerField(choices=WEEKDAY_CHOICES)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    class Meta:
+        ordering = ['weekday', 'start_time']
+        verbose_name_plural = 'working hours'
+        constraints = [
+            models.CheckConstraint(condition=models.Q(start_time__lt=models.F('end_time')), name='working_hours_start_before_end'),
+            models.CheckConstraint(condition=models.Q(weekday__gte=0, weekday__lte=6), name='working_hours_weekday_range'),
+        ]
+
+    def __str__(self):
+        return f'{self.tutor}: {self.get_weekday_display()} {self.start_time:%H:%M}-{self.end_time:%H:%M}'
+
+
+class ChangeKind(models.TextChoices):
+    SUBJECTS = 'SUBJECTS', 'Subjects'
+    WORKING_HOURS = 'WORKING_HOURS', 'Working hours'
+
+
+class ChangeStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pending'
+    APPROVED = 'APPROVED', 'Approved'
+    REJECTED = 'REJECTED', 'Rejected'
+    CANCELLED = 'CANCELLED', 'Cancelled'
+
+
+class TutorChangeRequest(models.Model):
+    """A tutor's proposed replacement for their subjects or working hours.
+    Nothing live changes until an admin approves it (accounts.services).
+
+    `proposed` is the whole new set, not a diff: a list of subject ids for
+    SUBJECTS, a list of {weekday, start_time, end_time} for WORKING_HOURS."""
+
+    tutor = models.ForeignKey(TutorProfile, on_delete=models.CASCADE, related_name='change_requests')
+    kind = models.CharField(max_length=20, choices=ChangeKind.choices)
+    proposed = models.JSONField()
+    note = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=ChangeStatus.choices, default=ChangeStatus.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_change_requests'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reject_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        constraints = [
+            # Backstop for services.submit_change, which cancels the old
+            # pending request before creating the new one.
+            models.UniqueConstraint(
+                fields=['tutor', 'kind'],
+                condition=models.Q(status='PENDING'),
+                name='one_pending_change_per_tutor_kind',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.tutor} {self.kind} {self.status}'

@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-from academics.models import Subject
+from academics.testing import make_subject
 from accounts.models import Role, User
 from billing.models import Invoice, InvoiceStatus
 from billing.services import record_payment
@@ -21,7 +21,7 @@ def make_staff(email='staff@lhq.test'):
 class CreateEnquiryTests(TestCase):
     def test_creates_parent_and_enquiry_with_initial_stage_history(self):
         staff = make_staff()
-        maths = Subject.objects.create(name='Maths')
+        maths = make_subject('Maths')
 
         enquiry = create_enquiry(
             parent_data={'full_name': 'Jane Doe', 'phone': '0999111222'},
@@ -104,7 +104,7 @@ class GenerateInvoiceTests(TestCase):
         self.enquiry = Enquiry.objects.create(
             parent=parent, student_name='Jimmy', student_grade='7', duration_weeks=12
         )
-        self.enquiry.interested_subjects.set([Subject.objects.create(name='Maths')])
+        self.enquiry.interested_subjects.set([make_subject('Maths')])
 
     def test_creates_invoice_and_moves_to_invoiced(self):
         invoice = generate_invoice(self.enquiry, self.staff)
@@ -132,7 +132,7 @@ class EnrollStudentTests(TestCase):
     def setUp(self):
         self.staff = make_staff()
         self.parent = Parent.objects.create(full_name='Jane Doe', phone='0999')
-        self.subject = Subject.objects.create(name='Maths')
+        self.subject = make_subject('Maths')
         self.enquiry = Enquiry.objects.create(
             parent=self.parent,
             student_name='Jimmy Doe',

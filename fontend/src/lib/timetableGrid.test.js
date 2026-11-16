@@ -18,8 +18,9 @@ import {
   weekdayIndex,
 } from './timetableGrid'
 
+// `tutor` may be one tutor id or a list (a subject can have several).
 const s = (id, day, start, end, tutor = null) => ({
-  subject: { id, tutor },
+  subject: { id, tutors: [].concat(tutor ?? []).map((t) => ({ id: t, name: `Tutor ${t}` })) },
   day,
   start: toMinutes(start),
   end: toMinutes(end),
@@ -144,6 +145,11 @@ describe('tutorClashes', () => {
       s(3, 1, '14:00', '15:00', 9),
       s(4, 0, '14:00', '15:00', 7),
     ])
+    expect(clashes).toEqual(new Set([1, 2]))
+  })
+
+  it('flags subjects that share any one of several tutors', () => {
+    const clashes = tutorClashes([s(1, 0, '14:00', '15:00', [7, 9]), s(2, 0, '14:30', '15:30', [9, 3]), s(3, 0, '14:00', '15:00', [4])])
     expect(clashes).toEqual(new Set([1, 2]))
   })
 

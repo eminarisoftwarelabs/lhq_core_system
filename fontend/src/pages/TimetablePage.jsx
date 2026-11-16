@@ -23,6 +23,7 @@ import {
   WEEKDAYS,
   weekdayIndex,
 } from '../lib/timetableGrid'
+import { sharesTutor } from '../lib/tutorTeaching'
 import { usePageTitle } from '../lib/usePageTitle'
 import { addWeeks, formatWeekRange, parseWeekParam, relativeWeekLabel, weekStartOf } from '../lib/weeks'
 
@@ -85,7 +86,12 @@ export function TimetablePage() {
       setLoading(true)
       setError(null)
       try {
-        const results = await academicsApi.listAllSubjects()
+        // A tutor's own subjects only. Staff see what is scheduled or has
+        // a tutor - not the whole Cambridge catalog, most of which nobody
+        // timetables.
+        const results = isStaffLevel
+          ? (await academicsApi.listAllSubjects()).filter((s) => s.timetable_slot || s.tutors?.length)
+          : await academicsApi.listAllSubjects({ mine: true })
         if (!cancelled) setSubjects(results)
       } catch (err) {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load the timetable.')
@@ -98,7 +104,7 @@ export function TimetablePage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isStaffLevel])
 
   // The displayed week's lesson plans, keyed by subject id.
   const loadPlans = useCallback(async (weekStart) => {
@@ -135,11 +141,9 @@ export function TimetablePage() {
   const findClashes = useCallback(
     (subjectId, day, start, end) => {
       const subject = subjects?.find((s) => s.id === subjectId)
-      if (!subject || subject.tutor == null) return []
+      if (!subject) return []
       const candidate = { day, start, end }
-      return sessions.filter(
-        (s) => s.subject.id !== subjectId && s.subject.tutor === subject.tutor && overlaps(s, candidate),
-      )
+      return sessions.filter((s) => s.subject.id !== subjectId && sharesTutor(s.subject, subject) && overlaps(s, candidate))
     },
     [subjects, sessions],
   )
@@ -204,16 +208,6 @@ export function TimetablePage() {
       else delete next[subjectId]
       return next
     })
-  }
-
-  function handleTopicCreated(subjectId, topic) {
-    setSubjects((current) =>
-      current.map((s) =>
-        s.id === subjectId
-          ? { ...s, topics: [...(s.topics ?? []), topic].sort((a, b) => a.name.localeCompare(b.name)) }
-          : s,
-      ),
-    )
   }
 
   // Re-use last week's topics for this week: fills only lessons with
@@ -527,7 +521,6 @@ export function TimetablePage() {
               fromWeek={week}
               today={now}
               onPlanChanged={handlePlanChanged}
-              onTopicCreated={handleTopicCreated}
             />
           )}
         </SessionDialog>

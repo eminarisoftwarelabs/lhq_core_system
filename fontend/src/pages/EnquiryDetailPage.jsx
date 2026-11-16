@@ -516,11 +516,11 @@ export function EnquiryDetailPage() {
     try {
       const [enquiryRes, subjectsRes, invoicesRes] = await Promise.all([
         enquiriesApi.get(id),
-        academicsApi.listSubjects({ is_active: true }),
+        academicsApi.listAllSubjects({ is_active: true }),
         billingApi.listInvoices({ enquiry: id }),
       ])
       setEnquiry(enquiryRes)
-      setSubjects(subjectsRes.results)
+      setSubjects(subjectsRes)
       setInvoices(invoicesRes.results)
     } catch (err) {
       setError(err instanceof ApiError && err.status === 404 ? 'not_found' : 'load_failed')
