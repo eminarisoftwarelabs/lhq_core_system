@@ -1,29 +1,29 @@
-import { BookOpen, CalendarClock, Pencil, StickyNote, UserCog, X } from 'lucide-react'
+import { BookOpen, CalendarClock, Pencil, StickyNote, UserCog } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { FieldErrors, NonFieldErrors } from '../components/FieldErrors'
 import { SubjectRoster } from '../components/SubjectRoster'
 import { useToast } from '../components/toast/useToast'
-import { canAssessSubject } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
-import { academicsApi, tutorsApi } from '../lib/api'
+import { academicsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { dayLabel, formatTime } from '../lib/constants'
+import { tutorNames } from '../lib/tutorTeaching'
 import { usePageTitle } from '../lib/usePageTitle'
 
 function timetableLabel(slot) {
   return slot ? `${dayLabel(slot.day_of_week)} ${formatTime(slot.start_time)}–${formatTime(slot.end_time)}` : 'No timetable slot'
 }
 
-// Name, tutor, and active status only - the timetable slot lives on the
-// Timetable page now (see TimetablePage), so this form no longer touches
-// `timetable_slot` at all: omitting it from the PATCH payload leaves
-// whatever slot the subject already has untouched (SubjectSerializer.update
-// only clears/replaces it when the key is present).
-function EditForm({ subject, tutors, onSaved, onCancel }) {
+// Catalog fields only. Who teaches the subject is set on each tutor's
+// profile (TutorSubject), and the timetable slot on the Timetable page -
+// omitting `timetable_slot` from the PATCH leaves it untouched.
+function EditForm({ subject, levels, onSaved, onCancel }) {
   const { showToast } = useToast()
   const [name, setName] = useState(subject.name)
-  const [tutorId, setTutorId] = useState(subject.tutor ?? '')
+  const [level, setLevel] = useState(subject.level)
+  const [code, setCode] = useState(subject.code)
+  const [hasPaper, setHasPaper] = useState(subject.has_paper)
   const [isActive, setIsActive] = useState(subject.is_active)
   const [errors, setErrors] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -32,11 +32,14 @@ function EditForm({ subject, tutors, onSaved, onCancel }) {
     e.preventDefault()
     setErrors(null)
     setSubmitting(true)
-
-    const payload = { name, is_active: isActive, tutor: tutorId || null }
-
     try {
-      const updated = await academicsApi.updateSubject(subject.id, payload)
+      const updated = await academicsApi.updateSubject(subject.id, {
+        name,
+        level: Number(level),
+        code,
+        has_paper: hasPaper,
+        is_active: isActive,
+      })
       showToast('Changes saved')
       onSaved(updated)
     } catch (err) {
@@ -51,25 +54,35 @@ function EditForm({ subject, tutors, onSaved, onCancel }) {
       <NonFieldErrors errors={errors} />
 
       <div className="form-row">
-        <div className="field field--full field--required">
+        <div className="field field--required">
           <label htmlFor="name">Name</label>
           <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required />
           <FieldErrors errors={errors} field="name" />
         </div>
 
-        <div className="field">
-          <label htmlFor="tutor">Tutor</label>
-          <select id="tutor" value={tutorId} onChange={(e) => setTutorId(e.target.value)}>
-            <option value="">Unassigned</option>
-            {tutors.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+        <div className="field field--required">
+          <label htmlFor="level">Level</label>
+          <select id="level" value={level} onChange={(e) => setLevel(e.target.value)} required>
+            {levels.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
               </option>
             ))}
           </select>
-          <FieldErrors errors={errors} field="tutor" />
+          <FieldErrors errors={errors} field="level" />
+        </div>
+
+        <div className="field">
+          <label htmlFor="code">Syllabus code</label>
+          <input id="code" type="text" value={code} onChange={(e) => setCode(e.target.value)} />
+          <FieldErrors errors={errors} field="code" />
         </div>
       </div>
+
+      <label htmlFor="has_paper" className="checkbox-label">
+        <input id="has_paper" type="checkbox" checked={hasPaper} onChange={(e) => setHasPaper(e.target.checked)} />
+        Core and Extended papers
+      </label>
 
       <label htmlFor="is_active" className="checkbox-label">
         <input id="is_active" type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
@@ -88,13 +101,9 @@ function EditForm({ subject, tutors, onSaved, onCancel }) {
   )
 }
 
-// Collapsed to a plain "Edit" affordance by default rather than a
-// permanently-open form - the header above already surfaces name, status,
-// tutor, and timetable, so a form sitting open here just duplicates it
-// until someone actually wants to change something. Mirrors the
-// summary/Edit pattern EnquiryDetailPage's DetailsSection established.
-function DetailsSection({ subject, tutors, onSaved }) {
+function DetailsSection({ subject, levels, onSaved }) {
   const [editing, setEditing] = useState(false)
+  const names = tutorNames(subject)
 
   return (
     <div className="detail-section">
@@ -118,7 +127,7 @@ function DetailsSection({ subject, tutors, onSaved }) {
       {editing ? (
         <EditForm
           subject={subject}
-          tutors={tutors}
+          levels={levels}
           onSaved={(updated) => {
             onSaved(updated)
             setEditing(false)
@@ -128,16 +137,24 @@ function DetailsSection({ subject, tutors, onSaved }) {
       ) : (
         <dl className="detail-summary">
           <div className="detail-summary__row">
-            <dt>Name</dt>
-            <dd>{subject.name}</dd>
+            <dt>Level</dt>
+            <dd>{subject.level_name}</dd>
           </div>
           <div className="detail-summary__row">
-            <dt>Assigned tutor</dt>
-            <dd>{subject.tutor_name || 'Unassigned'}</dd>
+            <dt>Syllabus code</dt>
+            <dd>{subject.code || '—'}</dd>
+          </div>
+          <div className="detail-summary__row">
+            <dt>Core and Extended</dt>
+            <dd>{subject.has_paper ? 'Yes' : 'No'}</dd>
           </div>
           <div className="detail-summary__row">
             <dt>Offered to onboarding</dt>
             <dd>{subject.is_active ? 'Yes' : 'No'}</dd>
+          </div>
+          <div className="detail-summary__row detail-summary__row--full">
+            <dt>Taught by</dt>
+            <dd>{names || 'No tutors yet. Set subjects on a tutor’s profile.'}</dd>
           </div>
         </dl>
       )}
@@ -145,36 +162,28 @@ function DetailsSection({ subject, tutors, onSaved }) {
   )
 }
 
-function TopicsPanel({ subject, canEdit, onChanged }) {
-  const [name, setName] = useState('')
-  const [error, setError] = useState(null)
-  const [submitting, setSubmitting] = useState(false)
+// The official syllabus, read-only (seed_cambridge_topics), grouped by
+// chapter in syllabus order.
+function TopicsPanel({ subjectId, hasPaper }) {
+  const [chapters, setChapters] = useState(null)
+  const [failed, setFailed] = useState(false)
 
-  async function handleAdd(e) {
-    e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
-      await academicsApi.createTopic(subject.id, { name })
-      setName('')
-      onChanged()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not add the topic.')
-    } finally {
-      setSubmitting(false)
+  useEffect(() => {
+    let cancelled = false
+    academicsApi
+      .listTopics(subjectId)
+      .then((res) => {
+        if (!cancelled) setChapters(res)
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+    return () => {
+      cancelled = true
     }
-  }
+  }, [subjectId])
 
-  async function handleDelete(topicId) {
-    try {
-      await academicsApi.deleteTopic(topicId)
-      onChanged()
-    } catch (err) {
-      // The server explains a refusal (e.g. the topic is still planned
-      // for a lesson) - show that rather than a generic failure.
-      setError(err instanceof ApiError && err.data?.detail ? [].concat(err.data.detail).join(' ') : 'Could not delete the topic.')
-    }
-  }
+  const topicCount = chapters?.reduce((n, c) => n + c.topics.length, 0) ?? 0
 
   return (
     <div className="detail-section">
@@ -183,93 +192,76 @@ function TopicsPanel({ subject, canEdit, onChanged }) {
           <StickyNote size={16} strokeWidth={1.75} aria-hidden="true" />
         </span>
         Topics
+        {chapters && <span className="onboarding-section__count">{topicCount}</span>}
       </div>
 
-      {error && (
+      {!chapters && !failed && <p className="form-note">Loading topics…</p>}
+      {failed && (
         <p className="form-error" role="alert">
-          {error}
+          Could not load the topics.
         </p>
       )}
-
-      {subject.topics.length === 0 && <p className="form-note">No topics yet.</p>}
-      {subject.topics.length > 0 && (
-        <div className="topic-chip-list">
-          {subject.topics.map((topic) => (
-            <span key={topic.id} className="topic-chip">
-              {topic.name}
-              {canEdit && (
-                <button
-                  type="button"
-                  className="topic-chip__remove"
-                  onClick={() => handleDelete(topic.id)}
-                  aria-label={`Remove ${topic.name}`}
-                >
-                  <X size={12} strokeWidth={2} aria-hidden="true" />
-                </button>
-              )}
-            </span>
-          ))}
-        </div>
+      {chapters && chapters.length === 0 && <p className="form-note">No topics loaded for this subject yet.</p>}
+      {hasPaper && chapters?.length > 0 && (
+        <p className="form-note form-note--icon">Topics marked Extended are only on the Extended paper.</p>
       )}
 
-      {canEdit && (
-        <form className="inline-add-form" onSubmit={handleAdd}>
-          <div className="field">
-            <label htmlFor="topic_name">Add a topic</label>
-            <input id="topic_name" type="text" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add topic'}
-          </button>
-        </form>
-      )}
+      {chapters?.map((chapter, index) => (
+        <section key={`${chapter.chapter}-${index}`} className="chapter" aria-label={chapter.chapter || 'General'}>
+          <h3 className="chapter__title">{chapter.chapter || 'General'}</h3>
+          <ol className="chapter__topics">
+            {chapter.topics.map((topic) => (
+              <li key={topic.id} className="chapter__topic">
+                {topic.number && <span className="chapter__number">{topic.number}</span>}
+                <span className="chapter__name">{topic.name}</span>
+                {topic.extended_only && <span className="stage-badge extended-badge">Extended</span>}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
     </div>
   )
 }
 
 export function SubjectDetailPage() {
   const { id } = useParams()
-  const { user, isStaffLevel } = useAuth()
+  const { isStaffLevel } = useAuth()
   const [subject, setSubject] = useState(null)
-  const [tutors, setTutors] = useState([])
+  const [levels, setLevels] = useState([])
   const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
   usePageTitle(subject?.name)
-
-  async function load() {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await academicsApi.getSubject(id)
-      setSubject(res)
-    } catch (err) {
-      setError(err instanceof ApiError && err.status === 404 ? 'not_found' : 'load_failed')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
     let cancelled = false
-    // load is also passed to TopicsPanel to refresh after a topic is added
-    // or removed, so it stays a shared function rather than an
-    // effect-local closure.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
-    if (isStaffLevel) {
-      tutorsApi.listTeaching().then((list) => {
-        if (!cancelled) setTutors(list)
+    academicsApi
+      .getSubject(id)
+      .then((res) => {
+        if (!cancelled) setSubject(res)
       })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiError && err.status === 404 ? 'not_found' : 'load_failed')
+      })
+    if (isStaffLevel) {
+      academicsApi
+        .listLevels()
+        .then((res) => {
+          if (!cancelled) setLevels(res)
+        })
+        .catch(() => {})
     }
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isStaffLevel])
 
-  if (loading) return <div className="page page-loading">Loading…</div>
   if (error === 'not_found') return <div className="page">Subject not found.</div>
   if (error) return <div className="page">Could not load this subject.</div>
+  if (!subject) return <div className="page page-loading">Loading…</div>
+
+  const names = tutorNames(subject)
+  // The roster is students' details: staff, or a tutor who teaches it.
+  const showRoster = isStaffLevel || subject.taught_by_me
 
   return (
     <div className="page">
@@ -279,7 +271,11 @@ export function SubjectDetailPage() {
         </span>
         <div className="detail-header__identity">
           <h1 className="detail-header__name">{subject.name}</h1>
+          <span className="detail-header__number">
+            {[subject.level_name, subject.code].filter(Boolean).join(' · ')}
+          </span>
         </div>
+        {subject.has_paper && <span className="stage-badge paper-badge">Core / Extended</span>}
         <span
           className={`stage-badge subject-status-badge subject-status-badge--${subject.is_active ? 'active' : 'inactive'}`}
         >
@@ -296,10 +292,13 @@ export function SubjectDetailPage() {
       </div>
 
       <div className="detail-header__meta">
-        <span className="detail-header__parent">
-          <UserCog size={14} strokeWidth={1.75} aria-hidden="true" />
-          {subject.tutor_name || 'Unassigned'}
-        </span>
+        {isStaffLevel && (
+          <span className="detail-header__parent">
+            <UserCog size={14} strokeWidth={1.75} aria-hidden="true" />
+            {names || 'No tutors yet'}
+          </span>
+        )}
+        {!isStaffLevel && subject.taught_by_me && <span className="stage-badge taught-badge">You teach this</span>}
         <span className="detail-header__parent">
           <CalendarClock size={14} strokeWidth={1.75} aria-hidden="true" />
           {timetableLabel(subject.timetable_slot)}
@@ -307,20 +306,15 @@ export function SubjectDetailPage() {
       </div>
 
       <div className="form-card">
-        {isStaffLevel && <DetailsSection subject={subject} tutors={tutors} onSaved={setSubject} />}
-
-        {/* Staff, or the subject's own tutor - the same person who plans its
-            lessons and so needs to add and remove what's on the list. */}
-        <TopicsPanel
-          subject={subject}
-          canEdit={isStaffLevel || canAssessSubject(user, subject)}
-          onChanged={load}
-        />
+        {isStaffLevel && <DetailsSection subject={subject} levels={levels} onSaved={setSubject} />}
+        <TopicsPanel subjectId={subject.id} hasPaper={subject.has_paper} />
       </div>
 
-      <div className="form-card">
-        <SubjectRoster subject={subject} />
-      </div>
+      {showRoster && (
+        <div className="form-card">
+          <SubjectRoster subject={subject} />
+        </div>
+      )}
     </div>
   )
 }

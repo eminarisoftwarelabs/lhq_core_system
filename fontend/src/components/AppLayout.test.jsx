@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { AppLayout } from './AppLayout'
 
+// The bell polls the API; these tests are about the layout itself.
+vi.mock('../lib/api', () => ({
+  notificationsApi: { list: () => Promise.resolve({ unread_count: 0, results: [] }), markRead: () => Promise.resolve({}) },
+}))
+
 const mockUseAuth = vi.fn()
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => mockUseAuth(),

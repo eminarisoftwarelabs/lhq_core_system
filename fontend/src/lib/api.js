@@ -29,16 +29,42 @@ export const usersApi = {
 export const tutorsApi = {
   // Reuses GET /users/ (staff-scoped) rather than a dedicated endpoint -
   // there isn't a separate tutor-list API. Filters to users who teach and
-  // pulls out the tutor_profile id, since Subject.tutor references a
-  // TutorProfile, not a User. `page=1` only - fine at this app's scale
-  // (a single tutoring business's staff roster), not meant to scale past
-  // one page of users.
+  // pulls out the tutor_profile id, since the /tutors/{id}/... endpoints
+  // are keyed by TutorProfile, not User. `page=1` only - fine at this
+  // app's scale (a single tutoring business's staff roster).
   async listTeaching() {
     const res = await usersApi.list(1)
     return res.results
       .filter((u) => u.teaches)
       .map((u) => ({ id: u.tutor_profile.id, name: u.full_name || u.email }))
   },
+  // Keyed by TutorProfile id. GET: staff, or the tutor themself. PUT:
+  // staff only - saves straight away, no approval.
+  getSubjects: (tutorId) => apiFetch(`/tutors/${tutorId}/subjects/`),
+  setSubjects: (tutorId, subjectIds) =>
+    apiFetch(`/tutors/${tutorId}/subjects/`, { method: 'PUT', body: { subjects: subjectIds } }),
+  getWorkingHours: (tutorId) => apiFetch(`/tutors/${tutorId}/working-hours/`),
+  setWorkingHours: (tutorId, blocks) =>
+    apiFetch(`/tutors/${tutorId}/working-hours/`, { method: 'PUT', body: { working_hours: blocks } }),
+}
+
+// A tutor proposes new subjects or working hours; staff approve or reject.
+// kind: 'SUBJECTS' (proposed = subject ids) or 'WORKING_HOURS'
+// (proposed = [{weekday, start_time, end_time}]).
+export const changeRequestsApi = {
+  listMine: () => apiFetch('/tutors/me/change-requests/'),
+  submit: (kind, proposed, note = '') =>
+    apiFetch('/tutors/me/change-requests/', { method: 'POST', body: { kind, proposed, note } }),
+  cancel: (id) => apiFetch(`/tutors/me/change-requests/${id}/cancel/`, { method: 'POST' }),
+  list: (params = {}) => apiFetch(`/change-requests/${toQuery(params)}`),
+  approve: (id) => apiFetch(`/change-requests/${id}/approve/`, { method: 'POST' }),
+  reject: (id, reason) => apiFetch(`/change-requests/${id}/reject/`, { method: 'POST', body: { reason } }),
+}
+
+// The signed-in user's own notifications: {unread_count, results}.
+export const notificationsApi = {
+  list: () => apiFetch('/notifications/'),
+  markRead: (id) => apiFetch(`/notifications/${id}/read/`, { method: 'POST' }),
 }
 
 function toQuery(params = {}) {
@@ -52,11 +78,11 @@ function toQuery(params = {}) {
 
 export const academicsApi = {
   listSchools: (params = {}) => apiFetch(`/schools/${toQuery(params)}`),
+  listLevels: () => apiFetch('/levels/'),
   listSubjects: (params = {}) => apiFetch(`/subjects/${toQuery(params)}`),
-  // The Timetable page needs every Subject at once (to lay out a full
-  // week), not one page at a time like SubjectsListPage's Previous/Next -
-  // so this walks every page via `next` rather than exposing pagination
-  // to the caller. Bounded at 50 pages (1000 subjects at PAGE_SIZE=20) so a
+  // Every Subject at once (the catalog grouped by level, pickers, the
+  // timetable), not one page at a time - so this walks every page via
+  // `next` rather than exposing pagination to the caller. Bounded at 50 pages (1000 subjects at PAGE_SIZE=20) so a
   // server bug returning `next` forever can't spin this forever.
   async listAllSubjects(params = {}) {
     const results = []
@@ -70,10 +96,8 @@ export const academicsApi = {
   getSubject: (id) => apiFetch(`/subjects/${id}/`),
   createSubject: (payload) => apiFetch('/subjects/', { method: 'POST', body: payload }),
   updateSubject: (id, payload) => apiFetch(`/subjects/${id}/`, { method: 'PATCH', body: payload }),
-  createTopic: (subjectId, payload) =>
-    apiFetch(`/subjects/${subjectId}/topics/`, { method: 'POST', body: payload }),
-  updateTopic: (id, payload) => apiFetch(`/topics/${id}/`, { method: 'PATCH', body: payload }),
-  deleteTopic: (id) => apiFetch(`/topics/${id}/`, { method: 'DELETE' }),
+  // The official syllabus, read-only: [{chapter, topics: [...]}].
+  listTopics: (subjectId) => apiFetch(`/subjects/${subjectId}/topics/`),
 }
 
 // Per-week lesson plans: which topic each subject's weekly session covers

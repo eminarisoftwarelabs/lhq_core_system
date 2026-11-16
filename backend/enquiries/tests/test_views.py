@@ -1,6 +1,6 @@
 from rest_framework.test import APITestCase
 
-from academics.models import Subject
+from academics.testing import make_subject
 from accounts.models import Role, User
 from clients.models import Parent
 from enquiries.models import Enquiry, EnquiryStage
@@ -16,7 +16,7 @@ def make_user(role, email=None, **kwargs):
 class EnquiryCreateTests(APITestCase):
     def setUp(self):
         self.admin = make_user(Role.ADMIN)
-        self.subject = Subject.objects.create(name='Maths')
+        self.subject = make_subject('Maths')
 
     def test_creates_enquiry_with_new_parent(self):
         self.client.force_authenticate(self.admin)
@@ -193,7 +193,7 @@ class EnquiryStageEndpointTests(APITestCase):
 class GenerateInvoiceEndpointTests(APITestCase):
     def setUp(self):
         self.admin = make_user(Role.ADMIN)
-        self.subject = Subject.objects.create(name='Maths')
+        self.subject = make_subject('Maths')
         parent = Parent.objects.create(full_name='Jane Doe', phone='0999')
         self.enquiry = Enquiry.objects.create(
             parent=parent,

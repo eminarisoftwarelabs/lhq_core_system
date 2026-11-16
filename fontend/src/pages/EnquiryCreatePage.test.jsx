@@ -12,7 +12,7 @@ const mockCreate = vi.fn()
 
 vi.mock('../lib/api', () => ({
   academicsApi: {
-    listSubjects: (...args) => mockListSubjects(...args),
+    listAllSubjects: (...args) => mockListSubjects(...args),
     listSchools: (...args) => mockListSchools(...args),
   },
   enquiriesApi: { create: (...args) => mockCreate(...args) },
@@ -46,7 +46,7 @@ async function fillRequiredFields() {
 }
 
 beforeEach(() => {
-  mockListSubjects.mockReset().mockResolvedValue({ results: [{ id: 1, name: 'Maths', is_active: true }] })
+  mockListSubjects.mockReset().mockResolvedValue([{ id: 1, name: 'Maths', is_active: true }])
   mockListSchools.mockReset().mockResolvedValue({ results: [{ id: 1, name: 'Kamuzu Academy', is_active: true }] })
   mockCreate.mockReset()
   mockNavigate.mockReset()

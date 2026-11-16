@@ -3,6 +3,16 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FieldErrors, NonFieldErrors } from '../FieldErrors'
 import { formatDuration, fromMinutes, timeOptions, WEEKDAYS } from '../../lib/timetableGrid'
+import { sharedTutorNames, subjectLabel, tutorNames } from '../../lib/tutorTeaching'
+
+// "Ana is already teaching Physics at this time." - names only the tutors
+// the chosen subject actually shares with the clashing sessions.
+function clashText(subject, clashes) {
+  const names = [...new Set(clashes.flatMap((c) => sharedTutorNames(subject, c.subject)))]
+  const who = names.length === 0 ? 'A tutor' : names.join(' and ')
+  const verb = names.length > 1 ? 'are' : 'is'
+  return `${who} ${verb} already teaching ${clashes.map((c) => c.subject.name).join(', ')} at this time.`
+}
 
 const TIME_OPTIONS = timeOptions()
 
@@ -141,8 +151,8 @@ export function SessionDialog({
                 >
                   {choices.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
-                      {c.tutor_name ? ` · ${c.tutor_name}` : ''}
+                      {subjectLabel(c)}
+                      {tutorNames(c) ? ` · ${tutorNames(c)}` : ''}
                       {c.is_active === false ? ' (inactive)' : ''}
                     </option>
                   ))}
@@ -210,8 +220,7 @@ export function SessionDialog({
             {clashes.length > 0 && (
               <p className="tt-dialog__clash" role="status">
                 <AlertTriangle size={14} strokeWidth={1.75} aria-hidden="true" />
-                {clashes[0].subject.tutor_name} is already teaching{' '}
-                {clashes.map((c) => c.subject.name).join(', ')} at this time.
+                {clashText(subject ?? choices.find((c) => c.id === Number(subjectId)), clashes)}
               </p>
             )}
 

@@ -5,7 +5,7 @@ from unittest import mock
 from django.test import TestCase
 from rest_framework.test import APITestCase
 
-from academics.models import Subject
+from academics.testing import make_subject
 from accounts.models import Role, TutorProfile, User
 from billing.models import Invoice, Payment
 from clients.models import Parent, Student
@@ -96,8 +96,8 @@ class CompanyCountsTests(TestCase):
         TutorProfile.objects.create(user=make_user(Role.OWNER))  # an Owner who teaches counts
         TutorProfile.objects.create(user=make_user(Role.TUTOR, email='gone@lhq.test', is_active=False))
 
-        Subject.objects.create(name='Maths')
-        Subject.objects.create(name='Latin', is_active=False)
+        make_subject('Maths')
+        make_subject('Latin', is_active=False)
 
         make_enquiry(EnquiryStage.INITIAL_CALL)
         make_enquiry(EnquiryStage.INVOICED)

@@ -1,10 +1,12 @@
 from datetime import date
 
+from django.db.models import ProtectedError
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from rest_framework.test import APITestCase
 
-from academics.models import LessonPlan, Subject, Topic
+from academics.models import LessonPlan, Topic
+from academics.testing import make_subject
 from accounts.models import Role, TutorProfile, User
 
 MONDAY = date(2026, 10, 5)
@@ -19,7 +21,7 @@ def make_user(role, email=None):
 
 class LessonPlanModelTests(TestCase):
     def setUp(self):
-        self.subject = Subject.objects.create(name='Maths')
+        self.subject = make_subject('Maths')
         self.fractions = Topic.objects.create(subject=self.subject, name='Fractions')
 
     def test_week_start_must_be_a_monday(self):
@@ -28,7 +30,7 @@ class LessonPlanModelTests(TestCase):
             plan.full_clean()
 
     def test_topic_must_belong_to_the_subject(self):
-        other = Topic.objects.create(subject=Subject.objects.create(name='Physics'), name='Forces')
+        other = Topic.objects.create(subject=make_subject('Physics'), name='Forces')
         plan = LessonPlan(subject=self.subject, week_start=MONDAY, topic=other)
         with self.assertRaises(ValidationError):
             plan.full_clean()
@@ -48,8 +50,8 @@ class LessonPlanApiTests(APITestCase):
         self.other_tutor_user = make_user(Role.TUTOR, email='other@lhq.test')
         self.other_tutor = TutorProfile.objects.create(user=self.other_tutor_user)
 
-        self.maths = Subject.objects.create(name='Maths', tutor=self.tutor)
-        self.physics = Subject.objects.create(name='Physics', tutor=self.other_tutor)
+        self.maths = make_subject('Maths', tutors=[self.tutor])
+        self.physics = make_subject('Physics', tutors=[self.other_tutor])
         self.fractions = Topic.objects.create(subject=self.maths, name='Fractions')
         self.decimals = Topic.objects.create(subject=self.maths, name='Decimals')
         self.forces = Topic.objects.create(subject=self.physics, name='Forces')
@@ -208,61 +210,25 @@ class LessonPlanApiTests(APITestCase):
         self.assertEqual(resp.status_code, 400)
 
 
-class TopicRulesWithLessonPlansTests(APITestCase):
+class TopicsAreReadOnlyTests(APITestCase):
+    """Topics are the official syllabus from seed_cambridge_topics, so the
+    old hand-typed topic endpoints are gone."""
+
     def setUp(self):
         self.owner = make_user(Role.OWNER)
-        self.tutor_user = make_user(Role.TUTOR)
-        self.tutor = TutorProfile.objects.create(user=self.tutor_user)
-        self.maths = Subject.objects.create(name='Maths', tutor=self.tutor)
-        self.physics = Subject.objects.create(name='Physics')
+        self.maths = make_subject('Maths')
 
-    def test_tutor_can_add_a_topic_to_own_subject(self):
-        # Planning ahead often needs a topic nobody has added yet.
-        self.client.force_authenticate(self.tutor_user)
-        resp = self.client.post(f'/api/subjects/{self.maths.id}/topics/', {'name': 'Ratios'}, format='json')
-        self.assertEqual(resp.status_code, 201, resp.data)
-
-    def test_tutor_cannot_add_a_topic_to_someone_elses_subject(self):
-        self.client.force_authenticate(self.tutor_user)
-        resp = self.client.post(f'/api/subjects/{self.physics.id}/topics/', {'name': 'Forces'}, format='json')
-        self.assertEqual(resp.status_code, 404)
-
-    def test_tutor_can_remove_a_topic_from_own_subject(self):
-        topic = Topic.objects.create(subject=self.maths, name='Ratios')
-        self.client.force_authenticate(self.tutor_user)
-        resp = self.client.delete(f'/api/topics/{topic.id}/')
-        self.assertEqual(resp.status_code, 204)
-        self.assertFalse(Topic.objects.filter(pk=topic.id).exists())
-
-    def test_tutor_cannot_remove_a_topic_from_someone_elses_subject(self):
-        topic = Topic.objects.create(subject=self.physics, name='Forces')
-        self.client.force_authenticate(self.tutor_user)
-        resp = self.client.delete(f'/api/topics/{topic.id}/')
-        self.assertEqual(resp.status_code, 403)
-        self.assertTrue(Topic.objects.filter(pk=topic.id).exists())
-
-    def test_tutor_still_cannot_rename_a_topic(self):
-        topic = Topic.objects.create(subject=self.maths, name='Ratios')
-        self.client.force_authenticate(self.tutor_user)
-        resp = self.client.patch(f'/api/topics/{topic.id}/', {'name': 'Renamed'}, format='json')
-        self.assertEqual(resp.status_code, 403)
-
-    def test_tutor_removing_a_planned_topic_gets_the_same_explanation(self):
+    def test_topics_cannot_be_added_renamed_or_deleted_over_the_api(self):
         topic = Topic.objects.create(subject=self.maths, name='Fractions')
-        LessonPlan.objects.create(subject=self.maths, week_start=MONDAY, topic=topic)
-        self.client.force_authenticate(self.tutor_user)
-        resp = self.client.delete(f'/api/topics/{topic.id}/')
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn('1 lesson.', str(resp.data['detail']))
-
-    def test_deleting_a_planned_topic_explains_instead_of_crashing(self):
-        topic = Topic.objects.create(subject=self.maths, name='Fractions')
-        LessonPlan.objects.create(subject=self.maths, week_start=MONDAY, topic=topic)
-        LessonPlan.objects.create(subject=self.maths, week_start=NEXT_MONDAY, topic=topic)
         self.client.force_authenticate(self.owner)
+        resp = self.client.post(f'/api/subjects/{self.maths.id}/topics/', {'name': 'Ratios'}, format='json')
+        self.assertEqual(resp.status_code, 405)
+        self.assertEqual(self.client.patch(f'/api/topics/{topic.id}/', {'name': 'X'}, format='json').status_code, 404)
+        self.assertEqual(self.client.delete(f'/api/topics/{topic.id}/').status_code, 404)
+        self.assertTrue(Topic.objects.filter(pk=topic.id, name='Fractions').exists())
 
-        resp = self.client.delete(f'/api/topics/{topic.id}/')
-
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn('2 lessons', str(resp.data['detail']))
-        self.assertTrue(Topic.objects.filter(pk=topic.id).exists())
+    def test_a_planned_topic_is_protected_from_deletion(self):
+        topic = Topic.objects.create(subject=self.maths, name='Fractions')
+        LessonPlan.objects.create(subject=self.maths, week_start=MONDAY, topic=topic)
+        with self.assertRaises(ProtectedError):
+            topic.delete()

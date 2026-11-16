@@ -6,6 +6,11 @@ import { ThemeProvider } from '../../theme/ThemeProvider'
 import { Header } from './Header'
 import { PageHeaderProvider } from './PageHeaderProvider'
 
+// The bell polls the API; these tests are about the layout itself.
+vi.mock('../../lib/api', () => ({
+  notificationsApi: { list: () => Promise.resolve({ unread_count: 0, results: [] }), markRead: () => Promise.resolve({}) },
+}))
+
 vi.mock('../../lib/greeting', () => ({
   getGreeting: () => 'Good afternoon',
 }))
@@ -77,5 +82,12 @@ describe('Header', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Go back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
+})
+
+describe('Header notifications', () => {
+  it('shows the notification bell for a signed-in user', async () => {
+    renderHeader({ full_name: 'Ada', email: 'ada@lhq.test', role: 'TUTOR' })
+    expect(await screen.findByRole('button', { name: 'Notifications' })).toBeInTheDocument()
   })
 })

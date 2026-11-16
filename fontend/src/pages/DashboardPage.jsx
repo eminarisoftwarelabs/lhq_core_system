@@ -37,10 +37,8 @@ const DASHBOARD_CARDS = [
     label: 'Active Subjects',
     icon: BookOpen,
     staffOnly: false,
-    // Counts active subjects on the first page - fine at this app's scale
-    // (a single tutoring business), same assumption tutorsApi.listTeaching
-    // already makes for the users list.
-    fetchCount: () => academicsApi.listSubjects().then((res) => res.results.filter((s) => s.is_active).length),
+    // The server's count of active subjects, across every page.
+    fetchCount: () => academicsApi.listSubjects({ is_active: true }).then((res) => res.count),
   },
   {
     to: '/users',

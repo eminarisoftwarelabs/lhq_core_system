@@ -6,7 +6,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import Role, TutorProfile, User
+from accounts.models import Role, TutorProfile, TutorSubject, User, WorkingHours
 from academics.models import Subject, TimetableSlot
 from billing.models import Invoice, InvoiceStatus, Payment
 from clients.models import Guardianship, Parent, Student
@@ -47,22 +47,38 @@ class SeedDummyDataCommandTests(TestCase):
         self.assertEqual(admin.role, Role.ADMIN)
 
         tutors = User.objects.filter(role=Role.TUTOR, email__endswith='@lhq.test')
-        self.assertEqual(tutors.count(), 3)
+        self.assertEqual(tutors.count(), 4)
+        self.assertTrue(tutors.filter(email='tutor@lhq.test').exists())
         for tutor in tutors:
             self.assertTrue(hasattr(tutor, 'tutor_profile'))
 
     def test_creates_subjects_with_timetable_slots_and_tutors(self):
-        expected = {'Mathematics', 'English', 'Physics', 'Chemistry', 'Biology'}
+        expected = {'Mathematics', 'English Language', 'Physics', 'Chemistry', 'Biology'}
         subjects = Subject.objects.filter(name__in=expected)
         self.assertEqual({s.name for s in subjects}, expected)
 
         for subject in subjects:
-            self.assertIsNotNone(subject.tutor_id, f'{subject.name} has no tutor assigned')
+            self.assertEqual(subject.level.name, 'IGCSE')
+            self.assertTrue(subject.tutor_links.exists(), f'{subject.name} has no tutor')
             self.assertTrue(TimetableSlot.objects.filter(subject=subject).exists())
+        self.assertEqual(
+            {s.name for s in subjects if s.has_paper}, {'Mathematics', 'Physics', 'Chemistry', 'Biology'}
+        )
 
         slots = TimetableSlot.objects.filter(subject__in=subjects)
         days = {slot.day_of_week for slot in slots}
         self.assertGreater(len(days), 1, 'timetable slots should be spread across different days')
+
+    def test_tutors_get_working_hours_except_the_one_left_to_show_the_warning(self):
+        hours = {
+            u.email: u.tutor_profile.working_hours.count()
+            for u in User.objects.filter(role=Role.TUTOR, email__endswith='@lhq.test')
+        }
+        self.assertEqual(hours['thandiwe.mvula@lhq.test'], 0)
+        self.assertEqual(hours['chisomo.phiri@lhq.test'], 5)
+        chisomo = User.objects.get(email='chisomo.phiri@lhq.test').tutor_profile
+        self.assertEqual(chisomo.working_hours.filter(weekday=0).count(), 2)  # split Monday
+        self.assertTrue(chisomo.working_hours.filter(weekday=5).exists())  # Saturday is allowed
 
     def test_creates_parents_and_students_with_guardianships(self):
         chikondi = Parent.objects.get(full_name='Chikondi Banda')
@@ -140,6 +156,8 @@ class SeedDummyDataCommandTests(TestCase):
             'timetable_slots': TimetableSlot.objects.count(),
             'tutor_profiles': TutorProfile.objects.count(),
             'guardianships': Guardianship.objects.count(),
+            'tutor_subjects': TutorSubject.objects.count(),
+            'working_hours': WorkingHours.objects.count(),
         }
 
         _seed()
@@ -156,6 +174,8 @@ class SeedDummyDataCommandTests(TestCase):
             'timetable_slots': TimetableSlot.objects.count(),
             'tutor_profiles': TutorProfile.objects.count(),
             'guardianships': Guardianship.objects.count(),
+            'tutor_subjects': TutorSubject.objects.count(),
+            'working_hours': WorkingHours.objects.count(),
         }
 
         self.assertEqual(counts_after_first_run, counts_after_second_run)
@@ -184,3 +204,46 @@ class SeedDummyDataCommandTests(TestCase):
         self.assertEqual(sys_admin.role, Role.SYS_ADMIN)
         self.assertEqual(owner.full_name, 'Real Owner')
         self.assertEqual(owner.role, Role.OWNER)
+
+
+class NotificationApiTests(APITestCase):
+    def setUp(self):
+        from core.services import notify
+
+        self.me = User.objects.create_user(email='me@lhq.test', full_name='Me', role=Role.TUTOR)
+        self.someone = User.objects.create_user(email='else@lhq.test', full_name='Else', role=Role.TUTOR)
+        notify([self.me], 'First', '/me')
+        notify([self.me, self.me], 'Second (deduped)', '/me')
+        notify([self.someone], 'Not yours', '/me')
+        self.client.force_authenticate(self.me)
+
+    def test_lists_only_my_notifications_newest_first_with_unread_count(self):
+        resp = self.client.get('/api/notifications/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['unread_count'], 2)
+        self.assertEqual([n['message'] for n in resp.data['results']], ['Second (deduped)', 'First'])
+        self.assertEqual(resp.data['results'][0]['link'], '/me')
+        self.assertFalse(resp.data['results'][0]['is_read'])
+
+    def test_mark_read_is_idempotent_and_lowers_the_count(self):
+        from core.models import Notification
+
+        note = Notification.objects.filter(recipient=self.me).last()
+        first = self.client.post(f'/api/notifications/{note.id}/read/')
+        self.assertEqual(first.status_code, 200)
+        self.assertTrue(first.data['is_read'])
+        second = self.client.post(f'/api/notifications/{note.id}/read/')
+        self.assertEqual(second.data['read_at'], first.data['read_at'])
+        self.assertEqual(self.client.get('/api/notifications/').data['unread_count'], 1)
+
+    def test_cannot_read_someone_elses(self):
+        from core.models import Notification
+
+        theirs = Notification.objects.get(recipient=self.someone)
+        self.assertEqual(self.client.post(f'/api/notifications/{theirs.id}/read/').status_code, 404)
+        theirs.refresh_from_db()
+        self.assertIsNone(theirs.read_at)
+
+    def test_requires_authentication(self):
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get('/api/notifications/').status_code, 401)

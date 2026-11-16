@@ -40,3 +40,40 @@ describe('SubjectMultiSelect', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
   })
 })
+
+describe('SubjectMultiSelect grouped by level', () => {
+  const catalog = [
+    { id: 10, name: 'Mathematics', level: 3, level_name: 'IGCSE' },
+    { id: 11, name: 'Physics', level: 3, level_name: 'IGCSE' },
+    { id: 20, name: 'Mathematics', level: 4, level_name: 'A Level' },
+  ]
+
+  it('shows a heading per level and names each chip with its level', () => {
+    render(<SubjectMultiSelect subjects={catalog} selectedIds={[20]} onChange={() => {}} />)
+
+    expect(screen.getByText('IGCSE')).toBeInTheDocument()
+    expect(screen.getByText('A Level')).toBeInTheDocument()
+    expect(screen.getByLabelText('A Level Mathematics')).toBeChecked()
+    expect(screen.getByLabelText('IGCSE Mathematics')).not.toBeChecked()
+  })
+
+  it('toggles the right one of two same-named subjects', () => {
+    const onChange = vi.fn()
+    render(<SubjectMultiSelect subjects={catalog} selectedIds={[]} onChange={onChange} />)
+
+    fireEvent.click(screen.getByLabelText('IGCSE Mathematics'))
+
+    expect(onChange).toHaveBeenCalledWith([10])
+  })
+
+  it('takes a custom legend', () => {
+    render(<SubjectMultiSelect subjects={catalog} selectedIds={[]} onChange={() => {}} legend="Subjects taught" />)
+    expect(screen.getByRole('group', { name: 'Subjects taught' })).toBeInTheDocument()
+  })
+
+  it('can hide the legend visually while keeping the group named', () => {
+    render(<SubjectMultiSelect subjects={catalog} selectedIds={[]} onChange={() => {}} legend="Subjects taught" hideLegend />)
+    expect(screen.getByText('Subjects taught')).toHaveClass('visually-hidden')
+    expect(screen.getByRole('group', { name: 'Subjects taught' })).toBeInTheDocument()
+  })
+})

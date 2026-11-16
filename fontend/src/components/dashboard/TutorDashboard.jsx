@@ -18,7 +18,7 @@ function useTutorWeek() {
     async function load() {
       const today = new Date()
       try {
-        const subjects = await academicsApi.listAllSubjects({ is_active: true })
+        const subjects = await academicsApi.listAllSubjects({ is_active: true, mine: true })
         // Plans and rosters are extras on top of the subject list - if
         // either fails, the classes still show, just without that detail.
         const [plansResult, ...rosterResults] = await Promise.allSettled([

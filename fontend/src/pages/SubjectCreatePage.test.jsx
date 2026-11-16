@@ -6,12 +6,14 @@ import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 import { ToastProvider } from '../components/toast/ToastProvider'
 import { ApiError } from '../lib/apiClient'
 
-const mockListTeaching = vi.fn()
+const mockListLevels = vi.fn()
 const mockCreateSubject = vi.fn()
 
 vi.mock('../lib/api', () => ({
-  academicsApi: { createSubject: (...args) => mockCreateSubject(...args) },
-  tutorsApi: { listTeaching: (...args) => mockListTeaching(...args) },
+  academicsApi: {
+    createSubject: (...args) => mockCreateSubject(...args),
+    listLevels: (...args) => mockListLevels(...args),
+  },
 }))
 
 const mockNavigate = vi.fn()
@@ -33,7 +35,10 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  mockListTeaching.mockReset().mockResolvedValue([{ id: 9, name: 'Grace Phiri' }])
+  mockListLevels.mockReset().mockResolvedValue([
+    { id: 3, name: 'IGCSE' },
+    { id: 4, name: 'A Level' },
+  ])
   mockCreateSubject.mockReset()
   mockNavigate.mockReset()
 })
@@ -43,12 +48,15 @@ afterEach(() => {
 })
 
 describe('SubjectCreatePage', () => {
-  it('renders the subject details fields, with tutors loaded into the dropdown', async () => {
+  it('renders the catalog fields, with levels loaded into the dropdown and no tutor picker', async () => {
     renderPage()
 
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Syllabus code')).toBeInTheDocument()
+    expect(screen.getByLabelText('Core and Extended papers')).not.toBeChecked()
     expect(screen.getByLabelText(/Active/)).toBeInTheDocument()
-    expect(await screen.findByRole('option', { name: 'Grace Phiri' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'A Level' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Tutor')).not.toBeInTheDocument()
   })
 
   it('defaults Active to checked', () => {
@@ -62,18 +70,28 @@ describe('SubjectCreatePage', () => {
 
     expect(screen.queryByLabelText(/timetable slot/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Day')).not.toBeInTheDocument()
-    expect(screen.getByText(/timetable slot from the Timetable page/i)).toBeInTheDocument()
+    expect(screen.getByText(/timetable slot can be set on the Timetable page/i)).toBeInTheDocument()
   })
 
-  it('submits the subject without a timetable slot', async () => {
+  it('submits level, name, code and the paper flag, without a timetable slot', async () => {
     mockCreateSubject.mockResolvedValue({ id: 5 })
     renderPage()
+    await screen.findByRole('option', { name: 'IGCSE' })
 
+    fireEvent.change(screen.getByLabelText('Level'), { target: { value: '3' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Chemistry' } })
+    fireEvent.change(screen.getByLabelText('Syllabus code'), { target: { value: '0620' } })
+    fireEvent.click(screen.getByLabelText('Core and Extended papers'))
     fireEvent.click(screen.getByRole('button', { name: 'Create subject' }))
 
     await waitFor(() =>
-      expect(mockCreateSubject).toHaveBeenCalledWith({ name: 'Chemistry', is_active: true, tutor: null }),
+      expect(mockCreateSubject).toHaveBeenCalledWith({
+        name: 'Chemistry',
+        level: 3,
+        code: '0620',
+        has_paper: true,
+        is_active: true,
+      }),
     )
   })
 
@@ -81,6 +99,8 @@ describe('SubjectCreatePage', () => {
     mockCreateSubject.mockResolvedValue({ id: 7 })
     renderPage()
 
+    await screen.findByRole('option', { name: 'IGCSE' })
+    fireEvent.change(screen.getByLabelText('Level'), { target: { value: '3' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Geography' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create subject' }))
 
@@ -91,7 +111,9 @@ describe('SubjectCreatePage', () => {
   it('shows field errors from the API and does not navigate', async () => {
     mockCreateSubject.mockRejectedValue(new ApiError(400, { name: ['This field is required.'] }))
     renderPage()
+    await screen.findByRole('option', { name: 'IGCSE' })
 
+    fireEvent.change(screen.getByLabelText('Level'), { target: { value: '3' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Chemistry' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create subject' }))
 

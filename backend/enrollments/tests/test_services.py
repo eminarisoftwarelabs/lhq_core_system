@@ -2,7 +2,7 @@ from datetime import date
 
 from django.test import TestCase
 
-from academics.models import Subject
+from academics.testing import make_subject
 from clients.models import Student
 from enrollments.models import Enrollment, EnrollmentStatus, LearningMode
 from enrollments.services import compute_end_date, withdraw
@@ -25,7 +25,7 @@ class ComputeEndDateTests(TestCase):
 class WithdrawTests(TestCase):
     def test_withdraw_sets_status_date_and_reason(self):
         student = Student.objects.create(student_number='STU-000001', full_name='Alice', grade='7')
-        subject = Subject.objects.create(name='Maths')
+        subject = make_subject('Maths')
         enrollment = Enrollment.objects.create(
             student=student,
             start_date=date(2026, 1, 5),

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { getGreeting } from '../../lib/greeting'
 import { usePageHeaderContext } from './usePageHeaderContext'
 import { ThemeToggle } from '../ui/ThemeToggle'
+import { NotificationBell } from './NotificationBell'
 import { UserMenu } from './UserMenu'
 
 // The dashboard route only - every other page shows its own title (with a
@@ -52,6 +53,7 @@ export function Header({ user, onLogout, onOpenMenu, isMobileNavOpen }) {
       </div>
 
       <ThemeToggle />
+      {user && <NotificationBell />}
       <UserMenu user={user} onLogout={onLogout} />
     </header>
   )

@@ -4,6 +4,7 @@ from .models import (
     FIRST_WEEKDAY,
     LAST_WEEKDAY,
     WEEKDAY_RANGE_MESSAGE,
+    Level,
     LessonPlan,
     School,
     Subject,
@@ -37,27 +38,72 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class LevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Level
+        fields = ['id', 'name', 'order', 'year_groups', 'is_active']
+        read_only_fields = fields
+
+
 class TopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
-        fields = ['id', 'subject', 'name']
-        read_only_fields = ['id', 'subject']
+        fields = ['id', 'number', 'name', 'extended_only', 'order']
+        read_only_fields = fields
+
+
+class ChapterSerializer(serializers.Serializer):
+    chapter = serializers.CharField()
+    topics = TopicSerializer(many=True)
 
 
 class SubjectSerializer(serializers.ModelSerializer):
-    """Read serializer, also the base for create/update below."""
+    """Read serializer, also the base for create/update below.
 
+    `tutors` (who teaches it) is only included for staff; a tutor's
+    response never lists other tutors. `taught_by_me` is for everyone, so
+    the UI can tell which catalog subjects the viewer teaches."""
+
+    level_name = serializers.CharField(source='level.name', read_only=True)
     timetable_slot = TimetableSlotSerializer(required=False, allow_null=True)
-    topics = TopicSerializer(many=True, read_only=True)
-    tutor_name = serializers.SerializerMethodField()
+    taught_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = Subject
-        fields = ['id', 'name', 'tutor', 'tutor_name', 'is_active', 'timetable_slot', 'topics']
+        fields = [
+            'id',
+            'level',
+            'level_name',
+            'name',
+            'code',
+            'has_paper',
+            'is_active',
+            'timetable_slot',
+            'taught_by_me',
+        ]
         read_only_fields = ['id']
 
-    def get_tutor_name(self, obj):
-        return obj.tutor.user.full_name if obj.tutor_id else None
+    def _viewer(self):
+        request = self.context.get('request')
+        return getattr(request, 'user', None)
+
+    def get_fields(self):
+        fields = super().get_fields()
+        viewer = self._viewer()
+        if viewer is not None and getattr(viewer, 'is_staff_level', False):
+            fields['tutors'] = serializers.SerializerMethodField()
+        return fields
+
+    def get_tutors(self, obj) -> list:
+        links = sorted(obj.tutor_links.all(), key=lambda link: (link.tutor.user.full_name or '').lower())
+        return [{'id': link.tutor_id, 'name': link.tutor.user.full_name or link.tutor.user.email} for link in links]
+
+    def get_taught_by_me(self, obj) -> bool:
+        viewer = self._viewer()
+        profile = getattr(viewer, 'tutor_profile', None) if viewer is not None else None
+        if profile is None:
+            return False
+        return any(link.tutor_id == profile.id for link in obj.tutor_links.all())
 
     def _set_timetable_slot(self, subject, slot_data):
         if slot_data is None:

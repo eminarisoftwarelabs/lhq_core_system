@@ -20,7 +20,7 @@ vi.mock('../auth/useAuth', () => ({
 const OWNER = { user: { id: 1, role: 'OWNER', tutor_profile: null }, isStaffLevel: true }
 const TUTOR = { user: { id: 2, role: 'TUTOR', tutor_profile: { id: 9 } }, isStaffLevel: false }
 
-const maths = { id: 1, name: 'Maths', tutor: 9 }
+const maths = { id: 1, name: 'Maths', taught_by_me: true }
 
 function renderPage() {
   return render(

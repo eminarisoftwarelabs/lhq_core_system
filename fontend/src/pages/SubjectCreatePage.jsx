@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FieldErrors, NonFieldErrors } from '../components/FieldErrors'
 import { useToast } from '../components/toast/useToast'
-import { academicsApi, tutorsApi } from '../lib/api'
+import { academicsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
 import { usePageTitle } from '../lib/usePageTitle'
 
@@ -11,18 +11,23 @@ export function SubjectCreatePage() {
   usePageTitle('Add subject')
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const [tutors, setTutors] = useState([])
+  const [levels, setLevels] = useState([])
   const [name, setName] = useState('')
-  const [tutorId, setTutorId] = useState('')
+  const [level, setLevel] = useState('')
+  const [code, setCode] = useState('')
+  const [hasPaper, setHasPaper] = useState(false)
   const [isActive, setIsActive] = useState(true)
   const [errors, setErrors] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    tutorsApi.listTeaching().then((list) => {
-      if (!cancelled) setTutors(list)
-    })
+    academicsApi
+      .listLevels()
+      .then((list) => {
+        if (!cancelled) setLevels(list)
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -33,7 +38,7 @@ export function SubjectCreatePage() {
     setErrors(null)
     setSubmitting(true)
 
-    const payload = { name, is_active: isActive, tutor: tutorId || null }
+    const payload = { name, level: level ? Number(level) : null, code, has_paper: hasPaper, is_active: isActive }
 
     try {
       const created = await academicsApi.createSubject(payload)
@@ -60,25 +65,41 @@ export function SubjectCreatePage() {
               Subject details
             </legend>
             <div className="form-row">
-              <div className="field field--full field--required">
+              <div className="field field--required">
+                <label htmlFor="level">Level</label>
+                <select id="level" value={level} onChange={(e) => setLevel(e.target.value)} required>
+                  <option value="">Choose a level</option>
+                  {levels.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+                <FieldErrors errors={errors} field="level" />
+              </div>
+
+              <div className="field field--required">
                 <label htmlFor="name">Name</label>
                 <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required />
                 <FieldErrors errors={errors} field="name" />
               </div>
 
               <div className="field">
-                <label htmlFor="tutor">Tutor</label>
-                <select id="tutor" value={tutorId} onChange={(e) => setTutorId(e.target.value)}>
-                  <option value="">Unassigned</option>
-                  {tutors.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-                <FieldErrors errors={errors} field="tutor" />
+                <label htmlFor="code">Syllabus code</label>
+                <input id="code" type="text" value={code} onChange={(e) => setCode(e.target.value)} />
+                <FieldErrors errors={errors} field="code" />
               </div>
             </div>
+
+            <label htmlFor="has_paper" className="checkbox-label">
+              <input
+                id="has_paper"
+                type="checkbox"
+                checked={hasPaper}
+                onChange={(e) => setHasPaper(e.target.checked)}
+              />
+              Core and Extended papers
+            </label>
 
             <label htmlFor="is_active" className="checkbox-label">
               <input
@@ -93,7 +114,7 @@ export function SubjectCreatePage() {
 
           <p className="form-note form-note--icon">
             <CalendarClock size={14} strokeWidth={1.75} aria-hidden="true" />
-            You can give this subject a timetable slot from the Timetable page once it's created.
+            Tutors pick the subjects they teach on their profile. A timetable slot can be set on the Timetable page.
           </p>
 
           <div className="form-actions">

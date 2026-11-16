@@ -21,7 +21,7 @@ vi.mock('../lib/api', () => ({
     generateInvoice: (...args) => mockGenerateInvoice(...args),
   },
   academicsApi: {
-    listSubjects: (...args) => mockListSubjects(...args),
+    listAllSubjects: (...args) => mockListSubjects(...args),
   },
   billingApi: {
     listInvoices: (...args) => mockListInvoices(...args),
@@ -88,7 +88,7 @@ beforeEach(() => {
   mockRecordPayment.mockReset()
 
   mockGet.mockResolvedValue(baseEnquiry)
-  mockListSubjects.mockResolvedValue({ results: [{ id: 1, name: 'Maths', is_active: true }] })
+  mockListSubjects.mockResolvedValue([{ id: 1, name: 'Maths', is_active: true }])
   mockListInvoices.mockResolvedValue({ results: [] })
 })
 

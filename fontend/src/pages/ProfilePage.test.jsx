@@ -5,6 +5,15 @@ import { ProfilePage } from './ProfilePage'
 import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 import { ToastProvider } from '../components/toast/ToastProvider'
 
+// The panel has its own tests; here it only matters that the page shows it
+// for a teaching account, with the right mode.
+vi.mock('../components/tutors/TutorTeachingPanel', () => ({
+  TutorTeachingPanel: ({ tutorId, mode }) => (
+    <div data-testid="teaching-panel" data-tutor={tutorId} data-mode={mode} />
+  ),
+}))
+
+
 const me = {
   id: 2,
   email: 'tam@lhq.test',
@@ -17,7 +26,7 @@ const me = {
   employment_type: 'PART_TIME',
   start_date: '2025-01-06',
   address: '',
-  tutor_profile: { hourly_rate: '40.00', is_available: true },
+  tutor_profile: { id: 44, hourly_rate: '40.00', is_available: true },
 }
 
 vi.mock('../auth/useAuth', () => ({
@@ -62,5 +71,12 @@ describe('ProfilePage', () => {
     expect(container.querySelector('.form-card form')).not.toBeNull()
     expect(screen.getByLabelText('Full name')).toHaveValue('Tam Tutor')
     expect(screen.queryByLabelText('Role')).not.toBeInTheDocument()
+  })
+
+  it('shows the subjects and working hours panel for a teaching account, in request mode', async () => {
+    renderPage()
+    const panel = await screen.findByTestId('teaching-panel')
+    expect(panel).toHaveAttribute('data-tutor', '44')
+    expect(panel).toHaveAttribute('data-mode', 'request')
   })
 })

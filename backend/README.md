@@ -18,8 +18,17 @@ by the separate frontend app (`../fontend`).
 ```bash
 cp .env.example .env
 uv run python manage.py migrate
-uv run python manage.py createsuperuser   # optional, for /admin/
+uv run python manage.py seed_cambridge_topics   # Cambridge subject catalog + topics, idempotent
+uv run python manage.py seed_dummy_data         # optional demo data, idempotent
+uv run python manage.py createsuperuser         # optional, for /admin/
 uv run python manage.py runserver
+```
+
+`seed_cambridge_topics` reads `academics/data/cambridge_topics.json`. To
+build that file from Wanangwa's `topics.js`:
+
+```bash
+uv run python manage.py seed_cambridge_topics --from-js /path/to/topics.js
 ```
 
 ## Endpoints
@@ -31,8 +40,14 @@ uv run python manage.py runserver
 - `POST /api/auth/setup-password/` — new-hire password setup, token from the onboarding email
 - `GET /api/me/`, `/api/users/` — require `Authorization: Bearer <access>`
 - `GET /api/students/{id}/assessments/` — a student's assessment record (tutors' academic and behavioural comments), newest first; `?category=ACADEMIC|BEHAVIOURAL`, `?subject=<id>`. Staff: any student. Tutor: only a student they currently teach, else 404
-- `POST /api/students/{id}/assessments/` — `{subject, category, comment}`; only the tutor assigned to `subject`, and only for a student actively enrolled in it. Append-only: no edit or delete
+- `POST /api/students/{id}/assessments/` — `{subject, category, comment}`; only a tutor who teaches `subject`, and only for a student actively enrolled in it. Append-only: no edit or delete
 - `GET /api/overview/` — company overview for the Owner dashboard: counts, money, six-month enrollment trend, onboarding funnel; `?period=this_month|last_month|this_year`. Owner and SYS_ADMIN only (403 for Admin and Tutor)
+- `GET /api/levels/`, `GET /api/subjects/`, `GET /api/subjects/{id}/topics/` — the subject catalog by level and its syllabus by chapter. Staff responses list each subject's tutors; tutor responses do not
+- `GET|PUT /api/tutors/{id}/subjects/`, `GET|PUT /api/tutors/{id}/working-hours/` — a tutor's live subjects and hours. PUT is staff only and applies immediately
+- `GET|POST /api/tutors/me/change-requests/`, `POST .../{id}/cancel/` — a tutor proposes new subjects or hours; nothing changes until approved
+- `GET /api/change-requests/?status=PENDING`, `POST /api/change-requests/{id}/approve/`, `.../reject/` — staff review queue
+- `GET /api/notifications/`, `POST /api/notifications/{id}/read/` — the caller's in-app notifications
+- Full request and response shapes: `../fontend/BACKEND_API_BRIEF.md`, "Tutors and subjects"
 - `GET /api/schema/` — OpenAPI 3 schema
 - `GET /api/docs/` — Swagger UI
 - `GET /api/redoc/` — ReDoc

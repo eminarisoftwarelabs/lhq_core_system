@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import LessonPlan, School, Subject, TimetableSlot, Topic
+from .models import Level, LessonPlan, School, Subject, TimetableSlot, Topic
 
 
 @admin.register(School)
@@ -10,9 +10,16 @@ class SchoolAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
+@admin.register(Level)
+class LevelAdmin(admin.ModelAdmin):
+    list_display = ['name', 'order', 'year_groups', 'is_active']
+    list_filter = ['is_active']
+
+
 class TopicInline(admin.TabularInline):
     model = Topic
-    extra = 1
+    extra = 0
+    fields = ['order', 'chapter', 'number', 'name', 'extended_only']
 
 
 class TimetableSlotInline(admin.StackedInline):
@@ -23,16 +30,17 @@ class TimetableSlotInline(admin.StackedInline):
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ['name', 'tutor', 'is_active']
-    list_filter = ['tutor', 'is_active']
-    search_fields = ['name']
+    list_display = ['name', 'level', 'code', 'has_paper', 'is_active']
+    list_filter = ['level', 'has_paper', 'is_active']
+    search_fields = ['name', 'code']
     inlines = [TimetableSlotInline, TopicInline]
 
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ['name', 'subject']
-    search_fields = ['name', 'subject__name']
+    list_display = ['name', 'number', 'chapter', 'subject', 'extended_only']
+    list_filter = ['subject__level', 'extended_only']
+    search_fields = ['name', 'chapter', 'subject__name']
 
 
 @admin.register(TimetableSlot)

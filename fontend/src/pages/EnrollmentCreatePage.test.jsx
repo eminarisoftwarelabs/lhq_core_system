@@ -12,7 +12,7 @@ const mockSearchStudents = vi.fn()
 const mockCreateEnrollment = vi.fn()
 
 vi.mock('../lib/api', () => ({
-  academicsApi: { listSubjects: (...args) => mockListSubjects(...args) },
+  academicsApi: { listAllSubjects: (...args) => mockListSubjects(...args) },
   clientsApi: {
     getStudent: (...args) => mockGetStudent(...args),
     searchStudents: (...args) => mockSearchStudents(...args),
@@ -39,7 +39,7 @@ function renderPage(initialPath = '/enrollments/new') {
 }
 
 beforeEach(() => {
-  mockListSubjects.mockReset().mockResolvedValue({ results: [{ id: 1, name: 'Maths', is_active: true }] })
+  mockListSubjects.mockReset().mockResolvedValue([{ id: 1, name: 'Maths', is_active: true }])
   mockGetStudent.mockReset()
   mockSearchStudents.mockReset().mockResolvedValue({ results: [] })
   mockCreateEnrollment.mockReset()

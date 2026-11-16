@@ -1,3 +1,4 @@
+import { sharesTutor } from './tutorTeaching'
 // Pure time/geometry helpers for the Timetable week grid (TimetablePage).
 // Everything here is minutes-since-midnight integers so layout, snapping,
 // and overlap checks are plain arithmetic - the components only convert to
@@ -153,8 +154,9 @@ export function layoutLanes(daySessions) {
 }
 
 /**
- * Subject ids whose tutor is booked into another overlapping session.
- * Unassigned subjects (no tutor) never clash with each other.
+ * Subject ids that share a tutor with another overlapping session. A
+ * subject can have several tutors (subject.tutors); subjects with none
+ * never clash.
  */
 export function tutorClashes(sessions) {
   const clashing = new Set()
@@ -162,7 +164,7 @@ export function tutorClashes(sessions) {
     for (let j = i + 1; j < sessions.length; j += 1) {
       const a = sessions[i]
       const b = sessions[j]
-      if (a.subject.tutor != null && a.subject.tutor === b.subject.tutor && overlaps(a, b)) {
+      if (sharesTutor(a.subject, b.subject) && overlaps(a, b)) {
         clashing.add(a.subject.id)
         clashing.add(b.subject.id)
       }

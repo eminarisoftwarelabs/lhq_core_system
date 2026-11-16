@@ -1,8 +1,10 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import ProtectedError
 from django.test import TestCase
 
-from academics.models import School, Subject, TimetableSlot, Topic
+from academics.models import Level, School, TimetableSlot, Topic
+from academics.testing import make_subject
 from accounts.models import Role, TutorProfile, User
 
 
@@ -18,64 +20,95 @@ class SchoolModelTests(TestCase):
                 School.objects.create(name='Test Academy')
 
 
-class SubjectModelTests(TestCase):
-    def test_subject_can_exist_without_a_tutor(self):
-        subject = Subject.objects.create(name='Unassigned Subject')
-        self.assertIsNone(subject.tutor)
-        self.assertTrue(subject.is_active)
+class LevelModelTests(TestCase):
+    def test_four_levels_are_seeded_in_curriculum_order(self):
+        self.assertEqual(
+            [(level.name, level.year_groups) for level in Level.objects.all()],
+            [
+                ('Primary (Year 6)', [6]),
+                ('Lower Secondary (Years 7 to 9)', [7, 8, 9]),
+                ('IGCSE', [10, 11]),
+                ('A Level', [12, 13]),
+            ],
+        )
 
-    def test_reassigning_subject_is_a_plain_field_update(self):
+    def test_name_must_be_unique(self):
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Level.objects.create(name='IGCSE')
+
+    def test_year_groups_must_be_real_year_groups(self):
+        for bad in ([0], [14], ['10'], 'IGCSE', [True]):
+            level = Level(name='Bad', year_groups=bad)
+            with self.assertRaises(ValidationError, msg=repr(bad)):
+                level.clean()
+        Level(name='Good', year_groups=[1, 13]).clean()
+
+
+class SubjectModelTests(TestCase):
+    def test_subject_needs_no_tutor_and_defaults_to_active(self):
+        subject = make_subject('Unassigned Subject')
+        self.assertEqual(subject.tutor_links.count(), 0)
+        self.assertTrue(subject.is_active)
+        self.assertFalse(subject.has_paper)
+
+    def test_same_name_allowed_at_different_levels_but_not_the_same_one(self):
+        igcse = Level.objects.get(name='IGCSE')
+        a_level = Level.objects.get(name='A Level')
+        make_subject('Physics', level=igcse)
+        make_subject('Physics', level=a_level)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                make_subject('Physics', level=igcse)
+
+    def test_level_is_protected_while_subjects_use_it(self):
+        subject = make_subject('Physics')
+        with self.assertRaises(ProtectedError):
+            subject.level.delete()
+
+    def test_many_tutors_per_subject_and_many_subjects_per_tutor(self):
         tutor_a = TutorProfile.objects.create(
             user=User.objects.create_user(email='a@lhq.test', full_name='A', role=Role.TUTOR)
         )
         tutor_b = TutorProfile.objects.create(
             user=User.objects.create_user(email='b@lhq.test', full_name='B', role=Role.TUTOR)
         )
-        subject = Subject.objects.create(name='Physics', tutor=tutor_a)
+        physics = make_subject('Physics', tutors=[tutor_a, tutor_b])
+        maths = make_subject('Mathematics', tutors=[tutor_a])
+        self.assertEqual(physics.tutor_links.count(), 2)
+        self.assertEqual(set(tutor_a.subject_links.values_list('subject_id', flat=True)), {physics.id, maths.id})
 
-        subject.tutor = tutor_b
-        subject.save()
-        subject.refresh_from_db()
-
-        self.assertEqual(subject.tutor, tutor_b)
-
-    def test_deleting_tutor_protected_by_subject_assignment(self):
-        tutor_user = User.objects.create_user(email='tutor@lhq.test', full_name='Tutor', role=Role.TUTOR)
-        profile = TutorProfile.objects.create(user=tutor_user)
-        Subject.objects.create(name='Maths', tutor=profile)
-
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                profile.delete()
+    def test_display_name_includes_the_level(self):
+        self.assertEqual(str(make_subject('Physics')), 'IGCSE Physics')
 
 
 class TimetableSlotModelTests(TestCase):
     def test_requires_start_before_end(self):
-        subject = Subject.objects.create(name='Chemistry')
+        subject = make_subject('Chemistry')
         slot = TimetableSlot(subject=subject, day_of_week=1, start_time='14:00', end_time='13:00')
         with self.assertRaises(ValidationError):
             slot.clean()
 
     def test_requires_day_of_week_in_range(self):
-        subject = Subject.objects.create(name='Biology')
+        subject = make_subject('Biology')
         slot = TimetableSlot(subject=subject, day_of_week=7, start_time='13:00', end_time='14:00')
         with self.assertRaises(ValidationError):
             slot.clean()
 
     def test_weekend_days_rejected(self):
         # The centre timetables Monday-Friday only.
-        subject = Subject.objects.create(name='Art')
+        subject = make_subject('Art')
         for day in (5, 6):
             slot = TimetableSlot(subject=subject, day_of_week=day, start_time='13:00', end_time='14:00')
             with self.assertRaises(ValidationError, msg=f'day {day} should be rejected'):
                 slot.clean()
 
     def test_friday_accepted(self):
-        subject = Subject.objects.create(name='Music')
+        subject = make_subject('Music')
         TimetableSlot(subject=subject, day_of_week=4, start_time='13:00', end_time='14:00').clean()
 
     def test_valid_slot(self):
-        subject = Subject.objects.create(name='English')
+        subject = make_subject('English')
         slot = TimetableSlot.objects.create(
             subject=subject, day_of_week=0, start_time='13:00', end_time='14:00'
         )
@@ -85,6 +118,21 @@ class TimetableSlotModelTests(TestCase):
 
 class TopicModelTests(TestCase):
     def test_topic_belongs_to_subject(self):
-        subject = Subject.objects.create(name='History')
+        subject = make_subject('History')
         topic = Topic.objects.create(subject=subject, name='World War II')
         self.assertIn(topic, subject.topics.all())
+        self.assertFalse(topic.extended_only)
+
+    def test_ordered_by_syllabus_order_not_name(self):
+        subject = make_subject('Physics')
+        Topic.objects.create(subject=subject, chapter='B', name='Zeta', order=1)
+        Topic.objects.create(subject=subject, chapter='A', name='Alpha', order=2)
+        self.assertEqual([t.name for t in subject.topics.all()], ['Zeta', 'Alpha'])
+
+    def test_same_topic_name_allowed_in_another_chapter_only(self):
+        subject = make_subject('Physics')
+        Topic.objects.create(subject=subject, chapter='Motion', name='Review')
+        Topic.objects.create(subject=subject, chapter='Waves', name='Review')
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Topic.objects.create(subject=subject, chapter='Motion', name='Review')

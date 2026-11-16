@@ -1,4 +1,4 @@
-import { UserCog, UserPlus } from 'lucide-react'
+import { ClipboardCheck, UserCog, UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { hasStaffScopeOver, roleLabel } from '../auth/permissions'
@@ -98,10 +98,16 @@ export function UsersListPage() {
             {!loading && !error && data && <span className="onboarding-section__count">{data.count}</span>}
           </div>
 
-          <Link className="button" to="/users/new">
-            <UserPlus size={16} strokeWidth={1.75} aria-hidden="true" />
-            Create user
-          </Link>
+          <div className="invoice-header-actions">
+            <Link className="button button--secondary" to="/users/change-requests">
+              <ClipboardCheck size={16} strokeWidth={1.75} aria-hidden="true" />
+              Change requests
+            </Link>
+            <Link className="button" to="/users/new">
+              <UserPlus size={16} strokeWidth={1.75} aria-hidden="true" />
+              Create user
+            </Link>
+          </div>
         </div>
 
         {loading && <p className="recent-enrollments__status">Loading…</p>}

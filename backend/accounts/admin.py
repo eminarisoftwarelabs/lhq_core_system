@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import TutorProfile, User
+from .models import TutorChangeRequest, TutorProfile, TutorSubject, User, WorkingHours
 
 
 @admin.register(User)
@@ -47,7 +47,26 @@ class UserAdmin(DjangoUserAdmin):
     )
 
 
+class TutorSubjectInline(admin.TabularInline):
+    model = TutorSubject
+    extra = 0
+    autocomplete_fields = ['subject']
+
+
+class WorkingHoursInline(admin.TabularInline):
+    model = WorkingHours
+    extra = 0
+
+
 @admin.register(TutorProfile)
 class TutorProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'hourly_rate', 'is_available']
     search_fields = ['user__email', 'user__full_name']
+    inlines = [TutorSubjectInline, WorkingHoursInline]
+
+
+@admin.register(TutorChangeRequest)
+class TutorChangeRequestAdmin(admin.ModelAdmin):
+    list_display = ['tutor', 'kind', 'status', 'created_at', 'reviewed_by', 'reviewed_at']
+    list_filter = ['kind', 'status']
+    readonly_fields = ['created_at']

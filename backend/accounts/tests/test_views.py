@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from academics.models import Subject
+from academics.testing import make_subject
 from accounts.models import Role, TutorProfile, User
 
 
@@ -496,12 +496,12 @@ class DeleteUserTests(APITestCase):
         owner = make_user(Role.OWNER)
         tutor = make_user(Role.TUTOR)
         profile = TutorProfile.objects.create(user=tutor, hourly_rate='30.00')
-        Subject.objects.create(name='Algebra', tutor=profile)
+        make_subject('Algebra', tutors=[profile])
 
         resp = self._delete(owner, tutor)
 
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('subjects assigned', resp.data['detail'][0])
+        self.assertIn('still teaches subjects', resp.data['detail'][0])
         self.assertTrue(User.objects.filter(pk=tutor.pk).exists())
 
 
