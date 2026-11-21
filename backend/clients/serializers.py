@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Guardianship, Parent, Student
@@ -38,6 +39,21 @@ class StudentSerializer(serializers.ModelSerializer):
             'phone',
             'email',
             'grade',
+            'enrolled_on',
             'guardianships',
         ]
         read_only_fields = fields
+
+
+class StudentEnrolledOnSerializer(serializers.ModelSerializer):
+    """Staff edit of the enrolment date, the only student field editable
+    through this API. Students are created by the enrolment flow."""
+
+    class Meta:
+        model = Student
+        fields = ['enrolled_on']
+
+    def validate_enrolled_on(self, value):
+        if value > timezone.localdate():
+            raise serializers.ValidationError('The enrolment date cannot be in the future.')
+        return value

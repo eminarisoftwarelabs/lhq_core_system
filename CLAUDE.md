@@ -27,7 +27,9 @@ Backend (from `backend/`):
 ```
 uv run python manage.py migrate
 uv run python manage.py seed_cambridge_topics   # subject catalog + topics (idempotent)
-uv run python manage.py seed_dummy_data         # demo tutors, students, enquiries (idempotent)
+uv run python manage.py seed_dummy_data         # demo tutors, students, enquiries, bookings (idempotent)
+uv run python manage.py generate_sessions       # sessions from weekly slots, 4 weeks ahead (idempotent, daily)
+uv run python manage.py remind_unlogged_sessions  # end-of-day unlogged reminder (idempotent, daily)
 uv run python manage.py runserver
 uv run python manage.py test
 ```

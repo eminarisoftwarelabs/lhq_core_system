@@ -97,6 +97,50 @@ class SubjectListCreateTests(APITestCase):
         self.assertEqual([t['name'] for t in rows['Maths']['tutors']], ['Olu Other', 'Tam Tutor'])
         self.assertEqual(rows['Art']['tutors'], [])
 
+    def test_staff_rows_count_tutors_and_active_students(self):
+        from datetime import date
+
+        from academics.models import StudentSubject
+        from clients.models import Student
+
+        def enrol(n, status='ACTIVE'):
+            student = Student.objects.create(student_number=f'STU-{n}', full_name=f'Kid {n}')
+            return StudentSubject.objects.create(
+                student=student, subject=self.own_subject, tutor=self.tutor_profile,
+                planned_sessions=4, start_date=date(2026, 11, 16), status=status,
+            )
+
+        enrol(1)
+        enrol(2)
+        enrol(3, status='ENDED')
+        rows = self._rows(self.owner)
+        self.assertEqual((rows['Maths']['tutor_count'], rows['Maths']['active_student_count']), (2, 2))
+        self.assertEqual((rows['Physics']['tutor_count'], rows['Physics']['active_student_count']), (1, 0))
+        self.assertEqual((rows['Art']['tutor_count'], rows['Art']['active_student_count']), (0, 0))
+        # ?taught=true joins the tutor links again; counts must not inflate.
+        taught = self._rows(self.owner, '?taught=true')
+        self.assertEqual((taught['Maths']['tutor_count'], taught['Maths']['active_student_count']), (2, 2))
+
+    def test_the_subject_list_is_a_fixed_number_of_queries(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.client.force_authenticate(self.owner)
+        self.client.get('/api/subjects/')  # warm caches
+        with CaptureQueriesContext(connection) as few:
+            self.client.get('/api/subjects/')
+        for i in range(5):
+            make_subject(f'Extra {i}', tutors=[self.tutor_profile])
+        with CaptureQueriesContext(connection) as many:
+            self.client.get('/api/subjects/')
+        self.assertEqual(len(few), len(many))
+
+    def test_tutors_never_get_the_counts(self):
+        self.client.force_authenticate(self.tutor_user)
+        row = self.client.get('/api/subjects/').data['results'][0]
+        self.assertNotIn('tutor_count', row)
+        self.assertNotIn('active_student_count', row)
+
     def test_tutor_sees_the_whole_catalog_but_never_who_teaches_it(self):
         rows = self._rows(self.tutor_user)
         self.assertEqual(set(rows), {'Maths', 'Physics', 'Art', 'Old Subject'})
@@ -154,48 +198,13 @@ class SubjectListCreateTests(APITestCase):
         resp = self.client.post('/api/subjects/', {'name': 'Geography', 'level': self.igcse.id}, format='json')
         self.assertEqual(resp.status_code, 403)
 
-    def test_create_with_timetable_slot(self):
+    def test_subject_no_longer_carries_a_timetable_slot(self):
+        # Feature 2: weekly slots belong to a student subject, not the
+        # catalog entry.
         self.client.force_authenticate(self.owner)
-        resp = self.client.post(
-            '/api/subjects/',
-            {
-                'name': 'French',
-                'level': self.igcse.id,
-                'timetable_slot': {'day_of_week': 2, 'start_time': '15:00', 'end_time': '16:00'},
-            },
-            format='json',
-        )
+        resp = self.client.post('/api/subjects/', {'name': 'French', 'level': self.igcse.id}, format='json')
         self.assertEqual(resp.status_code, 201, resp.data)
-        subject = Subject.objects.get(name='French')
-        self.assertEqual(subject.timetable_slot.day_of_week, 2)
-
-    def test_create_rejects_invalid_timetable_slot(self):
-        self.client.force_authenticate(self.owner)
-        resp = self.client.post(
-            '/api/subjects/',
-            {
-                'name': 'Bad Slot',
-                'level': self.igcse.id,
-                'timetable_slot': {'day_of_week': 2, 'start_time': '16:00', 'end_time': '15:00'},
-            },
-            format='json',
-        )
-        self.assertEqual(resp.status_code, 400)
-
-    def test_create_rejects_weekend_timetable_slot(self):
-        self.client.force_authenticate(self.owner)
-        resp = self.client.post(
-            '/api/subjects/',
-            {
-                'name': 'Saturday Club',
-                'level': self.igcse.id,
-                'timetable_slot': {'day_of_week': 5, 'start_time': '09:00', 'end_time': '10:00'},
-            },
-            format='json',
-        )
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn('day_of_week', resp.data['timetable_slot'])
-        self.assertFalse(Subject.objects.filter(name='Saturday Club').exists())
+        self.assertNotIn('timetable_slot', resp.data)
 
 
 class SubjectDetailTests(APITestCase):

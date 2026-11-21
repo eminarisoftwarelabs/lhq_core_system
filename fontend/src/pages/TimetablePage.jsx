@@ -1,529 +1,285 @@
-import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, Clock, Copy, Plus } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CalendarClock, ChevronLeft, ChevronRight, ClipboardCheck } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
-import { LessonPlanEditor } from '../components/timetable/LessonPlanEditor'
-import { SessionDialog } from '../components/timetable/SessionDialog'
-import { UnscheduledTray } from '../components/timetable/UnscheduledTray'
-import { WeekGrid } from '../components/timetable/WeekGrid'
-import { useToast } from '../components/toast/useToast'
-import { academicsApi, lessonPlansApi } from '../lib/api'
-import { ApiError } from '../lib/apiClient'
-import {
-  DEFAULT_SESSION_MINUTES,
-  firstFreeStart,
-  formatDuration,
-  formatRange,
-  gridBounds,
-  overlaps,
-  placeStart,
-  toSession,
-  toSlotPayload,
-  tutorClashes,
-  WEEKDAYS,
-  weekdayIndex,
-} from '../lib/timetableGrid'
-import { sharesTutor } from '../lib/tutorTeaching'
+import { SessionPanel } from '../components/timetable/SessionPanel'
+import { SessionWeekGrid } from '../components/timetable/SessionWeekGrid'
+import { sessionChangeRequestsApi, sessionsApi, studentSubjectsApi, tutorsApi } from '../lib/api'
+import { errorText, LEGEND, statusLabel, statusTone, toGridItems, weekEnd } from '../lib/sessions'
+import { gridBounds, toMinutes, WEEKDAYS } from '../lib/timetableGrid'
 import { usePageTitle } from '../lib/usePageTitle'
 import { addWeeks, formatWeekRange, parseWeekParam, relativeWeekLabel, weekStartOf } from '../lib/weeks'
 
-function nowMinutes(date) {
-  return date.getHours() * 60 + date.getMinutes()
+function todayIndexFor(week, now) {
+  return week === weekStartOf(now) ? (now.getDay() + 6) % 7 : null
 }
 
-export function TimetablePage() {
-  usePageTitle('Timetable')
-  const { isStaffLevel } = useAuth()
-  const { showToast } = useToast()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [subjects, setSubjects] = useState(null)
-  const [error, setError] = useState(null)
-  const [actionError, setActionError] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [dialog, setDialog] = useState(null)
-  const [dragging, setDragging] = useState(null)
-  const [fullDay, setFullDay] = useState(false)
-  // Always on when the page opens - hiding topics is a per-visit choice.
-  const [showTopics, setShowTopics] = useState(true)
-  const [plans, setPlans] = useState({})
-  const [plansError, setPlansError] = useState(null)
-  const [copying, setCopying] = useState(false)
-  const appliedDeepLink = useRef(false)
-
-  // Ticks once a minute so the "now" line on today's column keeps moving
-  // (and "today" rolls over at midnight) without a reload.
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60 * 1000)
-    return () => clearInterval(id)
-  }, [])
-  const today = weekdayIndex(now)
-  const thisWeek = weekStartOf(now)
-  // The week on screen lives in the URL (?week=<monday>), so a planned-ahead
-  // week can be bookmarked or shared; anything invalid means this week.
-  const week = parseWeekParam(searchParams.get('week')) ?? thisWeek
-  const todayInView = week === thisWeek ? today : null
-  // On a phone the grid shows one day at a time - start on today, or
-  // Monday over the weekend.
-  const [mobileDay, setMobileDay] = useState(today ?? 0)
-
-  function goToWeek(next) {
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current)
-        if (next === thisWeek) params.delete('week')
-        else params.set('week', next)
-        return params
-      },
-      { replace: true },
-    )
+// Filter choices come from the active student subjects, so every option
+// actually has sessions behind it.
+function filterOptions(studentSubjects) {
+  const byId = (items) => [...new Map(items.map((i) => [i.id, i])).values()].sort((a, b) => a.name.localeCompare(b.name))
+  return {
+    tutors: byId(studentSubjects.map((ss) => ss.tutor)),
+    subjects: byId(studentSubjects.map((ss) => ({ id: ss.subject.id, name: ss.subject.display_name }))),
+    students: byId(studentSubjects.map((ss) => ss.student)),
   }
+}
+
+/**
+ * The timetable. Staff get the master timetable: every tutor's sessions,
+ * filterable by tutor, subject and student, with the change-request queue
+ * a click away. A tutor gets their own week with their free time shaded.
+ * Either way a session opens in the session panel (?session=<id>).
+ */
+export function TimetablePage() {
+  const { user, isStaffLevel } = useAuth()
+  usePageTitle(isStaffLevel ? 'Timetable' : 'My Timetable')
+  const [params, setParams] = useSearchParams()
+  const now = useMemo(() => new Date(), [])
+  const week = parseWeekParam(params.get('week')) ?? weekStartOf(now)
+  const filters = { tutor: params.get('tutor') ?? '', subject: params.get('subject') ?? '', student: params.get('student') ?? '' }
+  const openId = params.get('session') ? Number(params.get('session')) : null
+  const tutorId = user?.tutor_profile?.id ?? null
+
+  const [sessions, setSessions] = useState(null)
+  const [error, setError] = useState(null)
+  const [free, setFree] = useState(null)
+  const [options, setOptions] = useState({ tutors: [], subjects: [], students: [] })
+  const [pendingCount, setPendingCount] = useState(null)
+  const [reload, setReload] = useState(0)
+  const todayIndex = todayIndexFor(week, now)
+  const [mobileDay, setMobileDay] = useState(todayIndex ?? 0)
+
+  const setParam = useCallback(
+    (changes) => {
+      setParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          for (const [key, value] of Object.entries(changes)) {
+            if (value === null || value === '' || value === undefined) next.delete(key)
+            else next.set(key, value)
+          }
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setParams],
+  )
 
   useEffect(() => {
     let cancelled = false
-
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        // A tutor's own subjects only. Staff see what is scheduled or has
-        // a tutor - not the whole Cambridge catalog, most of which nobody
-        // timetables.
-        const results = isStaffLevel
-          ? (await academicsApi.listAllSubjects()).filter((s) => s.timetable_slot || s.tutors?.length)
-          : await academicsApi.listAllSubjects({ mine: true })
-        if (!cancelled) setSubjects(results)
-      } catch (err) {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load the timetable.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
+    const query = { from: week, to: weekEnd(week) }
+    if (isStaffLevel) Object.assign(query, filters)
+    sessionsApi
+      .list(query)
+      .then((res) => {
+        if (!cancelled) {
+          setSessions(res)
+          setError(null)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorText(err, 'Could not load the timetable.'))
+      })
     return () => {
       cancelled = true
     }
-  }, [isStaffLevel])
+    // filters is rebuilt each render; its fields are the real dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [week, isStaffLevel, filters.tutor, filters.subject, filters.student, reload])
 
-  // The displayed week's lesson plans, keyed by subject id.
-  const loadPlans = useCallback(async (weekStart) => {
-    setPlansError(null)
-    try {
-      const results = await lessonPlansApi.list(weekStart)
-      setPlans(Object.fromEntries(results.map((p) => [p.subject, p])))
-    } catch (err) {
-      setPlans({})
-      setPlansError(err instanceof ApiError ? err.message : 'Could not load this week\'s topics.')
+  // A tutor's free time this week (working hours minus booked sessions).
+  useEffect(() => {
+    if (isStaffLevel || !tutorId) return undefined
+    let cancelled = false
+    tutorsApi
+      .getFreeSlots(tutorId, week)
+      .then((res) => {
+        if (!cancelled) setFree(res.days.map((d) => d.free))
+      })
+      .catch(() => {
+        if (!cancelled) setFree(null)
+      })
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [isStaffLevel, tutorId, week, reload])
 
   useEffect(() => {
-    // Refetch whenever the week changes; loadPlans only sets state after
-    // its request resolves.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadPlans(week)
-  }, [week, loadPlans])
-
-  const sessions = useMemo(() => (subjects || []).map(toSession).filter(Boolean), [subjects])
-  const unscheduled = useMemo(
-    () => (subjects || []).filter((s) => !toSession(s)).sort((a, b) => a.name.localeCompare(b.name)),
-    [subjects],
-  )
-  const bounds = useMemo(() => gridBounds(sessions, { fullDay }), [sessions, fullDay])
-  // Both ranges are computed up front so each option can name the exact
-  // hours it shows - the label says what you'll see, not how it's derived.
-  const lessonBounds = useMemo(() => gridBounds(sessions), [sessions])
-  const wholeDayBounds = gridBounds([], { fullDay: true })
-  const clashes = useMemo(() => tutorClashes(sessions), [sessions])
-  const totalMinutes = sessions.reduce((sum, s) => sum + (s.end - s.start), 0)
-
-  const findClashes = useCallback(
-    (subjectId, day, start, end) => {
-      const subject = subjects?.find((s) => s.id === subjectId)
-      if (!subject) return []
-      const candidate = { day, start, end }
-      return sessions.filter((s) => s.subject.id !== subjectId && sharesTutor(s.subject, subject) && overlaps(s, candidate))
-    },
-    [subjects, sessions],
-  )
-
-  const openAdd = useCallback(
-    (subject = null, day = today ?? 0, start = null) => {
-      const from = start ?? firstFreeStart(sessions, day, bounds)
-      setActionError(null)
-      setDialog({
-        mode: 'add',
-        subjectId: subject?.id ?? null,
-        initial: { day, start: from, end: from + DEFAULT_SESSION_MINUTES },
+    if (!isStaffLevel) return undefined
+    let cancelled = false
+    studentSubjectsApi
+      .list({ status: 'ACTIVE' })
+      .then((res) => {
+        if (!cancelled) setOptions(filterOptions(res))
       })
-    },
-    [sessions, bounds, today],
-  )
-
-  // Staff get the full editor (time + lesson plan); a Tutor gets the
-  // lesson plan only - they plan what they teach, staff own the schedule.
-  const openEdit = useCallback(
-    (session) => {
-      setActionError(null)
-      setDialog({
-        mode: isStaffLevel ? 'edit' : 'plan',
-        subjectId: session.subject.id,
-        initial: { day: session.day, start: session.start, end: session.end },
+      .catch(() => {})
+    sessionChangeRequestsApi
+      .list({ status: 'PENDING' })
+      .then((res) => {
+        if (!cancelled) setPendingCount(res.length)
       })
-    },
-    [isStaffLevel],
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isStaffLevel, reload])
+
+  const items = useMemo(() => toGridItems(sessions ?? [], week), [sessions, week])
+  const freeItems = useMemo(
+    () =>
+      (free ?? []).flatMap((blocks, day) =>
+        blocks.map((b) => ({ day, start: toMinutes(b.start_time), end: toMinutes(b.end_time) })),
+      ),
+    [free],
   )
-
-  // Deep link from SubjectDetailPage's "Manage timetable" button
-  // (/timetable?subject=<id>): opens that subject's session once data has
-  // loaded - to edit it if it's scheduled, or to add it if not - then
-  // clears the param so it can't re-open on a later render.
-  useEffect(() => {
-    if (appliedDeepLink.current || !subjects || !isStaffLevel) return
-    const subjectId = searchParams.get('subject')
-    if (!subjectId) return
-    appliedDeepLink.current = true
-    const subject = subjects.find((s) => String(s.id) === subjectId)
-    const session = subject && toSession(subject)
-    // One-time application of a URL deep link, guarded by the ref above.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (session) openEdit(session)
-    else if (subject) openAdd(subject)
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current)
-        params.delete('subject')
-        return params
-      },
-      { replace: true },
-    )
-  }, [subjects, searchParams, setSearchParams, isStaffLevel, openAdd, openEdit])
-
-  function handlePlanChanged(subjectId, weekStart, plan) {
-    if (weekStart !== week) return
-    setPlans((current) => {
-      const next = { ...current }
-      if (plan) next[subjectId] = plan
-      else delete next[subjectId]
-      return next
-    })
-  }
-
-  // Re-use last week's topics for this week: fills only lessons with
-  // nothing planned yet, never overwriting (see LessonPlanCopyWeekView).
-  async function copyLastWeek() {
-    setActionError(null)
-    setCopying(true)
-    try {
-      const { copied, skipped } = await lessonPlansApi.copyWeek(addWeeks(week, -1), week)
-      await loadPlans(week)
-      if (copied === 0 && skipped === 0) {
-        showToast('Last week has no topics to copy')
-      } else if (copied === 0) {
-        showToast('Every lesson this week already has a topic')
-      } else {
-        showToast(
-          `Copied ${copied} ${copied === 1 ? 'topic' : 'topics'} from last week` +
-            (skipped ? ` (${skipped} already planned, left as they were)` : ''),
-        )
-      }
-    } catch (err) {
-      setActionError(`Could not copy last week's topics. ${err instanceof ApiError ? err.message : 'Please try again.'}`)
-    } finally {
-      setCopying(false)
-    }
-  }
-
-  function replaceSubject(updated) {
-    setSubjects((current) => current.map((s) => (s.id === updated.id ? updated : s)))
-  }
-
-  async function saveSession(subjectId, day, start, end) {
-    const subject = subjects.find((s) => s.id === subjectId)
-    const wasScheduled = Boolean(toSession(subject))
-    const updated = await academicsApi.updateSubject(subjectId, { timetable_slot: toSlotPayload(day, start, end) })
-    replaceSubject(updated)
-    setDialog(null)
-    setMobileDay(day)
-    showToast(`${subject.name} ${wasScheduled ? 'moved to' : 'scheduled for'} ${WEEKDAYS[day].label} ${formatRange(start, end)}`)
-  }
-
-  async function removeSession(subject) {
-    const updated = await academicsApi.updateSubject(subject.id, { timetable_slot: null })
-    replaceSubject(updated)
-    setDialog(null)
-    showToast(`${subject.name} removed from the timetable`)
-  }
-
-  // The × on a block and drag-and-drop act immediately (no dialog), so a
-  // failure surfaces as a page-level alert instead of inside a form.
-  async function quickAction(label, action) {
-    setActionError(null)
-    try {
-      await action()
-    } catch (err) {
-      const detail =
-        err instanceof ApiError
-          ? err.data?.timetable_slot
-            ? Object.values(err.data.timetable_slot).flat().join(' ')
-            : err.message
-          : 'Please try again.'
-      setActionError(`Could not ${label}. ${detail}`)
-    }
-  }
-
-  function handleDrop(subjectId, day, minute) {
-    const subject = subjects.find((s) => s.id === subjectId)
-    if (!subject) return
-    const existing = toSession(subject)
-    const duration = existing ? existing.end - existing.start : DEFAULT_SESSION_MINUTES
-    const start = placeStart(minute, duration, bounds)
-    setDragging(null)
-    if (existing && existing.day === day && existing.start === start) return
-    quickAction(`move ${subject.name}`, () => saveSession(subjectId, day, start, start + duration))
-  }
-
-  const dialogSubject = dialog?.subjectId ? subjects?.find((s) => s.id === dialog.subjectId) : null
-  const hasAny = subjects && subjects.length > 0
+  const bounds = gridBounds([...items, ...freeItems])
+  const relative = relativeWeekLabel(week, now)
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const unlogged = (sessions ?? []).filter((s) => s.display_status === 'UNLOGGED').length
 
   return (
     <div className="page page--timetable">
       <div className="tt-toolbar">
-        <div className="tt-toolbar__summary">
-          <span className="tt-stat">
-            <CalendarClock size={14} strokeWidth={1.75} aria-hidden="true" />
-            <strong>{sessions.length}</strong> {sessions.length === 1 ? 'session' : 'sessions'} a week
-          </span>
-          <span className="tt-stat">
-            <Clock size={14} strokeWidth={1.75} aria-hidden="true" />
-            <strong>{totalMinutes ? formatDuration(totalMinutes) : '0 h'}</strong> of teaching
-          </span>
-          {clashes.size > 0 && (
-            <span className="tt-stat tt-stat--warning">{clashes.size} sessions double-book a tutor</span>
+        <div className="tt-weekbar">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Previous week"
+            onClick={() => setParam({ week: addWeeks(week, -1), session: null })}
+          >
+            <ChevronLeft size={18} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <div className="tt-weekbar__title">
+            <span className="tt-weekbar__range">{formatWeekRange(week)}</span>
+            {relative && <span className="tt-weekbar__relative">{relative}</span>}
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Next week"
+            onClick={() => setParam({ week: addWeeks(week, 1), session: null })}
+          >
+            <ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          {week !== weekStartOf(now) && (
+            <button type="button" className="button button--secondary button--compact" onClick={() => setParam({ week: null })}>
+              This week
+            </button>
           )}
         </div>
 
-        {isStaffLevel && (
-          <div className="tt-toolbar__actions">
-            <Link className="button button--secondary" to="/subjects/new">
-              <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
-              Add subject
+        <div className="tt-toolbar__actions">
+          {unlogged > 0 && (
+            <span className="tt-stat tt-stat--warning">
+              {unlogged} unlogged
+            </span>
+          )}
+          {isStaffLevel && (
+            <Link className="button button--secondary" to="/timetable/requests">
+              <ClipboardCheck size={16} strokeWidth={1.75} aria-hidden="true" />
+              Requests{pendingCount ? ` (${pendingCount})` : ''}
             </Link>
-            <button type="button" className="button" onClick={() => openAdd(unscheduled[0] ?? null)} disabled={!hasAny}>
-              <CalendarPlus size={16} strokeWidth={1.75} aria-hidden="true" />
-              Schedule a subject
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {actionError && (
-        <p className="form-error" role="alert">
-          {actionError}
-        </p>
+      {isStaffLevel && (
+        <div className="tt-filters" role="group" aria-label="Filter the timetable">
+          <select aria-label="Tutor" value={filters.tutor} onChange={(e) => setParam({ tutor: e.target.value })}>
+            <option value="">All tutors</option>
+            {options.tutors.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <select aria-label="Subject" value={filters.subject} onChange={(e) => setParam({ subject: e.target.value })}>
+            <option value="">All subjects</option>
+            {options.subjects.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <select aria-label="Student" value={filters.student} onChange={(e) => setParam({ student: e.target.value })}>
+            <option value="">All students</option>
+            {options.students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
 
-      {loading && <p className="page-loading">Loading…</p>}
+      <ul className="tt-legend" aria-label="Key">
+        {LEGEND.map((status) => (
+          <li key={status} className="tt-legend__item">
+            <span className={`tt-legend__swatch tt-legend__swatch--${statusTone(status)}`} aria-hidden="true" />
+            {statusLabel(status)}
+          </li>
+        ))}
+        {!isStaffLevel && (
+          <li className="tt-legend__item">
+            <span className="tt-legend__swatch tt-legend__swatch--free" aria-hidden="true" />
+            Free time
+          </li>
+        )}
+      </ul>
+
+      <div className="period-toggle tt-day-tabs" role="group" aria-label="Day">
+        {WEEKDAYS.map(({ day, short }) => (
+          <button
+            key={short}
+            type="button"
+            className={`period-toggle__option${day === mobileDay ? ' period-toggle__option--active' : ''}`}
+            aria-pressed={day === mobileDay}
+            onClick={() => setMobileDay(day)}
+          >
+            {short}
+          </button>
+        ))}
+      </div>
+
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
-
-      {!loading && !error && subjects && !hasAny && (
-        <div className="empty-state">
-          <span className="empty-state__icon">
-            <CalendarClock size={22} strokeWidth={1.75} aria-hidden="true" />
-          </span>
-          <p>No subjects to schedule yet.</p>
-        </div>
-      )}
-
-      {!loading && !error && hasAny && (
+      {!sessions && !error && <p className="form-note">Loading…</p>}
+      {sessions && (
         <>
-          <div className="tt-day-tabs period-toggle" role="group" aria-label="Day">
-            {WEEKDAYS.map(({ day, short, label }) => (
-              <button
-                key={day}
-                type="button"
-                className={`period-toggle__option${day === mobileDay ? ' period-toggle__option--active' : ''}`}
-                aria-pressed={day === mobileDay}
-                aria-label={label}
-                onClick={() => setMobileDay(day)}
-              >
-                {short}
-              </button>
-            ))}
-          </div>
-
-          {isStaffLevel && (
-            <UnscheduledTray
-              subjects={unscheduled}
-              onSchedule={(subject) => openAdd(subject, mobileDay)}
-              onDragStart={(subjectId, duration, grabOffset) => setDragging({ subjectId, duration, grabOffset })}
-              onDragEnd={() => setDragging(null)}
-            />
+          <SessionWeekGrid
+            weekStart={week}
+            items={items}
+            bounds={bounds}
+            free={isStaffLevel ? null : free}
+            showTutor={isStaffLevel}
+            todayIndex={todayIndex}
+            nowMinutes={nowMinutes}
+            mobileDay={mobileDay}
+            onOpen={(session) => setParam({ session: session.id })}
+          />
+          {sessions.length === 0 && (
+            <div className="empty-state">
+              <span className="empty-state__icon">
+                <CalendarClock size={22} strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              <p>{isStaffLevel ? 'No sessions this week.' : 'You have no sessions this week.'}</p>
+            </div>
           )}
-
-          <div className="tt-board">
-            <div className="tt-weekbar">
-              <div className="tt-weekbar__nav">
-                <button
-                  type="button"
-                  className="icon-button tt-weekbar__step"
-                  aria-label="Previous week"
-                  onClick={() => goToWeek(addWeeks(week, -1))}
-                >
-                  <ChevronLeft size={18} strokeWidth={1.75} aria-hidden="true" />
-                </button>
-                <h2 className="tt-weekbar__title" aria-live="polite">
-                  {relativeWeekLabel(week, now) && (
-                    <span className="tt-weekbar__relative">{relativeWeekLabel(week, now)}</span>
-                  )}
-                  <span className="tt-weekbar__range">{formatWeekRange(week)}</span>
-                </h2>
-                <button
-                  type="button"
-                  className="icon-button tt-weekbar__step"
-                  aria-label="Next week"
-                  onClick={() => goToWeek(addWeeks(week, 1))}
-                >
-                  <ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" />
-                </button>
-                {week !== thisWeek && (
-                  <button
-                    type="button"
-                    className="button button--secondary button--compact"
-                    onClick={() => goToWeek(thisWeek)}
-                  >
-                    Back to this week
-                  </button>
-                )}
-              </div>
-
-              <div className="tt-weekbar__tools">
-                <label htmlFor="tt_show_topics" className="checkbox-label tt-weekbar__switch">
-                  <input
-                    id="tt_show_topics"
-                    type="checkbox"
-                    checked={showTopics}
-                    onChange={(e) => setShowTopics(e.target.checked)}
-                  />
-                  Show topics
-                </label>
-                {sessions.length > 0 && (
-                  <button
-                    type="button"
-                    className="button button--secondary button--compact"
-                    onClick={copyLastWeek}
-                    disabled={copying}
-                    title="Fill this week's lessons that have no topic with last week's topics"
-                  >
-                    <Copy size={14} strokeWidth={1.75} aria-hidden="true" />
-                    {copying ? 'Copying…' : "Copy last week's topics"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {plansError && (
-              <p className="form-error" role="alert">
-                {plansError}
-              </p>
-            )}
-
-            <div className="tt-board__bar">
-              <p className="tt-board__hint">
-                {isStaffLevel
-                  ? 'Click an empty time to add a lesson, or a lesson to plan its topics. Drag to move, × to remove.'
-                  : 'Click a lesson to plan the topics you will teach.'}
-              </p>
-              <div className="tt-hours-toggle">
-                <span className="tt-hours-toggle__label" id="tt-hours-label">
-                  Hours shown
-                </span>
-                <div className="period-toggle" role="group" aria-labelledby="tt-hours-label">
-                  <button
-                    type="button"
-                    className={`period-toggle__option${fullDay ? '' : ' period-toggle__option--active'}`}
-                    aria-pressed={!fullDay}
-                    title="Only the hours that have lessons, with an hour either side"
-                    onClick={() => setFullDay(false)}
-                  >
-                    Lesson hours <span className="tt-hours-toggle__range">{formatRange(lessonBounds.start, lessonBounds.end)}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`period-toggle__option${fullDay ? ' period-toggle__option--active' : ''}`}
-                    aria-pressed={fullDay}
-                    title="The whole working day, to add lessons at any time"
-                    onClick={() => setFullDay(true)}
-                  >
-                    Whole day <span className="tt-hours-toggle__range">{formatRange(wholeDayBounds.start, wholeDayBounds.end)}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            <WeekGrid
-              sessions={sessions}
-              bounds={bounds}
-              canEdit={isStaffLevel}
-              canOpen
-              weekStart={week}
-              plans={plans}
-              showTopics={showTopics}
-              today={todayInView}
-              nowMinutes={nowMinutes(now)}
-              mobileDay={mobileDay}
-              clashes={clashes}
-              dragging={dragging}
-              onAddAt={(day, start) => openAdd(unscheduled[0] ?? null, day, start)}
-              onOpen={openEdit}
-              onRemove={(session) =>
-                quickAction(`remove ${session.subject.name}`, () => removeSession(session.subject))
-              }
-              onDropSubject={handleDrop}
-              onDragStart={(subjectId, duration, grabOffset) => setDragging({ subjectId, duration, grabOffset })}
-              onDragEnd={() => setDragging(null)}
-            />
-          </div>
         </>
       )}
 
-      {dialog && (
-        <SessionDialog
-          key={`${dialog.mode}-${dialog.subjectId}-${dialog.initial.day}-${dialog.initial.start}`}
-          mode={dialog.mode}
-          subject={dialog.mode === 'add' ? null : dialogSubject}
-          choices={
-            dialog.mode === 'add'
-              ? dialogSubject
-                ? [dialogSubject, ...unscheduled.filter((s) => s.id !== dialogSubject.id)]
-                : unscheduled
-              : []
-          }
-          initial={dialog.initial}
-          findClashes={findClashes}
-          onSave={saveSession}
-          onRemove={removeSession}
-          onClose={() => setDialog(null)}
-          summary={
-            dialogSubject && dialog.mode === 'plan'
-              ? `${WEEKDAYS[dialog.initial.day].label}s, ${formatRange(dialog.initial.start, dialog.initial.end)}`
-              : null
-          }
-        >
-          {dialogSubject && dialog.mode !== 'add' && (
-            <LessonPlanEditor
-              subject={dialogSubject}
-              day={dialog.initial.day}
-              fromWeek={week}
-              today={now}
-              onPlanChanged={handlePlanChanged}
-            />
-          )}
-        </SessionDialog>
+      {openId && (
+        <SessionPanel
+          key={openId}
+          sessionId={openId}
+          onClose={() => setParam({ session: null })}
+          onChanged={() => setReload((n) => n + 1)}
+        />
       )}
     </div>
   )

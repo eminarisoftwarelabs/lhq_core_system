@@ -65,12 +65,12 @@ describe('SubjectCreatePage', () => {
     expect(screen.getByLabelText(/Active/)).toBeChecked()
   })
 
-  it('has no timetable slot fields - scheduling happens on the Timetable page instead', () => {
+  it('has no timetable fields - students are booked with their own weekly times', () => {
     renderPage()
 
     expect(screen.queryByLabelText(/timetable slot/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Day')).not.toBeInTheDocument()
-    expect(screen.getByText(/timetable slot can be set on the Timetable page/i)).toBeInTheDocument()
+    expect(screen.getByText(/Students are booked into a subject, with their weekly times/i)).toBeInTheDocument()
   })
 
   it('submits level, name, code and the paper flag, without a timetable slot', async () => {

@@ -12,6 +12,9 @@ vi.mock('../components/tutors/TutorTeachingPanel', () => ({
     <div data-testid="teaching-panel" data-tutor={tutorId} data-mode={mode} />
   ),
 }))
+vi.mock('../components/tutors/TutorHoursCard', () => ({
+  TutorHoursCard: ({ tutorId, title }) => <div data-testid="hours-card" data-tutor={tutorId} title={title} />,
+}))
 
 
 const me = {
@@ -78,5 +81,7 @@ describe('ProfilePage', () => {
     const panel = await screen.findByTestId('teaching-panel')
     expect(panel).toHaveAttribute('data-tutor', '44')
     expect(panel).toHaveAttribute('data-mode', 'request')
+    expect(screen.getByTestId('hours-card')).toHaveAttribute('data-tutor', '44')
+    expect(screen.getByTestId('hours-card')).toHaveAttribute('title', 'My hours')
   })
 })

@@ -12,8 +12,17 @@ describe('Sidebar', () => {
       </MemoryRouter>,
     )
 
-    for (const label of ['Dashboard', 'Onboarding', 'Students', 'Subjects', 'Timetable', 'Invoices', 'Users', 'My Profile']) {
-      expect(screen.getByRole('link', { name: new RegExp(label, 'i') })).toBeInTheDocument()
+    for (const label of [
+      'Dashboard',
+      'Onboarding',
+      'Students',
+      'Subjects',
+      'Timetable',
+      'Invoices',
+      'Users',
+      'My Profile',
+    ]) {
+      expect(screen.getByRole('link', { name: new RegExp(`^${label}$`, 'i') })).toBeInTheDocument()
     }
   })
 

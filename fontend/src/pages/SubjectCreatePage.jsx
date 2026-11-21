@@ -114,7 +114,7 @@ export function SubjectCreatePage() {
 
           <p className="form-note form-note--icon">
             <CalendarClock size={14} strokeWidth={1.75} aria-hidden="true" />
-            Tutors pick the subjects they teach on their profile. A timetable slot can be set on the Timetable page.
+            Tutors pick the subjects they teach on their profile. Students are booked into a subject, with their weekly times, from the timetable or their student page.
           </p>
 
           <div className="form-actions">

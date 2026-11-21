@@ -7,7 +7,7 @@ from django.core.management import CommandError, call_command
 from django.test import SimpleTestCase, TestCase
 
 from academics.cambridge import TopicsFormatError, js_to_json_text, map_level, parse_catalog, parse_topics
-from academics.models import LessonPlan, Level, Subject, Topic
+from academics.models import Level, Subject, Topic
 
 FIXTURE = Path(__file__).parent / 'fixtures' / 'cambridge_topics_sample.json'
 
@@ -156,7 +156,6 @@ class SeedCambridgeTopicsCommandTests(TestCase):
         seed()
         maths = Subject.objects.get(level__name='IGCSE', name='Mathematics')
         planned = maths.topics.get(name='Differentiation')
-        LessonPlan.objects.create(subject=maths, week_start='2026-10-05', topic=planned)
 
         data = json.loads(FIXTURE.read_text())
         number = data['IGCSE']['Mathematics']['topics'][0]['sub']

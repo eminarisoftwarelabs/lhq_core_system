@@ -16,12 +16,6 @@ def teaches(user, subject):
     return taught_subjects(user).filter(pk=subject.pk).exists()
 
 
-def plannable_subjects(user):
-    """Subjects whose lesson plans `user` may read and write: staff all,
-    anyone else only the ones they teach."""
-    return Subject.objects.all() if user.is_staff_level else taught_subjects(user)
-
-
 def topics_by_chapter(topics):
     """Ordered topics -> [{chapter, topics: [...]}], chapters in the order
     they first appear. Topic.order runs across the whole subject, so

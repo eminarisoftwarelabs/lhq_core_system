@@ -1,8 +1,7 @@
 import { parseDateOnly, toDateOnlyString } from './dateWindow'
 
-// Calendar weeks for the Timetable's lesson plans. A week is identified by
-// its Monday as a bare 'YYYY-MM-DD' string - the same key the backend's
-// LessonPlan.week_start uses - built from local calendar dates so it never
+// Calendar weeks for the timetable. A week is identified by its Monday as
+// a bare 'YYYY-MM-DD' string, built from local calendar dates so it never
 // shifts by a day across timezones (see dateWindow.parseDateOnly).
 
 /** The Monday on or before `date`, as 'YYYY-MM-DD'. */
@@ -37,14 +36,14 @@ export function formatDayMonth(date) {
   return dayMonth(date)
 }
 
-/** "5 – 9 Oct 2026", "28 Sep – 2 Oct 2026", "29 Dec 2025 – 2 Jan 2026" (Mon-Fri). */
+/** "5 – 11 Oct 2026", "28 Sep – 4 Oct 2026", "29 Dec 2025 – 4 Jan 2026" (Mon-Sun). */
 export function formatWeekRange(weekStart) {
   const monday = dateInWeek(weekStart, 0)
-  const friday = dateInWeek(weekStart, 4)
-  const year = friday.getFullYear()
-  if (monday.getFullYear() !== year) return `${dayMonth(monday)} ${monday.getFullYear()} – ${dayMonth(friday)} ${year}`
-  if (monday.getMonth() === friday.getMonth()) return `${monday.getDate()} – ${dayMonth(friday)} ${year}`
-  return `${dayMonth(monday)} – ${dayMonth(friday)} ${year}`
+  const sunday = dateInWeek(weekStart, 6)
+  const year = sunday.getFullYear()
+  if (monday.getFullYear() !== year) return `${dayMonth(monday)} ${monday.getFullYear()} – ${dayMonth(sunday)} ${year}`
+  if (monday.getMonth() === sunday.getMonth()) return `${monday.getDate()} – ${dayMonth(sunday)} ${year}`
+  return `${dayMonth(monday)} – ${dayMonth(sunday)} ${year}`
 }
 
 /** "This week" / "Next week" / "Last week", or null further out. */

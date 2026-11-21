@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 # Shared with enquiries.Enquiry.student_year_group - a student's class/form
 # level (Year 1 through Year 13), distinct from `grade` below (the actual
@@ -32,6 +33,10 @@ class Student(models.Model):
     # The grades/marks a student brought from their previous school - not
     # always known at intake, unlike year_group above.
     grade = models.CharField(max_length=20, blank=True)
+    # The day the student enrolled (local date). Defaults to today on
+    # create; staff can edit it for students entered after the fact. The
+    # Students tab groups by its month.
+    enrolled_on = models.DateField(default=timezone.localdate)
 
     class Meta:
         ordering = ['full_name']

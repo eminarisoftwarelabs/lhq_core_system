@@ -18,9 +18,7 @@ export const NAV_ITEMS = [
   { to: '/enquiries', label: 'Onboarding', icon: MessagesSquare, staffOnly: true },
   { to: '/students', label: 'Students', icon: GraduationCap, staffOnly: true },
   { to: '/subjects', label: 'Subjects', icon: BookOpen, staffOnly: false },
-  // Read-only for a Tutor (their own schedule), editable for staff - same
-  // visibility split as /subjects, since a slot lives on a Subject they
-  // may or may not be able to edit.
+  // Staff: the master timetable. A tutor: their own week, with free time.
   { to: '/timetable', label: 'Timetable', icon: CalendarClock, staffOnly: false },
   { to: '/invoices', label: 'Invoices', icon: Receipt, staffOnly: true },
   { to: '/users', label: 'Users', icon: UserCog, staffOnly: true },

@@ -24,6 +24,16 @@ uv run python manage.py createsuperuser         # optional, for /admin/
 uv run python manage.py runserver
 ```
 
+Daily jobs (idempotent, safe to run more than once; not scheduled on a
+server yet):
+
+```bash
+uv run python manage.py generate_sessions          # sessions from weekly slots, 4 weeks ahead (--weeks N)
+uv run python manage.py remind_unlogged_sessions   # end of day: tell each tutor what they haven't logged
+```
+
+All dates and times are Lilongwe time (`TIME_ZONE = 'Africa/Blantyre'`).
+
 `seed_cambridge_topics` reads `academics/data/cambridge_topics.json`. To
 build that file from Wanangwa's `topics.js`:
 
@@ -47,7 +57,11 @@ uv run python manage.py seed_cambridge_topics --from-js /path/to/topics.js
 - `GET|POST /api/tutors/me/change-requests/`, `POST .../{id}/cancel/` — a tutor proposes new subjects or hours; nothing changes until approved
 - `GET /api/change-requests/?status=PENDING`, `POST /api/change-requests/{id}/approve/`, `.../reject/` — staff review queue
 - `GET /api/notifications/`, `POST /api/notifications/{id}/read/` — the caller's in-app notifications
-- Full request and response shapes: `../fontend/BACKEND_API_BRIEF.md`, "Tutors and subjects"
+- `GET|POST /api/student-subjects/`, `GET|PATCH .../{id}/`, `POST .../{id}/slots/`, `PATCH|DELETE /api/slots/{id}/`, `POST .../{id}/confirm-end/`, `.../add-sessions/`, `GET /api/students/{id}/subjects/` — a student taking a subject with a tutor, its weekly slots and progress (staff write)
+- `GET /api/sessions/?from=&to=`, `GET /api/sessions/{id}/`, `POST .../log/`, `PUT .../plan/`, `POST .../move/`, `.../cancel/`, `.../change-requests/` — dated sessions: logging (24 hour window for tutors), topic plans, moves and cancels
+- `GET /api/session-change-requests/`, `POST .../{id}/approve/`, `.../reject/`, `.../withdraw/` — tutors ask, staff decide
+- `GET /api/tutors/{id}/free-slots/?week=`, `GET /api/tutors/{id}/hours/?month=` — free time, monthly held hours and estimated pay
+- Full request and response shapes: `../fontend/BACKEND_API_BRIEF.md`, "Tutors and subjects" and "Timetable and sessions"
 - `GET /api/schema/` — OpenAPI 3 schema
 - `GET /api/docs/` — Swagger UI
 - `GET /api/redoc/` — ReDoc

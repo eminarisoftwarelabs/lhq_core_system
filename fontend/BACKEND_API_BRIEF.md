@@ -463,13 +463,16 @@ walks every page. Any signed-in user. Filters: `?level=<id>`,
   "code": "0625",              // Cambridge syllabus code, may be ""
   "has_paper": true,           // Core and Extended papers apply
   "is_active": true,
-  "timetable_slot": null,      // old holiday timetable, unchanged
   "taught_by_me": false,       // whether the caller teaches it
-  "tutors": [{ "id": 4, "name": "Tam Tutor" }]   // STAFF RESPONSES ONLY
+  "tutors": [{ "id": 4, "name": "Tam Tutor" }],  // STAFF RESPONSES ONLY
+  "tutor_count": 1,            // STAFF ONLY: tutors who teach it
+  "active_student_count": 3    // STAFF ONLY: ACTIVE student subjects on it
 }
 ```
 
-A tutor's response never has `tutors`: tutors don't see who else teaches.
+A tutor's response never has `tutors`, `tutor_count` or
+`active_student_count`: tutors don't see who else teaches or how big a class
+is. The counts are annotated in the list query (no per-subject queries).
 `POST /subjects/` and `PATCH /subjects/{id}/` are staff only; `level` is
 required and `name` is unique per level. `GET /subjects/{id}/` is open to
 any signed-in user (catalog entry).
@@ -553,7 +556,12 @@ Approve applies `proposed` as the tutor's new live set in one transaction,
 re-validated at that moment (400 if, say, a subject was deactivated since).
 Reject needs `{ "reason": "..." }` (400 if blank) and changes nothing live.
 Either notifies the tutor. A request that isn't pending: 400
-`{ "detail": ["This request is already approved."] }`.
+`{ "detail": ["This request is already approved."] }`. A rejection's
+notification is short and complete ("Your working hours change was not
+approved. See My Profile for the reason."); the full `reject_reason` is on
+the request, shown on My Profile. Every notification is under 255
+characters by design: the server refuses to store a longer one rather than
+cutting it.
 
 ### `GET /notifications/` and `POST /notifications/{id}/read/`
 
@@ -573,4 +581,265 @@ UI: Subjects page (`SubjectsListPage`, grouped by level), subject detail
 profile (`/users/:id`, saves directly) and on My Profile (`/me`, sends a
 change request), the review queue at `/users/change-requests`
 (`ChangeRequestsPage`), and the header bell (`NotificationBell`).
+
+## Timetable and sessions (Feature 2)
+
+Times are local Lilongwe time (`Africa/Blantyre`), always `"HH:MM"`; dates
+`"YYYY-MM-DD"`. Weekdays are 0 = Monday ... 6 = Sunday. "Tutor id" below is
+the **TutorProfile** id (`tutor_profile.id`), like the Feature 1 endpoints.
+Staff = ADMIN, OWNER, SYS_ADMIN. A tutor only ever reaches their own
+student subjects, sessions and requests; anything else is a 404.
+
+The old per-subject timetable slot (`subject.timetable_slot`), the
+per-subject weekly lesson plans (`/lesson-plans/...`) and
+`GET /students/{id}/timetable/` are **gone**. Planning moved onto each
+session (`planned_topics`, below).
+
+### Booking conflicts (409)
+
+Creating or changing a weekly slot, moving a session, a tutor's move
+request and approving a move are clash-checked against the tutor's other
+sessions and weekly slots (touching edges are fine) and their working
+hours. A problem answers **409**:
+
+```jsonc
+{
+  "detail": "Mr Banda already teaches IGCSE Physics (Takondwa Banda) on Monday 16:00 to 17:00.",
+  "code": "BOOKING_CONFLICT",
+  "can_override": true,          // staff: resend with "allow_clash": true. Tutors: false.
+  "warnings": [
+    { "code": "CLASH", "message": "...", "items": [{ "session": 12, "slot": null, "student_subject": 3,
+      "student_name": "...", "subject_name": "IGCSE Physics", "date": "2026-11-23", "weekday": 0,
+      "start_time": "16:00", "end_time": "17:00" }] },
+    { "code": "OUTSIDE_WORKING_HOURS", "message": "Monday 19:00 to 20:00 is outside Mr Banda's working hours.", "items": [] }
+  ]
+}
+```
+
+UI: show each `message` with **Cancel** and, when `can_override`, **Book
+anyway** (same request plus `allow_clash: true`). See `ConflictNotice`.
+
+### Student subject object
+
+One student taking one subject with one tutor.
+
+```jsonc
+{
+  "id": 7,
+  "student": { "id": 1, "name": "Takondwa Banda", "student_number": "STU-000001" },
+  "subject": { "id": 3, "name": "Physics", "level_name": "IGCSE", "display_name": "IGCSE Physics" },
+  "tutor": { "id": 4, "name": "Mr Banda", "user_id": 9 },
+  "topic_ids": [11, 12],          // the student's topics (default: all of the subject's)
+  "planned_sessions": 24,
+  "session_minutes": 60,
+  "mode": "IN_PERSON",            // or "ONLINE"
+  "start_date": "2026-11-16",
+  "confirmed_end_date": null,     // set by confirm-end
+  "status": "ACTIVE",             // ACTIVE | ENDED | CANCELLED
+  "slots": [{ "id": 1, "weekday": 0, "start_time": "16:00", "end_time": "17:00" }],
+  "progress": {
+    "planned": 24, "held": 18, "not_held": 1, "remaining": 6, "unlogged": 0,
+    "held_minutes": 1080, "held_hours": 18.0,
+    "topics_covered": 9, "topics_total": 12, "covered_topic_ids": [...],
+    "expected_end_date": "2026-12-10",   // null when it can't be worked out (no slots)
+    "needs_end_confirmation": false,      // remaining is 0 or all topics covered, no confirmed end
+    "end_reason": null                    // "SESSIONS_USED" | "TOPICS_COVERED" | null
+  },
+  "created_by_name": "Grace Kamanga",
+  "created_at": "..."
+}
+```
+
+`remaining` = planned minus Held. Not held, missed (log window closed) and
+cancelled sessions don't use the plan, so one more session is generated at
+the end and `expected_end_date` moves back.
+
+### `GET` / `POST /student-subjects/`
+
+GET: `?student=&tutor=&subject=&status=`, unpaginated; staff all, a tutor
+their own. POST (staff): `{student, subject, tutor, planned_sessions,
+session_minutes?, mode?, start_date, topic_ids?, slots: [{weekday,
+start_time, end_time}], allow_clash?}` -> 201 with the object. The tutor
+must teach the subject (400 otherwise); one ACTIVE per student and subject;
+a student subject's own slots may not overlap. Sessions are generated
+straight away (four weeks ahead).
+
+### `GET` / `PATCH /student-subjects/{id}/`
+
+PATCH (staff): any of `tutor` (only before anything is logged), `topic_ids`,
+`planned_sessions` (not below Held), `session_minutes`, `mode`,
+`start_date`, `status: "CANCELLED"` (removes future sessions), plus
+`allow_clash`. Future scheduled sessions are regenerated; past and logged
+ones are never touched.
+
+### `POST /student-subjects/{id}/slots/`, `PATCH` / `DELETE /slots/{id}/`
+
+Staff. `{weekday, start_time, end_time, allow_clash?}`. Answers with the
+whole student subject (POST 201, PATCH 200); DELETE 204. A slot's future
+sessions are regenerated (their planned topics go with them).
+
+### `POST /student-subjects/{id}/confirm-end/` and `.../add-sessions/`
+
+Staff. `{last_date}`: removes scheduled sessions after it and generates none
+past it; the time frees up for other bookings after that date, and the
+student subject becomes ENDED once it has passed. 400 if a session was held
+after `last_date`. `{count}` (1-200): adds planned sessions and clears a
+confirmed end (re-opens an ENDED one).
+
+### `GET /students/{id}/subjects/`
+
+Staff. Every student subject of that student, for the student page.
+
+### `GET /students/` and `PATCH /students/{id}/` (Feature 2 follow-up)
+
+Every student has `enrolled_on` (date). It defaults to today when the student
+is created (the enrolment flow) and only staff can change it, with
+`PATCH /students/{id}/ {"enrolled_on": "2026-09-02"}`. That is the only
+editable field; a future date is a 400, and `PUT` is 405. The reply is the
+full student.
+
+`GET /students/` takes `?q=` (name or student number) and
+`?ordering=-enrolled_on` (default, newest enrolment first, then name),
+`enrolled_on`, `full_name` or `-full_name`; anything else is a 400. The
+Students tab reads every page and groups by month from `enrolled_on`, so a
+month is never split across pages.
+
+### `GET /subjects/{id}/students/` (roster)
+
+Who is learning the subject: one item per ACTIVE student subject (the v1
+enrolments are no longer read). Each item is the usual student object plus:
+
+```jsonc
+{
+  "student_subject_id": 7,
+  "tutor": { "id": 4, "name": "Mr Banda" },
+  "mode": "IN_PERSON",
+  "slots": [{ "weekday": 0, "start_time": "16:00", "end_time": "17:00" }]
+}
+```
+
+Staff see every student on the subject. A tutor sees only their own students
+on a subject they teach (404 if they don't teach it). The subject page groups
+the roster by tutor from the subject's `tutors` list. The assessment page
+still reads this same list.
+
+### Session object
+
+```jsonc
+{
+  "id": 101,
+  "student_subject": 7,
+  "student": {...}, "subject": {...}, "tutor": {...},   // as above
+  "mode": "IN_PERSON",
+  "slot": 1,                       // null for a one-off (a moved session)
+  "date": "2026-11-16", "start_time": "16:00", "end_time": "17:00",
+  "status": "SCHEDULED",           // stored: SCHEDULED | HELD | NOT_HELD | CANCELLED
+  "display_status": "UNLOGGED",    // + UNLOGGED (ended, still loggable), MISSED (window closed:
+                                   //   counts as not held), MOVED (cancelled because it moved)
+  "log_deadline": "2026-11-17T17:00:00+02:00",   // 24 hours after the end
+  "can_log": true,                 // for the caller, right now
+  "not_held_reason": "", "admin_note": "",
+  "topics_covered": [11], "planned_topics": [12], "planned_topic_names": ["Energy"],
+  "logged_by_name": null, "logged_at": null,
+  "moved_from": null,              // id of the cancelled original, on a moved session
+  "moved_to": null,                // {id, date, start_time, end_time} on a moved-away original
+  "pending_request": null,         // change request object, below
+  "latest_request": null
+}
+```
+
+`GET /sessions/{id}/` adds `events` (history: `{id, action: LOG | CORRECT |
+MOVE | CANCEL, actor_name, from_status, to_status, note, created_at}`),
+`change_requests` (all, newest first), `topics` (the student's topics:
+`{id, number, name, chapter, covered_before}`) and `moved_from_detail`.
+
+### `GET /sessions/?from=&to=[&tutor=&student=&subject=&student_subject=]`
+
+Both dates required, inclusive, at most 62 days apart. Unpaginated, by date
+then time. Generates any sessions due in that range first. A tutor gets only
+their own, whatever the filters say.
+
+### `POST /sessions/{id}/log/`
+
+`{held: true|false, reason?, topic_ids?, admin_note?}`. A tutor: own
+session, only once it has started, only while SCHEDULED, only until 24
+hours after its end. Otherwise 400 with one of: "You can log this session
+once it has started.", "The logging window closed 24 hours after the
+session. Ask admin to log it.", "This session is already logged. Ask admin
+to correct it." Not held needs `reason`. Staff can log or correct any
+session at any time; `admin_note` is then required. Every log and
+correction is recorded in `events`. Logging withdraws a pending request.
+
+### `PUT /sessions/{id}/plan/`
+
+`{topic_ids}`: the topics a scheduled session will cover (the session's
+tutor or staff). They pre-tick "topics covered" when it is logged.
+
+### `POST /sessions/{id}/move/` and `.../cancel/`
+
+Staff, directly. Move: `{new_date, new_start_time, new_end_time, reason,
+allow_clash?}` -> 201 with the **new** one-off session (`moved_from` set);
+the original becomes CANCELLED (MOVED). Cancel: `{reason}`. Only a
+SCHEDULED session. The tutor is notified.
+
+### Change request object and endpoints
+
+```jsonc
+{ "id": 5, "session": 101, "kind": "MOVE",   // or "CANCEL"
+  "new_date": "2026-11-24", "new_start_time": "10:00", "new_end_time": "11:00",
+  "reason": "...", "status": "PENDING",      // PENDING | APPROVED | REJECTED | CANCELLED
+  "requested_by_name": "...", "created_at": "...",
+  "reviewed_by_name": null, "reviewed_at": null, "reject_reason": "" }
+```
+
+- `POST /sessions/{id}/change-requests/` (the session's tutor):
+  `{kind, reason, new_date?, new_start_time?, new_end_time?}` -> 201 with
+  the session detail. Only a session that hasn't started, one pending
+  request per session, a move must be in the future and is clash-checked
+  (409, `can_override: false`). Nothing changes until approved.
+- `GET /session-change-requests/?status=PENDING` - staff all, a tutor
+  their own; each row adds `current: {date, start_time, end_time,
+  status}`, `student`, `subject`, `tutor`.
+- `POST /session-change-requests/{id}/approve/` `{allow_clash?}` (staff):
+  applies it exactly like a direct move or cancel, clash-checked again.
+- `POST /session-change-requests/{id}/reject/` `{reason}` (staff).
+- `POST /session-change-requests/{id}/withdraw/` (the tutor, pending only).
+
+The tutor's notifications are short ("Your request to move the Mon 23 Nov
+16:00 session was not approved. Open My Timetable for the reason."); the
+reason is on the request.
+
+### `GET /tutors/{id}/free-slots/?week=YYYY-MM-DD`
+
+Staff or the tutor. `week` is any day in it (default: this week). `{week_start,
+days: [{weekday, date, working, busy, free}]}`, each list `[{start_time,
+end_time}]`. Free = working hours minus every non-cancelled session and every
+weekly slot still reserved for an active student subject (time frees only
+after a confirmed last session).
+
+### `GET /tutors/{id}/hours/?month=YYYY-MM`
+
+Staff or the tutor. Default: this month. `{month, sessions_held, minutes,
+hours: "6.00", hourly_rate, estimated_amount: "36000.00" | null,
+is_estimate: true, sessions: [{id, date, start_time, end_time, minutes,
+student_name, subject_name}]}`. Held sessions only. The amount is an
+estimate at the one `hourly_rate` (per-subject rates aren't built); null
+without a rate.
+
+### Management commands (server)
+
+- `generate_sessions [--weeks 4]`: generate sessions ahead. Idempotent, run daily.
+- `remind_unlogged_sessions`: end-of-day notification to each tutor listing
+  their unlogged sessions. Idempotent per day. Scheduling them on the server
+  comes later.
+
+UI: `/timetable` (staff: master timetable with filters; tutor: own week
+with free time shaded), the session panel (`SessionPanel`, opened with
+`?session=<id>`), `/timetable/requests` (staff queue),
+`/student-subjects/new?student=<id>` (staff, reached from the student page's
+"Add a subject"; there is no list page or sidebar item for student subjects),
+the student page (header with enrolled-on, Subjects, Upcoming sessions,
+Guardians, collapsed Session history), the Students tab (grouped by enrolment
+month), the Subjects tab (Thumbnails or List, remembered per browser), the tutor dashboard (today + unlogged with countdowns),
+and `TutorHoursCard` on `/users/:id` and `/me`.
 

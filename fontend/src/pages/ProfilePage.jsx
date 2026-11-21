@@ -2,6 +2,7 @@ import { KeyRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { hasStaffScopeOver } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
+import { TutorHoursCard } from '../components/tutors/TutorHoursCard'
 import { TutorTeachingPanel } from '../components/tutors/TutorTeachingPanel'
 import { UserEditForm } from '../components/UserEditForm'
 import { UserProfileHeader } from '../components/UserProfileHeader'
@@ -33,6 +34,7 @@ export function ProfilePage() {
             tutorId={user.tutor_profile.id}
             mode={hasStaffScopeOver(user.role, user.role) ? 'direct' : 'request'}
           />
+          <TutorHoursCard tutorId={user.tutor_profile.id} title="My hours" />
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SubjectRoster } from './SubjectRoster'
@@ -119,5 +119,92 @@ describe('SubjectRoster', () => {
 
     expect(await screen.findByText('Could not load the class roster.')).toBeInTheDocument()
     expect(screen.queryByText(/active student/)).not.toBeInTheDocument()
+  })
+
+  describe('grouped by tutor', () => {
+    const subject = {
+      id: 1,
+      name: 'Maths',
+      taught_by_me: false,
+      tutors: [
+        { id: 4, name: 'Mr Banda' },
+        { id: 5, name: 'Ms Phiri' },
+        { id: 6, name: 'Mr Zulu' },
+      ],
+    }
+    const row = (id, name, tutor, slots, extra = {}) => ({
+      id,
+      student_subject_id: id * 10,
+      full_name: name,
+      student_number: `STU-${id}`,
+      tutor,
+      mode: 'IN_PERSON',
+      slots,
+      ...extra,
+    })
+    const roster = [
+      row(1, 'Alice Wang', { id: 4, name: 'Mr Banda' }, [
+        { weekday: 0, start_time: '16:00', end_time: '17:00' },
+        { weekday: 3, start_time: '16:00', end_time: '17:00' },
+      ]),
+      row(2, 'Bob Chen', { id: 5, name: 'Ms Phiri' }, [{ weekday: 2, start_time: '10:00', end_time: '11:00' }], { mode: 'ONLINE' }),
+    ]
+
+    function renderWith(sub) {
+      return render(
+        <MemoryRouter>
+          <SubjectRoster subject={sub} />
+        </MemoryRouter>,
+      )
+    }
+
+    it('shows a heading per tutor with their students, weekly times and mode underneath', async () => {
+      mockGetSubjectRoster.mockResolvedValue(roster)
+      renderWith(subject)
+
+      const banda = within(await screen.findByRole('region', { name: /Mr Banda/ }))
+      expect(banda.getByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/students/1')
+      expect(banda.getByText('Monday 16:00–17:00, Thursday 16:00–17:00 · In person')).toBeInTheDocument()
+      expect(banda.queryByText('Bob Chen')).not.toBeInTheDocument()
+
+      const phiri = within(screen.getByRole('region', { name: /Ms Phiri/ }))
+      expect(phiri.getByText('Wednesday 10:00–11:00 · Online')).toBeInTheDocument()
+      expect(screen.getByText('2 active students')).toBeInTheDocument()
+    })
+
+    it('shows "No students yet" for a tutor who teaches the subject but has none', async () => {
+      mockGetSubjectRoster.mockResolvedValue(roster)
+      renderWith(subject)
+
+      const zulu = within(await screen.findByRole('region', { name: /Mr Zulu/ }))
+      expect(zulu.getByText('No students yet')).toBeInTheDocument()
+    })
+
+    it('still lists tutors with no students when the whole roster is empty', async () => {
+      mockGetSubjectRoster.mockResolvedValue([])
+      renderWith(subject)
+
+      expect(await screen.findAllByText('No students yet')).toHaveLength(3)
+      expect(screen.queryByText('No active students enrolled in this subject yet.')).not.toBeInTheDocument()
+    })
+
+    it('keeps a tutor who no longer teaches the subject but still has a student', async () => {
+      mockGetSubjectRoster.mockResolvedValue([row(3, 'Cara Zulu', { id: 99, name: 'Former Tutor' }, [])])
+      renderWith(subject)
+
+      const former = within(await screen.findByRole('region', { name: /Former Tutor/ }))
+      expect(former.getByRole('link', { name: 'Cara Zulu' })).toBeInTheDocument()
+      expect(former.getByText('No weekly time yet · In person')).toBeInTheDocument()
+    })
+
+    it('shows a tutor one flat list with no tutor headings', async () => {
+      mockUseAuth.mockReturnValue(TUTOR)
+      mockGetSubjectRoster.mockResolvedValue([roster[0]])
+      renderWith({ id: 1, name: 'Maths', taught_by_me: true })
+
+      expect(await screen.findByRole('link', { name: 'Alice Wang' })).toHaveAttribute('href', '/subjects/1/students/1')
+      expect(screen.queryByRole('region')).not.toBeInTheDocument()
+      expect(screen.getByText('1 active student')).toBeInTheDocument()
+    })
   })
 })

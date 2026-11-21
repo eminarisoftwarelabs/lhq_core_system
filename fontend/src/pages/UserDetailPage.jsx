@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { hasStaffScopeOver } from '../auth/permissions'
 import { useAuth } from '../auth/useAuth'
+import { TutorHoursCard } from '../components/tutors/TutorHoursCard'
 import { TutorTeachingPanel } from '../components/tutors/TutorTeachingPanel'
 import { UserEditForm } from '../components/UserEditForm'
 import { UserProfileHeader } from '../components/UserProfileHeader'
@@ -77,6 +78,7 @@ export function UserDetailPage() {
             tutorId={target.tutor_profile.id}
             mode={hasStaffScopeOver(actor.role, target.role) ? 'direct' : 'readonly'}
           />
+          <TutorHoursCard key={`hours-${target.tutor_profile.id}`} tutorId={target.tutor_profile.id} />
         </div>
       )}
     </div>

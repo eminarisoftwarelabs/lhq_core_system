@@ -1,58 +1,14 @@
-import { ArrowUpRight, BookOpen, CalendarClock, GraduationCap, NotebookPen } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { AlarmClock, ArrowUpRight, CalendarClock, Clock, NotebookPen, Timer } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { academicsApi, clientsApi, lessonPlansApi } from '../../lib/api'
-import { dayLabel, formatTime } from '../../lib/constants'
-import { buildWeekClasses, countDistinctStudents } from '../../lib/tutorWeek'
-import { formatWeekRange, weekStartOf } from '../../lib/weeks'
+import { useAuth } from '../../auth/useAuth'
+import { sessionsApi, tutorsApi } from '../../lib/api'
+import { toDateOnlyString } from '../../lib/dateWindow'
+import { formatShortDay, statusLabel, statusTone, timeLeft } from '../../lib/sessions'
+import { SessionPanel } from '../timetable/SessionPanel'
 
-// Everything here comes from endpoints the backend already scopes to the
-// tutor: their subjects, those subjects' rosters, and their lesson plans.
-// Nothing school-wide is fetched or shown.
-function useTutorWeek() {
-  const [state, setState] = useState({ loading: true, failed: false, classes: [], studentCount: null })
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      const today = new Date()
-      try {
-        const subjects = await academicsApi.listAllSubjects({ is_active: true, mine: true })
-        // Plans and rosters are extras on top of the subject list - if
-        // either fails, the classes still show, just without that detail.
-        const [plansResult, ...rosterResults] = await Promise.allSettled([
-          lessonPlansApi.list(weekStartOf(today)),
-          ...subjects.map((subject) => clientsApi.getSubjectRoster(subject.id)),
-        ])
-        if (cancelled) return
-
-        const rosters = {}
-        rosterResults.forEach((result, i) => {
-          if (result.status === 'fulfilled') rosters[subjects[i].id] = result.value
-        })
-        const plans = plansResult.status === 'fulfilled' ? plansResult.value : []
-
-        setState({
-          loading: false,
-          failed: false,
-          classes: buildWeekClasses(subjects, plans, rosters, today),
-          studentCount: subjects.length === 0 ? 0 : countDistinctStudents(rosters),
-          plansFailed: plansResult.status === 'rejected',
-        })
-      } catch {
-        if (!cancelled) setState({ loading: false, failed: true, classes: [], studentCount: null })
-      }
-    }
-
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  return state
-}
+// The countdowns move on their own; the list itself only reloads after a log.
+const TICK_MS = 30 * 1000
 
 function StatCard({ to, label, icon: Icon, value }) {
   return (
@@ -69,79 +25,170 @@ function StatCard({ to, label, icon: Icon, value }) {
   )
 }
 
-export function TutorDashboard() {
-  const { loading, failed, classes, studentCount, plansFailed } = useTutorWeek()
-  const weekStart = weekStartOf(new Date())
+function useClock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), TICK_MS)
+    return () => clearInterval(timer)
+  }, [])
+  return now
+}
 
-  const pending = loading ? '···' : '—'
-  const planned = classes.filter((c) => c.topicName).length
-  const ready = !loading && !failed
+/**
+ * A tutor's day: today's sessions with what is planned for each, and every
+ * session still waiting to be logged with a countdown to its 24 hour
+ * deadline. Logging opens the session panel right here.
+ */
+export function TutorDashboard() {
+  const { user } = useAuth()
+  const tutorId = user?.tutor_profile?.id ?? null
+  const now = useClock()
+  const today = toDateOnlyString(now)
+  const [sessions, setSessions] = useState(null)
+  const [failed, setFailed] = useState(false)
+  const [hours, setHours] = useState(null)
+  const [openId, setOpenId] = useState(null)
+  const [reload, setReload] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const start = new Date()
+    const yesterday = toDateOnlyString(new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1))
+    // The log window is 24 hours, so yesterday's and today's sessions are
+    // the only ones that can still be unlogged.
+    sessionsApi
+      .list({ from: yesterday, to: toDateOnlyString(start) })
+      .then((res) => {
+        if (!cancelled) {
+          setSessions(res)
+          setFailed(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [reload])
+
+  const refresh = useCallback(() => setReload((n) => n + 1), [])
+
+  useEffect(() => {
+    if (!tutorId) return undefined
+    let cancelled = false
+    tutorsApi
+      .getHours(tutorId)
+      .then((res) => {
+        if (!cancelled) setHours(res)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [tutorId, reload])
+
+  const todays = (sessions ?? []).filter((s) => s.date === today)
+  const unlogged = (sessions ?? []).filter((s) => s.display_status === 'UNLOGGED')
+  const pending = sessions ? null : failed ? '—' : '···'
 
   return (
     <div className="page">
       <div className="dashboard-grid">
-        <StatCard to="/subjects" label="My Subjects" icon={BookOpen} value={ready ? classes.length : pending} />
-        <StatCard
-          to="/subjects"
-          label="My Students"
-          icon={GraduationCap}
-          value={ready && studentCount !== null ? studentCount : pending}
-        />
-        <StatCard
-          to="/timetable"
-          label="Topics this week"
-          icon={NotebookPen}
-          value={ready && !plansFailed ? `${planned}/${classes.length}` : pending}
-        />
+        <StatCard to="/timetable" label="Sessions today" icon={CalendarClock} value={pending ?? todays.length} />
+        <StatCard to="/" label="Waiting to be logged" icon={NotebookPen} value={pending ?? unlogged.length} />
+        <StatCard to="/me" label="Hours held this month" icon={Clock} value={hours ? `${Number(hours.hours)} h` : '···'} />
       </div>
 
-      <section className="recent-enrollments">
+      <section className="recent-enrollments" aria-label="Waiting to be logged">
+        <div className="recent-enrollments__header">
+          <div className="recent-enrollments__title">
+            <AlarmClock size={16} strokeWidth={1.75} aria-hidden="true" />
+            <h2>Unlogged</h2>
+          </div>
+          <span className="recent-enrollments__date">Log each within 24 hours of its end</span>
+        </div>
+        {failed && <p className="recent-enrollments__status">Could not load your sessions.</p>}
+        {sessions && unlogged.length === 0 && <p className="recent-enrollments__status">All caught up.</p>}
+        {unlogged.length > 0 && (
+          <ul className="session-list">
+            {unlogged.map((session) => {
+              const left = timeLeft(session.log_deadline, now)
+              return (
+                <li key={session.id} className="session-row">
+                  <span className="session-row__time">
+                    {session.date === today ? 'Today' : formatShortDay(session.date)}
+                    <br />
+                    {session.start_time}–{session.end_time}
+                  </span>
+                  <span className="session-row__body">
+                    <span className="session-row__title">{session.subject.display_name}</span>
+                    <span className="session-row__sub">{session.student.name}</span>
+                  </span>
+                  <span className="session-row__end">
+                    <span className={`countdown${left.urgent ? ' countdown--urgent' : ''}`}>
+                      <Timer size={13} strokeWidth={2} aria-hidden="true" />
+                      {left.label}
+                    </span>
+                    <button
+                      type="button"
+                      className="button--compact"
+                      aria-label={`Log ${session.subject.display_name} with ${session.student.name}`}
+                      onClick={() => setOpenId(session.id)}
+                    >
+                      Log
+                    </button>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="recent-enrollments" aria-label="Today">
         <div className="recent-enrollments__header">
           <div className="recent-enrollments__title">
             <CalendarClock size={16} strokeWidth={1.75} aria-hidden="true" />
-            <h2>This week's classes</h2>
+            <h2>Today</h2>
           </div>
-          <span className="recent-enrollments__date">{formatWeekRange(weekStart)}</span>
+          <Link to="/timetable" className="recent-enrollments__date">
+            My timetable
+          </Link>
         </div>
-
-        {loading && <p className="recent-enrollments__status">Loading…</p>}
-        {failed && <p className="recent-enrollments__status">Could not load your classes.</p>}
-        {ready && classes.length === 0 && (
-          <p className="recent-enrollments__status">No subjects are assigned to you yet.</p>
-        )}
-
-        {ready && classes.length > 0 && (
-          <ul className="recent-enrollments__list directory-card__list">
-            {classes.map((item) => (
-              <li key={item.id}>
-                <Link to={`/subjects/${item.id}`} className="recent-enrollments__row recent-enrollments__row--rich">
-                  <span className="directory-row__identity">
-                    <span className="week-class__name">
-                      {item.name}
-                      {item.isToday && <span className="week-class__today">Today</span>}
+        {!sessions && !failed && <p className="recent-enrollments__status">Loading…</p>}
+        {sessions && todays.length === 0 && <p className="recent-enrollments__status">No sessions today.</p>}
+        {todays.length > 0 && (
+          <ul className="session-list">
+            {todays.map((session) => (
+              <li key={session.id}>
+                <button type="button" className="session-row button--ghost" onClick={() => setOpenId(session.id)}>
+                  <span className="session-row__time">
+                    {session.start_time}–{session.end_time}
+                  </span>
+                  <span className="session-row__body">
+                    <span className="session-row__title">
+                      {session.subject.display_name} · {session.student.name}
                     </span>
-                    <span className="directory-row__subtext">
-                      {item.slot
-                        ? `${dayLabel(item.slot.day_of_week)} ${formatTime(item.slot.start_time)}–${formatTime(item.slot.end_time)}`
-                        : 'Not on the timetable yet'}
-                      {item.studentCount !== null &&
-                        ` · ${item.studentCount} ${item.studentCount === 1 ? 'student' : 'students'}`}
+                    <span className="session-row__sub">
+                      {session.planned_topic_names.length > 0
+                        ? `Plan: ${session.planned_topic_names.join(', ')}`
+                        : 'No topics planned yet'}
                     </span>
                   </span>
-
-                  <span className="directory-row__meta">
-                    {item.topicName ? (
-                      <span className="week-class__topic">{item.topicName}</span>
-                    ) : (
-                      !plansFailed && <span className="week-class__topic week-class__topic--missing">No topic planned</span>
-                    )}
+                  <span className="session-row__end">
+                    <span className={`status-pill status-pill--${statusTone(session.display_status)}`}>
+                      {statusLabel(session.display_status)}
+                    </span>
                   </span>
-                </Link>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {openId && <SessionPanel key={openId} sessionId={openId} onClose={() => setOpenId(null)} onChanged={refresh} />}
     </div>
   )
 }

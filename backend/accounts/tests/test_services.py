@@ -1,8 +1,9 @@
 from datetime import time
+from unittest import mock
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
 
 from academics.testing import make_subject, teach
 from accounts import services
@@ -182,6 +183,45 @@ class SubmitChangeTests(TutorFixtureMixin, TestCase):
         self.assertEqual(hours.status, ChangeStatus.PENDING)
         self.assertEqual(second.status, ChangeStatus.PENDING)
 
+    def test_submit_locks_the_tutor_row_first(self):
+        # Feature 1 review fix: two submits at the same moment used to
+        # both insert a PENDING row and the second hit the one-pending
+        # constraint as a 500. The tutor row is now locked before
+        # anything else, so the second waits and then cancels the first.
+        calls = []
+        real_lock = TutorProfile.objects.select_for_update
+        real_requests = TutorChangeRequest.objects.select_for_update
+
+        def lock_tutor(*args, **kwargs):
+            calls.append('tutor')
+            return real_lock(*args, **kwargs)
+
+        def lock_requests(*args, **kwargs):
+            calls.append('requests')
+            return real_requests(*args, **kwargs)
+
+        with mock.patch.object(TutorProfile.objects, 'select_for_update', side_effect=lock_tutor), mock.patch.object(
+            TutorChangeRequest.objects, 'select_for_update', side_effect=lock_requests
+        ):
+            services.submit_change(self.tutor, ChangeKind.SUBJECTS, [self.physics.id])
+        self.assertEqual(calls[:2], ['tutor', 'requests'])
+
+    def test_a_second_submit_replaces_the_first_without_an_error(self):
+        services.submit_change(self.tutor, ChangeKind.SUBJECTS, [self.physics.id])
+        services.submit_change(self.tutor, ChangeKind.SUBJECTS, [])
+        self.assertEqual(
+            list(TutorChangeRequest.objects.order_by('id').values_list('status', flat=True)),
+            [ChangeStatus.CANCELLED, ChangeStatus.PENDING],
+        )
+
+    def test_long_tutor_names_keep_the_message_inside_the_limit(self):
+        self.tutor.user.full_name = 'A' * 255
+        self.tutor.user.save()
+        services.submit_change(self.tutor, ChangeKind.SUBJECTS, [self.physics.id])
+        message = Notification.objects.first().message
+        self.assertLessEqual(len(message), 255)
+        self.assertTrue(message.endswith('asked to change their subjects.'))
+
     def test_database_refuses_two_pending_of_the_same_kind(self):
         services.submit_change(self.tutor, ChangeKind.SUBJECTS, [self.physics.id])
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -275,7 +315,12 @@ class RejectAndCancelTests(TutorFixtureMixin, TestCase):
         self.assertEqual((change.status, change.reject_reason), (ChangeStatus.REJECTED, 'We need you on Mondays.'))
         self.assertEqual(services.current_working_hours(self.tutor), [block(0, '08:00', '12:00')])
         note = Notification.objects.get(recipient=self.tutor_user)
-        self.assertEqual(note.message, 'Your working hours change was not approved: We need you on Mondays.')
+        # Short and complete; the full reason stays on the request and is
+        # shown on My Profile.
+        self.assertEqual(
+            note.message, 'Your working hours change was not approved. See My Profile for the reason.'
+        )
+        self.assertNotIn('Mondays', note.message)
 
     def test_rejection_needs_a_reason(self):
         change = services.submit_change(self.tutor, ChangeKind.SUBJECTS, [self.physics.id])
@@ -294,3 +339,37 @@ class RejectAndCancelTests(TutorFixtureMixin, TestCase):
         self.assertEqual(change.status, ChangeStatus.CANCELLED)
         with self.assertRaises(ValidationError):
             services.cancel_change(change, self.tutor)
+
+
+@skipUnlessDBFeature('has_select_for_update')
+class ConcurrentSubmitTests(TransactionTestCase):
+    """Real concurrency, two threads and two connections. SQLite has no
+    row locks, so this runs only on Postgres (DATABASE_URL)."""
+
+    def test_two_submits_at_once_leave_one_pending_and_no_error(self):
+        import threading
+
+        from django.db import connection
+
+        tutor_user = make_user(Role.TUTOR)
+        tutor = TutorProfile.objects.create(user=tutor_user)
+        subject = make_subject('Physics')
+        errors = []
+        barrier = threading.Barrier(2)
+
+        def submit():
+            try:
+                barrier.wait()
+                services.submit_change(tutor, ChangeKind.SUBJECTS, [subject.id])
+            except Exception as exc:  # noqa: BLE001 - collected for the assertion
+                errors.append(exc)
+            finally:
+                connection.close()
+
+        threads = [threading.Thread(target=submit) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(errors, [])
+        self.assertEqual(TutorChangeRequest.objects.filter(status=ChangeStatus.PENDING).count(), 1)
