@@ -3,13 +3,15 @@ import io
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Role, TutorProfile, TutorSubject, User, WorkingHours
-from academics.models import Subject, TimetableSlot
+from academics.models import Session, SessionStatus, StudentSubject, Subject, TimetableSlot
 from billing.models import Invoice, InvoiceStatus, Payment
 from clients.models import Guardianship, Parent, Student
+from core.models import Notification
 from enquiries.models import Enquiry, EnquiryStage
 from enrollments.models import Enrollment
 
@@ -52,7 +54,7 @@ class SeedDummyDataCommandTests(TestCase):
         for tutor in tutors:
             self.assertTrue(hasattr(tutor, 'tutor_profile'))
 
-    def test_creates_subjects_with_timetable_slots_and_tutors(self):
+    def test_creates_subjects_with_tutors(self):
         expected = {'Mathematics', 'English Language', 'Physics', 'Chemistry', 'Biology'}
         subjects = Subject.objects.filter(name__in=expected)
         self.assertEqual({s.name for s in subjects}, expected)
@@ -60,14 +62,62 @@ class SeedDummyDataCommandTests(TestCase):
         for subject in subjects:
             self.assertEqual(subject.level.name, 'IGCSE')
             self.assertTrue(subject.tutor_links.exists(), f'{subject.name} has no tutor')
-            self.assertTrue(TimetableSlot.objects.filter(subject=subject).exists())
         self.assertEqual(
             {s.name for s in subjects if s.has_paper}, {'Mathematics', 'Physics', 'Chemistry', 'Biology'}
         )
 
-        slots = TimetableSlot.objects.filter(subject__in=subjects)
-        days = {slot.day_of_week for slot in slots}
-        self.assertGreater(len(days), 1, 'timetable slots should be spread across different days')
+
+    def test_books_demo_student_subjects_with_weekly_slots_and_sessions(self):
+        booked = StudentSubject.objects.filter(student__full_name='Takondwa Banda', subject__name='Mathematics')
+        self.assertEqual(booked.count(), 1)
+        ss = booked.get()
+        self.assertEqual(ss.tutor.user.email, 'tutor@lhq.test')
+        self.assertEqual(ss.slots.count(), 2)
+        self.assertGreater(len({slot.weekday for slot in TimetableSlot.objects.all()}), 1)
+        # Past sessions are Held except the latest, left to log; future
+        # ones are generated from the slots.
+        self.assertTrue(ss.sessions.filter(status=SessionStatus.HELD).exists())
+        self.assertTrue(Session.objects.filter(status=SessionStatus.SCHEDULED).exists())
+
+    def test_demo_students_are_spread_over_the_last_six_months(self):
+        today = timezone.localdate()
+        by_month = {}
+        for student in Student.objects.all():
+            self.assertLessEqual(student.enrolled_on, today, student.full_name)
+            by_month.setdefault((student.enrolled_on.year, student.enrolled_on.month), []).append(student.full_name)
+        # This month first, then back to five months ago.
+        self.assertEqual([len(by_month[key]) for key in sorted(by_month, reverse=True)], [24, 18, 10, 6, 4, 3])
+        self.assertIn('Precious Zulu', by_month[sorted(by_month)[-2]])
+        self.assertIn('Isaac Kanyenda', by_month[sorted(by_month)[-3]])
+        # Newest month is this one.
+        self.assertEqual(sorted(by_month)[-1], (today.year, today.month))
+
+    def test_new_demo_students_have_student_subjects(self):
+        for name in ['Tadala Mwale', 'Limbani Phiri', 'Zione Tembo']:
+            self.assertTrue(StudentSubject.objects.filter(student__full_name=name).exists(), name)
+        # Roughly one in three of the generated students is booked.
+        booked = StudentSubject.objects.values('student').distinct().count()
+        self.assertGreaterEqual(booked, 18)
+
+    def test_demo_names_are_unique_and_months_have_families_with_siblings(self):
+        names = list(Student.objects.values_list('full_name', flat=True))
+        self.assertEqual(len(names), len(set(names)))
+        self.assertGreater(Student.objects.count(), 60)
+        self.assertTrue(any(p.guardianships.count() >= 3 for p in Parent.objects.all()))
+
+    def test_rerun_moves_existing_demo_students_but_never_others(self):
+        takondwa = Student.objects.get(full_name='Takondwa Banda')
+        precious = Student.objects.get(full_name='Precious Zulu')
+        wanted = {takondwa.pk: takondwa.enrolled_on, precious.pk: precious.enrolled_on}
+        Student.objects.filter(pk__in=wanted).update(enrolled_on=timezone.localdate())
+        real = Student.objects.create(student_number='STU-REAL1', full_name='Real Student')
+        before = real.enrolled_on
+
+        _seed()
+
+        for pk, expected in wanted.items():
+            self.assertEqual(Student.objects.get(pk=pk).enrolled_on, expected)
+        self.assertEqual(Student.objects.get(pk=real.pk).enrolled_on, before)
 
     def test_tutors_get_working_hours_except_the_one_left_to_show_the_warning(self):
         hours = {
@@ -144,6 +194,7 @@ class SeedDummyDataCommandTests(TestCase):
         self.assertTrue(Invoice.objects.filter(enquiry=invoiced).exists())
 
     def test_running_twice_is_idempotent(self):
+        dates_after_first_run = dict(Student.objects.values_list('pk', 'enrolled_on'))
         counts_after_first_run = {
             'users': User.objects.count(),
             'parents': Parent.objects.count(),
@@ -154,6 +205,8 @@ class SeedDummyDataCommandTests(TestCase):
             'enrollments': Enrollment.objects.count(),
             'subjects': Subject.objects.count(),
             'timetable_slots': TimetableSlot.objects.count(),
+            'student_subjects': StudentSubject.objects.count(),
+            'sessions': Session.objects.count(),
             'tutor_profiles': TutorProfile.objects.count(),
             'guardianships': Guardianship.objects.count(),
             'tutor_subjects': TutorSubject.objects.count(),
@@ -172,6 +225,8 @@ class SeedDummyDataCommandTests(TestCase):
             'enrollments': Enrollment.objects.count(),
             'subjects': Subject.objects.count(),
             'timetable_slots': TimetableSlot.objects.count(),
+            'student_subjects': StudentSubject.objects.count(),
+            'sessions': Session.objects.count(),
             'tutor_profiles': TutorProfile.objects.count(),
             'guardianships': Guardianship.objects.count(),
             'tutor_subjects': TutorSubject.objects.count(),
@@ -179,6 +234,7 @@ class SeedDummyDataCommandTests(TestCase):
         }
 
         self.assertEqual(counts_after_first_run, counts_after_second_run)
+        self.assertEqual(dates_after_first_run, dict(Student.objects.values_list('pk', 'enrolled_on')))
 
     def test_does_not_touch_pre_existing_sys_admin_or_owner_accounts(self):
         sys_admin = User.objects.create_user(
@@ -247,3 +303,14 @@ class NotificationApiTests(APITestCase):
     def test_requires_authentication(self):
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get('/api/notifications/').status_code, 401)
+
+
+class NotifyTests(TestCase):
+    def test_refuses_a_message_that_does_not_fit_instead_of_cutting_it(self):
+        from core.services import notify
+
+        user = User.objects.create_user(email='n@lhq.test', full_name='N', role=Role.TUTOR)
+        notify([user], 'x' * 255)
+        with self.assertRaises(ValueError):
+            notify([user], 'x' * 256)
+        self.assertEqual(Notification.objects.get().message, 'x' * 255)

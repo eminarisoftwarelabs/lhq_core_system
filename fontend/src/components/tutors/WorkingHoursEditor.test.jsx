@@ -49,4 +49,23 @@ describe('WorkingHoursEditor', () => {
     render(<WorkingHoursEditor rows={[]} onChange={() => {}} />)
     expect(screen.getByText('No working hours yet.')).toBeInTheDocument()
   })
+
+  it('can edit weekly slots instead, with its own labels and new-row factory', () => {
+    const onChange = vi.fn()
+    const makeRow = vi.fn(() => ({ key: 'new', weekday: 3, start_time: '16:00', end_time: '17:30' }))
+    render(
+      <WorkingHoursEditor
+        rows={[]}
+        onChange={onChange}
+        itemLabel="weekly time"
+        addLabel="Add a weekly time"
+        emptyText="Add at least one weekly time."
+        makeRow={makeRow}
+      />,
+    )
+    expect(screen.getByText('Add at least one weekly time.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add a weekly time' }))
+    expect(makeRow).toHaveBeenCalledWith([])
+    expect(onChange).toHaveBeenCalledWith([{ key: 'new', weekday: 3, start_time: '16:00', end_time: '17:30' }])
+  })
 })

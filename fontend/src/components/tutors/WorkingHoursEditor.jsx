@@ -7,15 +7,28 @@ import { newRow } from '../../lib/tutorTeaching'
  * allowed. Controlled: `rows` come from toRows() and go back through
  * fromRows(). Overlap and start-before-end are checked by the server (one
  * place for the rule) and its messages shown via `errors`.
+ *
+ * Also edits a student subject's weekly slots: `itemLabel` names a row in
+ * accessible labels ("block", "slot"), `addLabel` the add button, and
+ * `makeRow(rows)` builds a new row (default: tutorTeaching.newRow).
  */
-export function WorkingHoursEditor({ rows, onChange, idPrefix = 'hours', disabled = false }) {
+export function WorkingHoursEditor({
+  rows,
+  onChange,
+  idPrefix = 'hours',
+  disabled = false,
+  itemLabel = 'block',
+  addLabel = 'Add hours',
+  emptyText = 'No working hours yet.',
+  makeRow = newRow,
+}) {
   function update(key, field, value) {
     onChange(rows.map((row) => (row.key === key ? { ...row, [field]: field === 'weekday' ? Number(value) : value } : row)))
   }
 
   return (
     <div className="hours-editor">
-      {rows.length === 0 && <p className="form-note">No working hours yet.</p>}
+      {rows.length === 0 && <p className="form-note">{emptyText}</p>}
       {rows.length > 0 && (
         <ul className="hours-editor__rows">
           {rows.map((row, index) => {
@@ -26,7 +39,7 @@ export function WorkingHoursEditor({ rows, onChange, idPrefix = 'hours', disable
                   <label htmlFor={`${idPrefix}_${row.key}_day`}>Day</label>
                   <select
                     id={`${idPrefix}_${row.key}_day`}
-                    aria-label={`Day for block ${n}`}
+                    aria-label={`Day for ${itemLabel} ${n}`}
                     value={row.weekday}
                     disabled={disabled}
                     onChange={(e) => update(row.key, 'weekday', e.target.value)}
@@ -42,7 +55,7 @@ export function WorkingHoursEditor({ rows, onChange, idPrefix = 'hours', disable
                   <label htmlFor={`${idPrefix}_${row.key}_start`}>Start</label>
                   <input
                     id={`${idPrefix}_${row.key}_start`}
-                    aria-label={`Start time for block ${n}`}
+                    aria-label={`Start time for ${itemLabel} ${n}`}
                     type="time"
                     step="300"
                     required
@@ -55,7 +68,7 @@ export function WorkingHoursEditor({ rows, onChange, idPrefix = 'hours', disable
                   <label htmlFor={`${idPrefix}_${row.key}_end`}>End</label>
                   <input
                     id={`${idPrefix}_${row.key}_end`}
-                    aria-label={`End time for block ${n}`}
+                    aria-label={`End time for ${itemLabel} ${n}`}
                     type="time"
                     step="300"
                     required
@@ -67,7 +80,7 @@ export function WorkingHoursEditor({ rows, onChange, idPrefix = 'hours', disable
                 <button
                   type="button"
                   className="icon-button hours-editor__remove"
-                  aria-label={`Remove block ${n}`}
+                  aria-label={`Remove ${itemLabel} ${n}`}
                   disabled={disabled}
                   onClick={() => onChange(rows.filter((r) => r.key !== row.key))}
                 >
@@ -82,10 +95,10 @@ export function WorkingHoursEditor({ rows, onChange, idPrefix = 'hours', disable
         type="button"
         className="button button--secondary button--compact hours-editor__add"
         disabled={disabled}
-        onClick={() => onChange([...rows, newRow(rows)])}
+        onClick={() => onChange([...rows, makeRow(rows)])}
       >
         <Plus size={14} strokeWidth={2} aria-hidden="true" />
-        Add hours
+        {addLabel}
       </button>
     </div>
   )

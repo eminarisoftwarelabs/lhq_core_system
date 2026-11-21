@@ -4,10 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SubjectsListPage } from './SubjectsListPage'
 import { PageHeaderProvider } from '../components/layout/PageHeaderProvider'
 
+const VIEW_KEY = 'lhq.subjects.view'
 const mockListAllSubjects = vi.fn()
+const mockListStudentSubjects = vi.fn()
 vi.mock('../lib/api', () => ({
   academicsApi: {
     listAllSubjects: (...args) => mockListAllSubjects(...args),
+  },
+  studentSubjectsApi: {
+    list: (...args) => mockListStudentSubjects(...args),
   },
 }))
 
@@ -62,13 +67,19 @@ function levelSection(name) {
 beforeEach(() => {
   mockUseAuth.mockReturnValue({ isStaffLevel: true })
   mockListAllSubjects.mockReset().mockResolvedValue(staffCatalog)
+  mockListStudentSubjects.mockReset().mockResolvedValue([])
 })
 
 afterEach(() => {
   vi.clearAllMocks()
+  window.localStorage.clear()
 })
 
-describe('SubjectsListPage', () => {
+describe('SubjectsListPage (list view)', () => {
+  beforeEach(() => {
+    window.localStorage.setItem(VIEW_KEY, 'list')
+  })
+
   it('groups subjects under their level', async () => {
     renderPage()
 
@@ -111,34 +122,11 @@ describe('SubjectsListPage', () => {
     expect(screen.getByRole('link', { name: 'My subjects' })).toHaveAttribute('href', '/subjects')
   })
 
-  it('opens a tutor on their own subjects as cards, with the lesson time', async () => {
-    mockUseAuth.mockReturnValue({ isStaffLevel: false })
-    mockListAllSubjects.mockResolvedValue(
-      tutorCatalog([2]).map((s) =>
-        s.id === 2 ? { ...s, timetable_slot: { day_of_week: 2, start_time: '14:00:00', end_time: '15:30:00' } } : s,
-      ),
-    )
-    renderPage()
-
-    expect(await screen.findByRole('heading', { name: 'My subjects' })).toBeInTheDocument()
-    const mine = screen.getByRole('list', { name: 'My subjects' })
-    const card = within(mine).getByRole('link', { name: /Physics/ })
-    expect(card).toHaveAttribute('href', '/subjects/2')
-    expect(card).toHaveClass('dashboard-card')
-    expect(within(card).getByText('IGCSE · 0625')).toBeInTheDocument()
-    expect(within(card).getByText('Core / Extended')).toBeInTheDocument()
-    expect(within(card).getByText('Wednesday 14:00–15:30')).toBeInTheDocument()
-    // Only what they teach; the catalog stays behind the link.
-    expect(within(mine).getAllByRole('listitem')).toHaveLength(1)
-    expect(screen.queryByText('Mathematics')).not.toBeInTheDocument()
-    expect(screen.getByText('1', { selector: '.onboarding-section__count' })).toBeInTheDocument()
-  })
-
-  it('says when a taught subject has no lesson time yet', async () => {
+  it('says when a taught subject has no students yet', async () => {
     mockUseAuth.mockReturnValue({ isStaffLevel: false })
     mockListAllSubjects.mockResolvedValue(tutorCatalog([1]))
     renderPage()
-    expect(await screen.findByText('No lesson time yet')).toBeInTheDocument()
+    expect(await screen.findByText('No students yet')).toBeInTheDocument()
   })
 
   it('switches a tutor to all subjects and back', async () => {
@@ -175,7 +163,7 @@ describe('SubjectsListPage', () => {
     expect(await screen.findByRole('heading', { name: 'Subjects' })).toBeInTheDocument()
     await screen.findByText('Mathematics')
     expect(screen.queryByRole('link', { name: 'Browse all subjects' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('list', { name: 'My subjects' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: /subjects$/ })).not.toBeInTheDocument()
   })
 
   it('explains how to load the catalog when it is empty', async () => {
@@ -190,5 +178,129 @@ describe('SubjectsListPage', () => {
     renderPage()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load subjects.')
+  })
+})
+
+const withCounts = (subject, tutor_count, active_student_count) => ({ ...subject, tutor_count, active_student_count })
+
+describe('SubjectsListPage (thumbnails and the view switch)', () => {
+  beforeEach(() => {
+    mockListAllSubjects.mockResolvedValue([
+      withCounts(staffCatalog[0], 0, 0),
+      withCounts(staffCatalog[1], 2, 5),
+      withCounts(staffCatalog[2], 1, 1),
+    ])
+  })
+
+  it('opens on thumbnails by default, grouped by level, one card per subject', async () => {
+    renderPage()
+
+    await screen.findByText('Physics')
+    expect(screen.getByRole('button', { name: 'Thumbnails' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'false')
+    const igcse = within(levelSection('IGCSE'))
+    const card = igcse.getByRole('link', { name: /Physics/ })
+    expect(card).toHaveAttribute('href', '/subjects/2')
+    expect(card).toHaveClass('my-subject-card')
+    expect(within(card).getByText('IGCSE · 0625')).toBeInTheDocument()
+    expect(within(levelSection('Primary')).getByRole('link', { name: /Mathematics/ })).toBeInTheDocument()
+  })
+
+  it('shows staff the number of tutors and active students on each card', async () => {
+    renderPage()
+
+    const card = within(await screen.findByRole('link', { name: /Physics/ }))
+    expect(card.getByText(/2 tutors/)).toBeInTheDocument()
+    expect(card.getByText(/5 active students/)).toBeInTheDocument()
+    const geography = within(screen.getByRole('link', { name: /Geography/ }))
+    expect(geography.getByText(/1 tutor(?!s)/)).toBeInTheDocument()
+    expect(geography.getByText(/1 active student(?!s)/)).toBeInTheDocument()
+    const maths = within(screen.getByRole('link', { name: /Mathematics/ }))
+    expect(maths.getByText(/0 tutors/)).toBeInTheDocument()
+  })
+
+  it('switches to the list and remembers the choice for next time', async () => {
+    const { unmount } = renderPage()
+    await screen.findByText('Physics')
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('No syllabus code')).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'IGCSE subjects' })).not.toBeInTheDocument()
+    expect(window.localStorage.getItem(VIEW_KEY)).toBe('list')
+
+    unmount()
+    renderPage()
+    expect(await screen.findByText('No syllabus code')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }))
+    expect(screen.getByRole('list', { name: 'IGCSE subjects' })).toBeInTheDocument()
+    expect(window.localStorage.getItem(VIEW_KEY)).toBe('thumbnails')
+  })
+
+  it('falls back to thumbnails when the stored choice is unusable or storage fails', async () => {
+    window.localStorage.setItem(VIEW_KEY, 'grid')
+    const { unmount } = renderPage()
+    await screen.findByText('Physics')
+    expect(screen.getByRole('button', { name: 'Thumbnails' })).toHaveAttribute('aria-pressed', 'true')
+    unmount()
+
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    renderPage()
+    await screen.findByText('Physics')
+    expect(screen.getByRole('button', { name: 'Thumbnails' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true')
+    vi.restoreAllMocks()
+  })
+
+  describe('for a tutor', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ isStaffLevel: false })
+      mockListAllSubjects.mockResolvedValue(tutorCatalog([2]))
+      mockListStudentSubjects.mockResolvedValue([{ id: 1, subject: { id: 2 } }, { id: 2, subject: { id: 2 } }])
+    })
+
+  it('opens a tutor on their own subjects as thumbnails, with how many students they teach', async () => {
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'My subjects' })).toBeInTheDocument()
+    const mine = screen.getByRole('list', { name: 'IGCSE subjects' })
+    const card = within(mine).getByRole('link', { name: /Physics/ })
+    expect(card).toHaveAttribute('href', '/subjects/2')
+    expect(card).toHaveClass('dashboard-card')
+    expect(within(card).getByText('IGCSE · 0625')).toBeInTheDocument()
+    expect(within(card).getByText('Core / Extended')).toBeInTheDocument()
+    expect(await within(card).findByText('2 students')).toBeInTheDocument()
+    expect(mockListStudentSubjects).toHaveBeenCalledWith({ status: 'ACTIVE' })
+    // Only what they teach; the catalog stays behind the link.
+    expect(within(mine).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.queryByText('Mathematics')).not.toBeInTheDocument()
+    // The page count and the IGCSE level's count.
+    expect(screen.getAllByText('1', { selector: '.onboarding-section__count' })).toHaveLength(2)
+  })
+
+
+    it('has the same switch, and Mine keeps working in the list', async () => {
+      renderPage()
+      fireEvent.click(await screen.findByRole('button', { name: 'List' }))
+      expect(screen.getByText('Physics')).toBeInTheDocument()
+      expect(screen.queryByText('Mathematics')).not.toBeInTheDocument()
+      expect(await screen.findByText('2 students')).toBeInTheDocument()
+    })
+
+    it('never shows counts of tutors or all students to a tutor browsing the catalog', async () => {
+      renderPage('/subjects?view=all')
+      await screen.findByRole('link', { name: /Physics/ })
+      expect(screen.queryByText(/tutors?$/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/active students?/)).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Mathematics/ })).toBeInTheDocument()
+    })
   })
 })

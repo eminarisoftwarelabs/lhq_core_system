@@ -17,10 +17,12 @@ import { DataPrivacyPage } from './pages/legal/DataPrivacyPage'
 import { LegalNoticePage } from './pages/legal/LegalNoticePage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { SessionChangeRequestsPage } from './pages/SessionChangeRequestsPage'
 import { SetupPasswordPage } from './pages/SetupPasswordPage'
 import { StudentAssessmentPage } from './pages/StudentAssessmentPage'
 import { StudentDetailPage } from './pages/StudentDetailPage'
 import { StudentsListPage } from './pages/StudentsListPage'
+import { StudentSubjectCreatePage } from './pages/StudentSubjectCreatePage'
 import { SubjectCreatePage } from './pages/SubjectCreatePage'
 import { SubjectDetailPage } from './pages/SubjectDetailPage'
 import { SubjectsListPage } from './pages/SubjectsListPage'
@@ -70,6 +72,9 @@ function App() {
 
               <Route path="/students" element={<StudentsListPage />} />
               <Route path="/students/:id" element={<StudentDetailPage />} />
+
+              <Route path="/student-subjects/new" element={<StudentSubjectCreatePage />} />
+              <Route path="/timetable/requests" element={<SessionChangeRequestsPage />} />
 
               <Route path="/enrollments/new" element={<EnrollmentCreatePage />} />
 

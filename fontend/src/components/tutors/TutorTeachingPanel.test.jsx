@@ -161,6 +161,30 @@ describe('TutorTeachingPanel, tutor (request)', () => {
     expect(summary.map((el) => el.textContent)).toContain('Mathematics')
   })
 
+  it('locks the form while sending, so a double click sends one request (Feature 1 review fix)', async () => {
+    let finish
+    api.submit.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    api.listMine.mockResolvedValue([])
+    renderPanel('request')
+    await screen.findByText('Mathematics')
+
+    fireEvent.click(within(section('Subjects taught')).getByRole('button', { name: 'Edit' }))
+    fireEvent.click(screen.getByLabelText('IGCSE Physics'))
+    const send = screen.getByRole('button', { name: 'Send for approval' })
+    // Two submits in the same tick, before React re-renders the button.
+    fireEvent.submit(send.closest('form'))
+    fireEvent.submit(send.closest('form'))
+
+    expect(api.submit).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(screen.getByLabelText('IGCSE Physics')).toBeDisabled()
+    expect(screen.getByLabelText('Note for the admin (optional)')).toBeDisabled()
+
+    finish({ id: 3, kind: 'SUBJECTS', status: 'PENDING', proposed: [maths, physics] })
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Saving…' })).not.toBeInTheDocument())
+  })
+
   it('shows the pending proposal and cancels it', async () => {
     const pending = { id: 4, kind: 'WORKING_HOURS', status: 'PENDING', proposed: [{ weekday: 5, start_time: '09:00', end_time: '12:00' }] }
     api.listMine.mockResolvedValueOnce([pending]).mockResolvedValue([{ ...pending, status: 'CANCELLED' }])

@@ -126,7 +126,9 @@ AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Lilongwe. Session dates, end times and the 24 hour logging window are
+# judged in local time (academics.scheduling.times).
+TIME_ZONE = 'Africa/Blantyre'
 
 USE_I18N = True
 

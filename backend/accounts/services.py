@@ -23,6 +23,7 @@ from .models import (
     ChangeKind,
     ChangeStatus,
     TutorChangeRequest,
+    TutorProfile,
     TutorSubject,
     User,
     WorkingHours,
@@ -200,11 +201,27 @@ def _kind_label(kind):
     return ChangeKind(kind).label.lower()
 
 
+# Names in notification messages are cut to this, so every message fits
+# the 255 character limit by design (core.services.notify refuses longer).
+NAME_LIMIT = 60
+
+
+def display_name(user):
+    name = (user.full_name or user.email).strip()
+    return name if len(name) <= NAME_LIMIT else name[: NAME_LIMIT - 1].rstrip() + '…'
+
+
 @transaction.atomic
 def submit_change(tutor, kind, proposed, note=''):
     """Records a tutor's proposed replacement set. Cancels any earlier
     pending request of the same kind (one pending per tutor per kind) and
-    notifies the staff who can review it. Live data is untouched."""
+    notifies the staff who can review it. Live data is untouched.
+
+    The tutor's row is locked first, so two submits at the same moment run
+    one after the other: the second cancels the first's pending request
+    instead of both inserting one and the second hitting the
+    one-pending-per-kind constraint (an IntegrityError, i.e. a 500)."""
+    tutor = TutorProfile.objects.select_for_update().select_related('user').get(pk=tutor.pk)
     normalised = _validate(kind, proposed)
     TutorChangeRequest.objects.select_for_update().filter(
         tutor=tutor, kind=kind, status=ChangeStatus.PENDING
@@ -214,7 +231,7 @@ def submit_change(tutor, kind, proposed, note=''):
     )
     notify(
         reviewers_for(tutor),
-        f'{tutor.user.full_name or tutor.user.email} asked to change their {_kind_label(kind)}.',
+        f'{display_name(tutor.user)} asked to change their {_kind_label(kind)}.',
         STAFF_CHANGE_REQUESTS_LINK,
     )
     return change
@@ -263,7 +280,9 @@ def reject_change(change, reviewer, reason):
     change.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reject_reason'])
     notify(
         [change.tutor.user],
-        f'Your {_kind_label(change.kind)} change was not approved: {reason}',
+        # The reason itself can be any length; it is shown in full on My
+        # Profile, so the notification stays short and complete.
+        f'Your {_kind_label(change.kind)} change was not approved. See My Profile for the reason.',
         TUTOR_PROFILE_LINK,
     )
     return change

@@ -1,5 +1,5 @@
 import { AlertTriangle, BookOpen, Clock, Hourglass, Pencil, XCircle } from 'lucide-react'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { academicsApi, changeRequestsApi, tutorsApi } from '../../lib/api'
 import { ApiError } from '../../lib/apiClient'
 import {
@@ -129,17 +129,27 @@ function EditForm({ mode, kind, children, dirty, saving, errors, note, onNote, o
       }}
     >
       <NonFieldErrors errors={errors} />
-      {children}
+      {/* Everything inside locks while saving, so nothing can be changed
+          (or sent twice) mid-request. */}
+      <fieldset className="teaching-form__fields" disabled={saving}>
+        {children}
+      </fieldset>
       <FieldErrors errors={errors} field={kind === KIND_SUBJECTS ? 'subjects' : 'working_hours'} />
       <FieldErrors errors={errors} field="proposed" />
       {mode === 'request' && (
         <div className="field field--full">
           <label htmlFor={`${idBase}-note`}>Note for the admin (optional)</label>
-          <textarea id={`${idBase}-note`} rows={2} value={note} onChange={(e) => onNote(e.target.value)} />
+          <textarea
+            id={`${idBase}-note`}
+            rows={2}
+            value={note}
+            disabled={saving}
+            onChange={(e) => onNote(e.target.value)}
+          />
         </div>
       )}
       <div className="form-actions">
-        <button type="button" className="button button--secondary" onClick={onCancel}>
+        <button type="button" className="button button--secondary" onClick={onCancel} disabled={saving}>
           Cancel
         </button>
         <button type="submit" disabled={saving || !dirty}>
@@ -162,6 +172,9 @@ export function TutorTeachingPanel({ tutorId, mode }) {
   const [draftRows, setDraftRows] = useState([])
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  // A ref, not state: two clicks (or Enters) in the same tick both see
+  // `saving` as false, but the ref is set synchronously by the first.
+  const savingRef = useRef(false)
   const [errors, setErrors] = useState(null)
   const [cancellingId, setCancellingId] = useState(null)
   const [actionError, setActionError] = useState(null)
@@ -246,6 +259,8 @@ export function TutorTeachingPanel({ tutorId, mode }) {
         : false
 
   async function save() {
+    if (savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     setErrors(null)
     const proposed = editing === KIND_SUBJECTS ? draftSubjects : fromRows(draftRows)
@@ -265,6 +280,7 @@ export function TutorTeachingPanel({ tutorId, mode }) {
     } catch (err) {
       setErrors(errorData(err, 'Could not save.'))
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }

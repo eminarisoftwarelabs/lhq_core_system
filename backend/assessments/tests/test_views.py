@@ -2,6 +2,7 @@ from datetime import date
 
 from rest_framework.test import APITestCase
 
+from academics.scheduling.student_subjects import create_student_subject
 from academics.testing import make_subject, teach
 from accounts.models import Role, TutorProfile, User
 from assessments.models import Assessment, AssessmentCategory
@@ -265,7 +266,12 @@ class TutorBoundaryTests(APITestCase):
         self.maths = make_subject('Maths', tutors=[self.tutor])
         self.physics = make_subject('Physics')
         self.alice = Student.objects.create(student_number='STU-000001', full_name='Alice Wang')
-        enroll(self.alice, [self.maths])
+        # Rosters list student subjects, not the v1 enrolments.
+        create_student_subject(
+            make_user(Role.OWNER, email='boss@lhq.test'),
+            student=self.alice, subject=self.maths, tutor=self.tutor,
+            planned_sessions=4, start_date=date(2026, 11, 16),
+        )
         self.client.force_authenticate(self.tutor_user)
 
     def test_staff_only_reads_are_refused(self):
@@ -273,7 +279,7 @@ class TutorBoundaryTests(APITestCase):
             '/api/students/',
             '/api/students/search/',
             f'/api/students/{self.alice.id}/',
-            f'/api/students/{self.alice.id}/timetable/',
+            f'/api/students/{self.alice.id}/subjects/',
             '/api/enrollments/',
             '/api/enquiries/',
             '/api/invoices/',

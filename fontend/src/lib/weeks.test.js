@@ -50,15 +50,15 @@ describe('parseWeekParam', () => {
 
 describe('formatWeekRange', () => {
   it('shortens a week inside one month', () => {
-    expect(formatWeekRange('2026-10-05')).toBe('5 – 9 Oct 2026')
+    expect(formatWeekRange('2026-10-05')).toBe('5 – 11 Oct 2026')
   })
 
   it('names both months when the week spans two', () => {
-    expect(formatWeekRange('2026-09-28')).toBe('28 Sept – 2 Oct 2026')
+    expect(formatWeekRange('2026-09-28')).toBe('28 Sept – 4 Oct 2026')
   })
 
   it('names both years when the week spans New Year', () => {
-    expect(formatWeekRange('2025-12-29')).toBe('29 Dec 2025 – 2 Jan 2026')
+    expect(formatWeekRange('2025-12-29')).toBe('29 Dec 2025 – 4 Jan 2026')
   })
 })
 

@@ -43,6 +43,20 @@
   --success: var(--brand-success);
   --warning: #9a5b00;
 
+  /* Session status tints on the timetable (Feature 2). Blocks draw text
+     in --text-primary on a light wash of the tint, so contrast never
+     depends on the hue; the tint itself is the left edge and the dot. */
+  --status-scheduled: #2b7bb9;
+  --status-unlogged: #b7791f;
+  --status-held: #1f7a4d;
+  --status-not-held: #b42318;
+  --status-missed: #b42318;
+  --status-cancelled: #7a8496;
+  --status-moved: #8b5cc9;
+  /* Free time on a tutor's own week. */
+  --free-time-bg: rgba(31, 122, 77, 0.09);
+  --free-time-edge: rgba(31, 122, 77, 0.35);
+
   --nav-active-bg: var(--brand-navy);
   --nav-hover-bg: #e6edf6;
   --focus-ring: #4d7fc0;
@@ -144,6 +158,16 @@
     --success: #6fcf97;
     --warning: #f2b866;
 
+    --status-scheduled: #6fb2ea;
+    --status-unlogged: #e0a84a;
+    --status-held: #6fcf97;
+    --status-not-held: #f28b82;
+    --status-missed: #f28b82;
+    --status-cancelled: #8a97aa;
+    --status-moved: #bb95ef;
+    --free-time-bg: rgba(111, 207, 151, 0.1);
+    --free-time-edge: rgba(111, 207, 151, 0.4);
+
     --nav-active-bg: #1e5a96;
     --nav-hover-bg: #163150;
     --focus-ring: var(--brand-gold);
@@ -187,6 +211,16 @@
   --danger-bg: rgba(242, 139, 130, 0.12);
   --success: #6fcf97;
   --warning: #f2b866;
+
+  --status-scheduled: #6fb2ea;
+  --status-unlogged: #e0a84a;
+  --status-held: #6fcf97;
+  --status-not-held: #f28b82;
+  --status-missed: #f28b82;
+  --status-cancelled: #8a97aa;
+  --status-moved: #bb95ef;
+  --free-time-bg: rgba(111, 207, 151, 0.1);
+  --free-time-edge: rgba(111, 207, 151, 0.4);
 
   --nav-active-bg: #1e5a96;
   --nav-hover-bg: #163150;
@@ -2200,14 +2234,16 @@ legend {
   }
 }
 
-/* -- Timetable (TimetablePage) ---------------------------------------------
-   A Monday-Friday week grid on a shared time axis: hours down the left,
-   one column per day, each session an absolutely positioned block whose
-   top/height come from its start/end (percentages of the column, set
-   inline by WeekGrid). --tt-hours (inline) x --tt-hour-height sets the
-   column height, so CSS alone decides how tall an hour is. */
+/* -- Timetable (Feature 2) -------------------------------------------------
+   A Monday-Sunday week of dated sessions on a shared time axis: hours down
+   the left, one column per day, each session an absolutely positioned
+   block whose top/height come from its start/end (percentages of the
+   column, set inline by SessionWeekGrid). --tt-hours (inline) x
+   --tt-hour-height sets the column height, so CSS alone decides how tall
+   an hour is. Colors all come from tokens: the status tints are defined
+   per theme at the top of this file. */
 .page--timetable {
-  --tt-hour-height: 84px;
+  --tt-hour-height: 64px;
 }
 
 .tt-toolbar {
@@ -2219,15 +2255,10 @@ legend {
   margin-bottom: var(--space-4);
 }
 
-.tt-toolbar__summary {
+.tt-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-.tt-toolbar__actions {
-  display: flex;
-  gap: var(--space-3);
 }
 
 .tt-stat {
@@ -2242,118 +2273,86 @@ legend {
   color: var(--text-secondary);
 }
 
-.tt-stat svg {
-  color: var(--text-nav);
-}
-
-.tt-stat strong {
-  color: var(--text-primary);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
 .tt-stat--warning {
   border-color: transparent;
-  background: var(--danger-bg);
-  color: var(--danger);
+  background: color-mix(in srgb, var(--status-unlogged) 14%, var(--bg-surface));
+  color: var(--text-primary);
   font-weight: 600;
 }
 
-/* Week navigation + topic tools, the first row of the board. */
 .tt-weekbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.tt-weekbar__nav {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
-}
-
-.tt-weekbar__step {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border-default);
-  background: var(--bg-surface);
+  min-width: 0;
 }
 
 .tt-weekbar__title {
   display: flex;
   flex-direction: column;
-  min-width: 190px;
-  margin: 0;
-  text-align: center;
-  line-height: 1.2;
-}
-
-.tt-weekbar__relative {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-nav);
+  min-width: 0;
+  padding: 0 var(--space-2);
 }
 
 .tt-weekbar__range {
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.tt-weekbar__tools {
+.tt-weekbar__relative {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.tt-filters {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
-.tt-weekbar__switch {
-  margin: 0;
+.tt-filters select {
+  width: auto;
+  min-width: 170px;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
   font-size: 14px;
-  font-weight: 500;
 }
 
-.tt-board__bar {
+.tt-legend {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
-.tt-board__hint {
-  margin: 0;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
   font-size: 13px;
   color: var(--text-secondary);
 }
 
-.tt-hours-toggle {
+.tt-legend__item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 6px;
 }
 
-.tt-hours-toggle__label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
+.tt-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border-left: 3px solid var(--tone);
+  background: color-mix(in srgb, var(--tone) 25%, var(--bg-surface));
 }
 
-.tt-hours-toggle__range {
-  margin-left: 2px;
-  font-weight: 500;
-  opacity: 0.75;
-  font-variant-numeric: tabular-nums;
-}
-
-.tt-grid--editable .tt-grid__column {
-  cursor: pointer;
+.tt-legend__swatch--free {
+  border-left: 1px dashed var(--free-time-edge);
+  background: var(--free-time-bg);
 }
 
 /* Phone-only day switcher (see the 767px breakpoint). */
@@ -2363,11 +2362,12 @@ legend {
 
 .tt-grid {
   display: grid;
-  grid-template-columns: 56px repeat(5, minmax(0, 1fr));
+  grid-template-columns: 52px repeat(7, minmax(0, 1fr));
   border: 1px solid var(--border-default);
   border-radius: var(--radius-container-lg);
   background: var(--bg-surface);
-  box-shadow: 0 1px 3px 0 rgba(16, 16, 25, 0.04), 0 20px 40px -24px rgba(16, 16, 25, 0.12);
+  box-shadow: 0 1px 3px 0 color-mix(in srgb, var(--shadow-color) 4%, transparent),
+    0 20px 40px -24px color-mix(in srgb, var(--shadow-color) 12%, transparent);
   overflow: hidden;
 }
 
@@ -2378,18 +2378,21 @@ legend {
 
 .tt-grid__day-head {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-left: 1px solid var(--border-default);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .tt-grid__day-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -2398,23 +2401,21 @@ legend {
 }
 
 .tt-grid__day-date {
-  margin-left: 6px;
   font-weight: 500;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
-.tt-grid__day-head--today .tt-grid__day-name {
-  color: var(--text-nav);
+.tt-grid__day-head--today .tt-grid__day-date {
+  color: var(--text-primary);
 }
 
 .tt-grid__today-dot {
   flex-shrink: 0;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent);
 }
 
 .tt-grid__gutter,
@@ -2444,11 +2445,7 @@ legend {
 .tt-grid__column {
   border-left: 1px solid var(--border-default);
   background-image:
-    repeating-linear-gradient(
-      to bottom,
-      var(--border-default) 0 1px,
-      transparent 1px var(--tt-hour-height)
-    ),
+    repeating-linear-gradient(to bottom, var(--border-default) 0 1px, transparent 1px var(--tt-hour-height)),
     repeating-linear-gradient(
       to bottom,
       transparent 0 calc(var(--tt-hour-height) / 2),
@@ -2460,40 +2457,6 @@ legend {
 
 .tt-grid__column--today {
   background-color: color-mix(in srgb, var(--text-nav) 5%, transparent);
-}
-
-.tt-grid__column--drop {
-  background-color: color-mix(in srgb, var(--text-nav) 9%, transparent);
-}
-
-/* "Click to add here" ghost that follows the pointer over empty time. */
-.tt-grid__hover,
-.tt-grid__drop-preview {
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-}
-
-.tt-grid__hover {
-  border: 1px dashed color-mix(in srgb, var(--text-nav) 60%, transparent);
-  background: color-mix(in srgb, var(--text-nav) 7%, transparent);
-  color: var(--text-nav);
-}
-
-.tt-grid__drop-preview {
-  z-index: 3;
-  border: 2px solid var(--text-nav);
-  background: color-mix(in srgb, var(--text-nav) 14%, var(--bg-surface));
-  color: var(--text-primary);
 }
 
 .tt-grid__now {
@@ -2517,20 +2480,30 @@ legend {
   background: var(--danger);
 }
 
-/* -- Session blocks -------------------------------------------------------
-   Six tints assigned by subject id, so the same subject is the same color
-   everywhere and neighbours are easy to tell apart. Text stays
-   --text-primary on a light wash of the tint, so contrast never depends on
-   the hue. */
+/* A tutor's free time (working hours minus booked sessions). */
+.tt-free {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  z-index: 1;
+  border-left: 2px dashed var(--free-time-edge);
+  border-radius: 4px;
+  background: var(--free-time-bg);
+  pointer-events: none;
+}
+
+/* -- Session blocks ---------------------------------------------------------- */
 .tt-session {
-  --tone: #5b5fc7;
+  --tone: var(--status-scheduled);
   position: absolute;
   z-index: 2;
   display: flex;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
   border-left: 3px solid var(--tone);
-  background: color-mix(in srgb, var(--tone) 13%, var(--bg-surface));
+  /* 10%: the strongest wash that keeps --text-secondary (student, time)
+     at 4.5:1 on the red not-held tint in light mode (timetable.test.js). */
+  background: color-mix(in srgb, var(--tone) 10%, var(--bg-surface));
   color: var(--text-primary);
   overflow: hidden;
   transition: box-shadow var(--transition-fast), transform var(--transition-fast);
@@ -2539,53 +2512,51 @@ legend {
 .tt-session:hover,
 .tt-session:focus-within {
   z-index: 5;
-  box-shadow: 0 6px 16px -6px rgba(16, 16, 25, 0.25);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--shadow-color) 30%, transparent);
+  transform: translateY(-1px);
 }
 
-.tt-session[draggable='true'] {
-  cursor: grab;
+.tt-session--scheduled,
+.tt-legend__swatch--scheduled { --tone: var(--status-scheduled); }
+.tt-session--unlogged,
+.tt-legend__swatch--unlogged { --tone: var(--status-unlogged); }
+.tt-session--held,
+.tt-legend__swatch--held { --tone: var(--status-held); }
+.tt-session--not-held,
+.tt-legend__swatch--not-held { --tone: var(--status-not-held); }
+.tt-session--missed,
+.tt-legend__swatch--missed { --tone: var(--status-missed); }
+.tt-session--cancelled,
+.tt-legend__swatch--cancelled { --tone: var(--status-cancelled); }
+.tt-session--moved,
+.tt-legend__swatch--moved { --tone: var(--status-moved); }
+
+/* Cancelled and moved-away occurrences stay visible but step back. */
+.tt-session--cancelled,
+.tt-session--moved {
+  border-style: dashed;
+  border-left-style: solid;
+  background: color-mix(in srgb, var(--tone) 7%, var(--bg-surface));
 }
 
-.tt-session[draggable='true']:active {
-  cursor: grabbing;
+.tt-session--cancelled .tt-session__name,
+.tt-session--moved .tt-session__name {
+  text-decoration: line-through;
+  text-decoration-color: var(--text-secondary);
 }
 
-.tt-session--tone-0 { --tone: #5b5fc7; }
-.tt-session--tone-1 { --tone: #0f8a7e; }
-.tt-session--tone-2 { --tone: #b7791f; }
-.tt-session--tone-3 { --tone: #c2456b; }
-.tt-session--tone-4 { --tone: #2b7bb9; }
-.tt-session--tone-5 { --tone: #8b5cc9; }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .tt-session--tone-0 { --tone: #9e9ef0; }
-  :root:not([data-theme='light']) .tt-session--tone-1 { --tone: #4fc1b3; }
-  :root:not([data-theme='light']) .tt-session--tone-2 { --tone: #e0a84a; }
-  :root:not([data-theme='light']) .tt-session--tone-3 { --tone: #ec7fa0; }
-  :root:not([data-theme='light']) .tt-session--tone-4 { --tone: #6fb2ea; }
-  :root:not([data-theme='light']) .tt-session--tone-5 { --tone: #bb95ef; }
+/* A missed log reads as a problem, not just "not held". */
+.tt-session--missed {
+  border-style: dashed;
+  border-left-style: solid;
 }
 
-:root[data-theme='dark'] .tt-session--tone-0 { --tone: #9e9ef0; }
-:root[data-theme='dark'] .tt-session--tone-1 { --tone: #4fc1b3; }
-:root[data-theme='dark'] .tt-session--tone-2 { --tone: #e0a84a; }
-:root[data-theme='dark'] .tt-session--tone-3 { --tone: #ec7fa0; }
-:root[data-theme='dark'] .tt-session--tone-4 { --tone: #6fb2ea; }
-:root[data-theme='dark'] .tt-session--tone-5 { --tone: #bb95ef; }
-
-.tt-session--clash {
-  border-color: var(--danger);
-  border-left-color: var(--danger);
-  border-style: dashed solid dashed solid;
+.tt-session:active {
+  transform: none;
 }
 
-.tt-session--inactive {
-  opacity: 0.6;
-}
-
-/* The block's own buttons need to shed the global button look (and the
-   dark-mode black/white inversion, which outranks a bare class - hence
-   `.tt-grid button.x`, repeated for :hover, placed after those rules). */
+/* The block's button sheds the global button look (and the dark-mode
+   inversion, which outranks a bare class - hence `.tt-grid button.x`). */
 .tt-grid button.tt-session__open,
 .tt-grid button.tt-session__open:hover {
   position: absolute;
@@ -2600,286 +2571,90 @@ legend {
   color: inherit;
   text-align: left;
   font-weight: 400;
-  cursor: inherit;
+  cursor: pointer;
 }
 
 .tt-session__content {
   position: absolute;
-  inset: 4px 22px 4px 8px;
+  inset: 4px 6px 4px 7px;
   display: flex;
   flex-direction: column;
   gap: 1px;
   overflow: hidden;
-  /* Unitless, so each line scales with its own (small) font size - the
-     root's "16px/145%" shorthand otherwise hands every line a fixed 23px. */
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
-/* Lines keep their natural height: without this, flexbox shrinks the
-   overflow:hidden lines (name, topic) when a block is short, shaving the
-   descenders off "Biology" instead of letting the last line drop off. */
 .tt-session__content > * {
   flex-shrink: 0;
-}
-
-/* A read-only block has no × button to leave room for. */
-.tt-session > .tt-session__content {
-  right: 8px;
 }
 
 .tt-session__name {
   display: flex;
   align-items: center;
   gap: 4px;
-  min-width: 0;
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 600;
-  /* Tall enough that overflow:hidden (needed for the ellipsis) doesn't
-     shave the descenders off g/y/p. */
-  line-height: 1.4;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.tt-session__clash-icon {
-  flex-shrink: 0;
-  color: var(--danger);
-}
-
-/* The planned topic for the week on screen - the line that turns the grid
-   into a lesson plan, so it gets the tint's colour to stand out from the
-   grey time/tutor lines. */
-.tt-session__topic {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
   overflow: hidden;
   font-size: 12px;
-  line-height: 1.4;
-  font-weight: 600;
-  color: color-mix(in srgb, var(--tone) 70%, var(--text-primary));
-  white-space: nowrap;
+  font-weight: 650;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tt-session__topic svg {
-  flex-shrink: 0;
-}
-
-.tt-session__topic--empty {
-  font-weight: 400;
-  font-style: italic;
-  color: var(--text-secondary);
-}
-
+.tt-session__meta,
 .tt-session__time {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.tt-session__tutor {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
   overflow: hidden;
   font-size: 11px;
   color: var(--text-secondary);
+  text-overflow: ellipsis;
   white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
-.tt-session--compact .tt-session__content {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
+.tt-session__time {
+  font-variant-numeric: tabular-nums;
 }
 
-/* 40-59 minute blocks: name and time share the first line. */
-.tt-session__row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-}
-
-.tt-session__row .tt-session__name {
+.tt-session__flag {
   flex-shrink: 0;
-  max-width: 70%;
+  color: var(--tone);
 }
 
-.tt-session__row .tt-session__time {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Under 45 minutes: one line, the rest is in the tooltip. */
+.tt-session--compact .tt-session__meta,
+.tt-session--compact .tt-session__time {
+  display: none;
 }
 
-/* In a one-line block the name wins the space; the time truncates first. */
-.tt-session--compact .tt-session__name {
-  flex-shrink: 0;
-  max-width: 100%;
-}
-
-.tt-session--compact .tt-session__topic {
-  min-width: 0;
-}
-
-.tt-grid button.tt-session__remove,
-.tt-grid button.tt-session__remove:hover {
-  position: absolute;
-  top: 3px;
-  right: 3px;
+/* -- Status pill (panel, lists) ------------------------------------------- */
+.status-pill {
+  --tone: var(--status-scheduled);
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  min-height: 0;
-  padding: 0;
-  border: none;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 10%, var(--bg-surface));
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-pill::before {
+  content: '';
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  opacity: 0;
-  transition: opacity var(--transition-fast), color var(--transition-fast);
+  background: var(--tone);
 }
 
-.tt-grid button.tt-session__remove:hover {
-  color: var(--danger);
-}
+.status-pill--scheduled { --tone: var(--status-scheduled); }
+.status-pill--unlogged { --tone: var(--status-unlogged); }
+.status-pill--held { --tone: var(--status-held); }
+.status-pill--not-held { --tone: var(--status-not-held); }
+.status-pill--missed { --tone: var(--status-missed); }
+.status-pill--cancelled { --tone: var(--status-cancelled); }
+.status-pill--moved { --tone: var(--status-moved); }
 
-.tt-session:hover .tt-session__remove,
-.tt-session:focus-within .tt-session__remove {
-  opacity: 1;
-}
-
-/* Touch screens have no hover to reveal it. */
-@media (hover: none) {
-  .tt-grid button.tt-session__remove {
-    opacity: 1;
-  }
-}
-
-/* -- Unscheduled tray ------------------------------------------------------
-   A strip of subject chips above the grid (not a side column), so the
-   five day columns keep the page's full width. */
-.tt-tray {
-  margin-bottom: var(--space-4);
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  border-radius: var(--radius-container-lg);
-  border: 1px dashed var(--border-strong);
-  background: var(--bg-surface-muted);
-}
-
-.tt-tray__header {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.tt-tray__header h2 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-}
-
-.tt-tray__hint {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.tt-tray__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tt-tray__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  max-width: 100%;
-  padding: 6px 6px 6px 4px;
-  border-radius: var(--radius-input);
-  border: 1px solid var(--border-default);
-  background: var(--bg-surface);
-  cursor: grab;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
-}
-
-.tt-tray__item:hover {
-  border-color: var(--border-strong);
-  box-shadow: 0 4px 12px -6px rgba(16, 16, 25, 0.2);
-  transform: translateY(-1px);
-}
-
-.tt-tray__item:active {
-  cursor: grabbing;
-}
-
-.tt-tray__grip {
-  flex-shrink: 0;
-  color: var(--text-secondary);
-}
-
-.tt-tray__text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.tt-tray__name {
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.tt-tray__tutor {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.tt-tray__item .button--compact {
-  flex-shrink: 0;
-  margin-left: var(--space-1);
-  padding: 5px 10px;
-  font-size: 12px;
-}
-
-.tt-tray__empty {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--success);
-}
-
-.tt-tray__empty p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-/* -- Session dialog -------------------------------------------------------- */
+/* -- Session dialog ---------------------------------------------------------- */
 .tt-dialog__backdrop {
   position: fixed;
   inset: 0;
@@ -2888,20 +2663,20 @@ legend {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgba(16, 16, 25, 0.45);
+  background: color-mix(in srgb, var(--shadow-color) 45%, transparent);
   animation: tt-fade-in 120ms ease;
 }
 
 .tt-dialog {
   width: 100%;
-  max-width: 540px;
+  max-width: 560px;
   max-height: calc(100vh - 2 * var(--space-4));
   max-height: calc(100dvh - 2 * var(--space-4));
   overflow-y: auto;
   border-radius: var(--radius-container-lg);
   border: 1px solid var(--border-default);
   background: var(--bg-surface);
-  box-shadow: 0 24px 64px -16px rgba(16, 16, 25, 0.4);
+  box-shadow: 0 24px 64px -16px color-mix(in srgb, var(--shadow-color) 40%, transparent);
   animation: tt-pop-in 160ms ease;
 }
 
@@ -2918,8 +2693,10 @@ legend {
 
 @media (prefers-reduced-motion: reduce) {
   .tt-dialog__backdrop,
-  .tt-dialog {
+  .tt-dialog,
+  .tt-session {
     animation: none;
+    transition: none;
   }
 }
 
@@ -2933,8 +2710,17 @@ legend {
 
 .tt-dialog__header h2 {
   flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 17px;
+}
+
+.tt-dialog__subtitle {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .tt-dialog__body {
@@ -2949,248 +2735,424 @@ legend {
   font-size: 13px;
 }
 
-.tt-dialog__body select {
-  max-width: none;
-  padding: 8px 12px;
-  font-size: 14px;
-  min-height: 41px;
-}
-
 .tt-dialog__body .form-actions {
   flex-wrap: wrap;
   margin-top: 0;
 }
 
-.tt-dialog__body .form-actions > * {
-  white-space: nowrap;
-}
-
-.tt-dialog__days {
-  margin: 0;
-  padding: 0;
-  border: none;
-}
-
-.tt-dialog__days legend {
-  margin: 0 0 var(--space-1);
-  padding: 0;
-  font-size: 13px;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: normal;
-  color: var(--text-primary);
-}
-
-.tt-day-picker {
+/* -- Session panel ----------------------------------------------------------- */
+.session-facts {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-}
-
-.tt-day-picker__option {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 9px 0;
-  border-radius: var(--radius-input);
-  border: 1px solid var(--border-default);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
-
-.tt-day-picker__option:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-surface-muted);
-}
-
-.tt-day-picker__option input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.tt-day-picker__option:has(input:focus-visible) {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.tt-day-picker__option--selected,
-.tt-day-picker__option--selected:hover {
-  border-color: var(--nav-active-bg);
-  background: var(--nav-active-bg);
-  color: var(--text-nav-active);
-}
-
-.tt-dialog__times {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-2);
-}
-
-.tt-dialog__times .field {
-  flex: 1;
-}
-
-.tt-dialog__to {
-  padding-bottom: 10px;
-  color: var(--text-secondary);
-}
-
-.tt-dialog__duration {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  padding: 0 0 10px var(--space-2);
-  font-size: 13px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.tt-dialog__summary {
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
   margin: 0;
   font-size: 14px;
+}
+
+.session-facts dt {
   color: var(--text-secondary);
 }
 
-/* -- Lesson plan (inside the session dialog) ------------------------------ */
-.lesson-plan {
+.session-facts dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.session-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-default);
 }
 
-.tt-dialog__body > .lesson-plan:first-child,
-.tt-dialog__summary + .lesson-plan {
-  padding-top: 0;
-  border-top: none;
-}
-
-.lesson-plan__header {
+.session-section h3 {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.lesson-plan__header h3 {
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
 }
 
-.lesson-plan__header p {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.lesson-plan__weeks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.session-section__actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: var(--space-2);
 }
 
-.lesson-plan__week {
+.session-times {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) 20px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
-  padding: 6px 8px 6px 12px;
+}
+
+.session-note {
+  margin: 0;
+  padding: var(--space-3);
   border-radius: var(--radius-input);
-  border: 1px solid var(--border-default);
-  background: var(--bg-surface);
+  background: var(--bg-surface-muted);
+  font-size: 13px;
+  color: var(--text-primary);
 }
 
-.lesson-plan__week--planned {
-  border-color: color-mix(in srgb, var(--success) 35%, var(--border-default));
-  background: color-mix(in srgb, var(--success) 5%, var(--bg-surface));
+.session-note--pending {
+  border-left: 3px solid var(--status-unlogged);
 }
 
-.lesson-plan__when {
+.session-note--rejected {
+  border-left: 3px solid var(--status-not-held);
+}
+
+.session-note strong {
+  font-weight: 650;
+}
+
+/* Topics to tick: the student's topics, already-covered ones marked. */
+.topic-checklist {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
   margin: 0;
-  line-height: 1.2;
+  padding: var(--space-1);
+  overflow-y: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-input);
+  list-style: none;
 }
 
-.lesson-plan__date {
-  font-size: 14px;
+.topic-checklist__item .checkbox-label {
+  width: 100%;
+  padding: 6px var(--space-2);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.topic-checklist__item .checkbox-label:hover {
+  background: var(--bg-surface-muted);
+}
+
+.topic-checklist__done {
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-size: 11px;
   font-weight: 600;
+  color: var(--success);
+  white-space: nowrap;
+}
+
+.topic-checklist__number {
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
-.lesson-plan__relative {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-nav);
-}
-
-.tt-dialog__body .lesson-plan__week select {
-  min-height: 36px;
-  padding: 6px 10px;
-}
-
-.lesson-plan__new-topic {
+/* Clash / outside-hours warning with Cancel and Book anyway. */
+.conflict-notice {
   display: flex;
-  gap: 6px;
-  min-width: 0;
-}
-
-.lesson-plan__new-topic input {
-  flex: 1;
-  min-width: 0;
-  max-width: none;
-  padding: 6px 10px;
-  font-size: 14px;
-}
-
-.lesson-plan__status {
-  display: inline-flex;
-  justify-content: center;
-  color: var(--success);
-}
-
-.lesson-plan__spinner {
-  color: var(--text-secondary);
-  animation: lesson-plan-spin 0.8s linear infinite;
-}
-
-@keyframes lesson-plan-spin {
-  to { transform: rotate(360deg); }
-}
-
-.lesson-plan__error {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-
-.lesson-plan__more {
-  margin-top: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: var(--radius-input);
+  background: var(--danger-bg);
+  color: var(--text-primary);
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-nav);
 }
 
-.tt-dialog__clash {
+.conflict-notice__title {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-input);
-  background: var(--danger-bg);
+  font-weight: 650;
   color: var(--danger);
+}
+
+.conflict-notice ul {
+  margin: 0;
+  padding-left: var(--space-6);
+}
+
+.conflict-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
   font-size: 13px;
+}
+
+.history-list__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-3);
+}
+
+.history-list__when {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.history-list__note {
+  grid-column: 1 / -1;
+  color: var(--text-secondary);
+}
+
+/* -- Dashboard: today and unlogged ------------------------------------------- */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-default);
+  text-align: left;
+}
+
+.session-row__time {
+  flex-shrink: 0;
+  min-width: 96px;
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.session-row__title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-row__sub {
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-row__end {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.countdown--urgent {
+  color: var(--danger);
+}
+
+/* -- Student subjects ---------------------------------------------------------- */
+.ss-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ss-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  background: var(--bg-surface);
+}
+
+.ss-card__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ss-card__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.ss-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ss-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ss-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ss-progress__text {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: 13px;
+}
+
+.ss-progress__bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-surface-muted);
+}
+
+.ss-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--status-held);
+  transition: width var(--transition-base);
+}
+
+.ss-card__prompt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--status-unlogged);
+  border-radius: var(--radius-input);
+  background: var(--bg-surface-muted);
+  font-size: 13px;
+}
+
+.ss-card__prompt-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.ss-card__prompt-row .field {
+  min-width: 140px;
+}
+
+.ss-card__prompt-row input[type='number'] {
+  width: 100px;
+}
+
+.topic-picker__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* -- Tutor hours --------------------------------------------------------------- */
+.tutor-hours {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.tutor-hours__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--bg-surface-muted);
+}
+
+.tutor-hours__value {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tutor-hours__label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.month-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* -- Session change requests (staff) -------------------------------------------- */
+.time-compare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 14px;
+}
+
+.time-compare__side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--bg-surface-muted);
+}
+
+.time-compare__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.time-compare__arrow {
+  color: var(--text-secondary);
 }
 
 @media (max-width: 1279px) {
@@ -3201,7 +3163,6 @@ legend {
   .tt-grid__day-short {
     display: inline;
   }
-
 }
 
 /* One day at a time on a phone: the switcher picks which column shows. */
@@ -3215,7 +3176,7 @@ legend {
   .tt-day-tabs button.period-toggle__option {
     flex: 1;
     padding: 7px 0;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .tt-grid {
@@ -3234,73 +3195,37 @@ legend {
     display: none;
   }
 
-  .tt-board__hint,
-  .tt-tray__hint {
-    display: none;
-  }
-
-  .tt-weekbar,
-  .tt-weekbar__nav {
+  .tt-weekbar {
     width: 100%;
   }
 
   .tt-weekbar__title {
     flex: 1;
+  }
+
+  .tt-filters select {
+    flex: 1 1 140px;
     min-width: 0;
   }
 
-  .tt-weekbar__tools {
+  .session-times,
+  .tutor-hours,
+  .time-compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .time-compare__arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+
+  .session-row {
+    flex-wrap: wrap;
+  }
+
+  .session-row__end {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .lesson-plan__week {
-    grid-template-columns: 88px minmax(0, 1fr) 16px;
-    gap: var(--space-2);
-  }
-
-  .tt-hours-toggle {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-1);
-  }
-
-  .tt-hours-toggle .period-toggle {
-    display: flex;
-  }
-
-  .tt-hours-toggle button.period-toggle__option {
-    flex: 1;
-    white-space: nowrap;
-  }
-
-  .tt-toolbar__actions {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
-  .tt-toolbar__actions > * {
-    flex: 1;
-    min-height: 40px;
-    padding: 8px 12px;
-    font-size: 14px;
-    white-space: nowrap;
-  }
-
-  /* Remove sits on its own row above Cancel / Save on a phone. */
-  .tt-dialog__body .form-actions__leading {
-    flex-basis: 100%;
-    margin-right: 0;
-  }
-
-  .tt-dialog__times {
-    flex-wrap: wrap;
-  }
-
-  .tt-dialog__duration {
-    width: 100%;
-    padding: 0;
   }
 }
 
@@ -3573,6 +3498,11 @@ legend {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+/* An action pushed to the right end of a section header (Add a subject). */
+.detail-section__action {
+  margin-left: auto;
 }
 
 .detail-section__edit {
@@ -5498,6 +5428,7 @@ legend {
 
 .my-subject-card__slot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
   margin-top: auto;
@@ -5640,6 +5571,14 @@ legend {
 
 .teaching-form .form-actions {
   margin-top: 0;
+}
+
+/* Only there to lock the editor while saving: no box of its own. */
+fieldset.teaching-form__fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 /* Rows of day / start / end / remove. Three equal fields and a fixed
@@ -6072,4 +6011,236 @@ legend {
     box-shadow: none !important;
     padding: 0 !important;
   }
+}
+
+/* -- Students tab: one block per enrolment month (StudentsListPage) ------- */
+.month-group {
+  margin-top: var(--space-8);
+}
+
+.month-group:first-of-type {
+  margin-top: var(--space-4);
+}
+
+/* The month is the primary label: big, bold, with an accent rule under it.
+   The names below are regular weight and indented, so they read as its
+   contents. */
+.month-group__heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-2);
+  padding: 0 0 var(--space-2);
+  border-bottom: 2px solid var(--accent);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.month-group__toggle {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The global button:hover paints the primary (yellow) background; keep
+   this one plain. */
+.month-group__toggle:hover {
+  background: none;
+  color: inherit;
+}
+
+.month-group__toggle:hover .month-group__chevron {
+  color: var(--text-primary);
+}
+
+.month-group__chevron {
+  align-self: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast);
+}
+
+.month-group__toggle[aria-expanded='false'] .month-group__chevron {
+  transform: rotate(-90deg);
+}
+
+.month-group__count {
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* Names fill across then down, as many 220px+ columns as fit. */
+.month-group__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 var(--space-4);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  column-gap: var(--space-6);
+}
+
+.month-group__grid[hidden] {
+  display: none;
+}
+
+.month-group__name {
+  display: block;
+  padding: var(--space-2) var(--space-1);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 45%, transparent);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-primary);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.month-group__name:hover {
+  background: var(--bg-surface);
+  color: var(--text-nav-hover);
+}
+
+/* -- Student page: sessions, history toggle, enrolment date --------------- */
+.session-row--link {
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--transition-fast);
+}
+
+.session-row--link:hover {
+  background: var(--nav-hover-bg);
+}
+
+.detail-section__toggle {
+  width: 100%;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-section__toggle[aria-expanded='false'] {
+  margin-bottom: 0;
+}
+
+.detail-section__chevron {
+  margin-left: auto;
+  transition: transform var(--transition-fast);
+}
+
+.detail-section__toggle[aria-expanded='true'] .detail-section__chevron {
+  transform: rotate(180deg);
+}
+
+.link-button {
+  padding: 0 var(--space-1);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.enrolled-on-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.enrolled-on-edit legend {
+  float: left;
+  margin-right: var(--space-2);
+  padding: 0;
+  font-weight: 600;
+}
+
+/* Subject page: the roster split by tutor (SubjectRoster). */
+.roster-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.roster-group__heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.roster-group__empty {
+  margin: 0;
+}
+
+.roster-row__times {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thumbnails / List switch (SubjectsListPage). A segmented control: the
+   pressed option takes the selected colours. */
+.view-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-button);
+  background: var(--bg-surface-muted);
+}
+
+.view-switch__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: calc(var(--radius-button) - 3px);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.view-switch__option:hover {
+  color: var(--text-primary);
+}
+
+.view-switch__option[aria-pressed='true'] {
+  background: var(--selected-bg);
+  color: var(--selected-fg);
+}
+
+.view-switch__option:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }

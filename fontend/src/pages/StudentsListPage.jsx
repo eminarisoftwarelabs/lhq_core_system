@@ -1,77 +1,32 @@
-import { GraduationCap, Search } from 'lucide-react'
+import { ChevronDown, GraduationCap, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { clientsApi, enrollmentsApi } from '../lib/api'
+import { defaultOpenMonths, fetchAllPages, groupByEnrolmentMonth } from '../lib/enrolmentMonths'
+import { clientsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
-import { ENROLLMENT_STATUS_LABELS, LEARNING_MODE_LABELS } from '../lib/constants'
-import { formatShortDate } from '../lib/dateWindow'
 import { usePageTitle } from '../lib/usePageTitle'
 
-// Must match PAGE_SIZE in the backend's settings.py - the API doesn't expose
-// its own page size, so this mirrors it the same way UsersListPage already
-// does for its own Previous/Next controls.
-const PAGE_SIZE = 20
-
-// The enrollment status shown per student has to be correct regardless of
-// which page of students is on screen, so - unlike the paged student list
-// itself - this always needs the complete set: a single `fetchPage(1)` call
-// would silently miss any enrollment past the first page while reporting
-// the true total in `count`, so this walks every page rather than
-// assuming one is enough.
-async function fetchAllPages(fetchPage) {
-  const first = await fetchPage(1)
-  const results = [...first.results]
-  let next = first.next
-  let page = 1
-  while (next) {
-    page += 1
-    const res = await fetchPage(page)
-    results.push(...res.results)
-    next = res.next
-  }
-  return { count: first.count, results }
-}
-
-// One enrollment per student, chosen so the directory reflects "what's
-// actually going on" rather than just the newest row - an ACTIVE enrollment
-// always wins over a withdrawn/completed one even if it's not the most
-// recently created, falling back to the newest when nothing is active.
-function useEnrollmentByStudentId() {
-  const [enrollments, setEnrollments] = useState([])
-
-  useEffect(() => {
-    let cancelled = false
-    fetchAllPages((page) => enrollmentsApi.list({ page }))
-      .then((res) => {
-        if (!cancelled) setEnrollments(res.results)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  return useMemo(() => {
-    const map = {}
-    for (const enrollment of enrollments) {
-      const current = map[enrollment.student]
-      if (!current || (enrollment.status === 'ACTIVE' && current.status !== 'ACTIVE')) {
-        map[enrollment.student] = enrollment
-      }
-    }
-    return map
-  }, [enrollments])
-}
-
+// Students by the month they enrolled, newest first, names only. Every page
+// is read so a month is never split across pages with a wrong count.
 export function StudentsListPage() {
   usePageTitle('Students')
   const [query, setQuery] = useState('')
-  const [page, setPage] = useState(1)
-  const [data, setData] = useState(null)
+  const [students, setStudents] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
-  const enrollmentByStudentId = useEnrollmentByStudentId()
-  const totalPages = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1
+  // key -> true/false once the user has opened or closed a month.
+  const [toggled, setToggled] = useState({})
+  const groups = useMemo(
+    () =>
+      groupByEnrolmentMonth(students ?? []).map((group) => ({
+        ...group,
+        students: [...group.students].sort((a, b) => a.full_name.localeCompare(b.full_name)),
+      })),
+    [students],
+  )
+  const searching = query.trim() !== ''
+  const defaultOpen = useMemo(() => defaultOpenMonths(groups), [groups])
+  const isOpen = (key) => searching || (key in toggled ? toggled[key] : defaultOpen.has(key))
 
   useEffect(() => {
     let cancelled = false
@@ -79,8 +34,8 @@ export function StudentsListPage() {
       setLoading(true)
       setError(null)
       try {
-        const res = await clientsApi.searchStudents(query, page)
-        if (!cancelled) setData(res)
+        const rows = await fetchAllPages((page) => clientsApi.searchStudents(query, page))
+        if (!cancelled) setStudents(rows)
       } catch (err) {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load students.')
       } finally {
@@ -92,8 +47,9 @@ export function StudentsListPage() {
       cancelled = true
       clearTimeout(handle)
     }
-  }, [query, page])
+  }, [query])
 
+  const ready = !loading && !error && students
   return (
     <div className="page">
       <section className="recent-enrollments directory-card">
@@ -101,7 +57,6 @@ export function StudentsListPage() {
           <div className="recent-enrollments__title">
             <GraduationCap size={16} strokeWidth={1.75} aria-hidden="true" />
             <h2>Students</h2>
-            {!loading && !error && data && <span className="onboarding-section__count">{data.count}</span>}
           </div>
 
           <div className="field search-field">
@@ -112,10 +67,7 @@ export function StudentsListPage() {
                 id="q"
                 type="search"
                 value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value)
-                  setPage(1)
-                }}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="e.g. Alice or STU-000001"
               />
             </div>
@@ -129,7 +81,7 @@ export function StudentsListPage() {
           </p>
         )}
 
-        {!loading && !error && data && data.results.length === 0 && (
+        {ready && groups.length === 0 && (
           <div className="empty-state">
             <span className="empty-state__icon">
               <GraduationCap size={22} strokeWidth={1.75} aria-hidden="true" />
@@ -138,59 +90,39 @@ export function StudentsListPage() {
           </div>
         )}
 
-        {!loading && !error && data && data.results.length > 0 && (
-          <ul className="recent-enrollments__list directory-card__list">
-            {data.results.map((student) => {
-              const enrollment = enrollmentByStudentId[student.id]
-              return (
-                <li key={student.id}>
-                  <Link to={`/students/${student.id}`} className="recent-enrollments__row recent-enrollments__row--rich">
-                    <span className="directory-row__identity">
-                      <span>{student.full_name}</span>
-                      <span className="directory-row__subtext">
-                        {[student.student_number, student.school].filter(Boolean).join(' · ')}
-                      </span>
+        {ready &&
+          groups.map((group) => {
+            const open = isOpen(group.key)
+            const count = group.students.length
+            return (
+              <section key={group.key} className="month-group">
+                <h3 className="month-group__heading">
+                  <button
+                    type="button"
+                    className="month-group__toggle"
+                    aria-expanded={open}
+                    aria-controls={`month-${group.key}`}
+                    onClick={() => setToggled((prev) => ({ ...prev, [group.key]: !open }))}
+                  >
+                    <ChevronDown size={18} strokeWidth={2} className="month-group__chevron" aria-hidden="true" />
+                    {group.label}
+                    <span className="month-group__count">
+                      {count} {count === 1 ? 'student' : 'students'}
                     </span>
-
-                    <span className="directory-row__meta">
-                      {enrollment ? (
-                        <>
-                          <span
-                            className={`stage-badge enrollment-status-badge enrollment-status-badge--${enrollment.status.toLowerCase()}`}
-                          >
-                            {ENROLLMENT_STATUS_LABELS[enrollment.status]}
-                          </span>
-                          <span className="directory-row__detail">
-                            {enrollment.subject_names.join(', ') || '—'} · {LEARNING_MODE_LABELS[enrollment.learning_mode]}
-                          </span>
-                          <span className="directory-row__detail">
-                            Enrolled {formatShortDate(new Date(enrollment.created_at))}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="directory-row__detail directory-row__detail--muted">Not enrolled</span>
-                      )}
-                    </span>
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-
-        {!loading && !error && totalPages > 1 && (
-          <div className="pagination">
-            <button type="button" disabled={!data.previous} onClick={() => setPage((p) => p - 1)}>
-              Previous
-            </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
-            <button type="button" disabled={!data.next} onClick={() => setPage((p) => p + 1)}>
-              Next
-            </button>
-          </div>
-        )}
+                  </button>
+                </h3>
+                <ul id={`month-${group.key}`} className="month-group__grid" hidden={!open} aria-label={group.label}>
+                  {group.students.map((student) => (
+                    <li key={student.id}>
+                      <Link to={`/students/${student.id}`} className="month-group__name">
+                        {student.full_name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )
+          })}
       </section>
     </div>
   )

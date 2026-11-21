@@ -1,6 +1,16 @@
 from django.contrib import admin
 
-from .models import Level, LessonPlan, School, Subject, TimetableSlot, Topic
+from .models import (
+    Level,
+    School,
+    Session,
+    SessionChangeRequest,
+    SessionLogEvent,
+    StudentSubject,
+    Subject,
+    TimetableSlot,
+    Topic,
+)
 
 
 @admin.register(School)
@@ -22,18 +32,12 @@ class TopicInline(admin.TabularInline):
     fields = ['order', 'chapter', 'number', 'name', 'extended_only']
 
 
-class TimetableSlotInline(admin.StackedInline):
-    model = TimetableSlot
-    extra = 0
-    max_num = 1
-
-
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
     list_display = ['name', 'level', 'code', 'has_paper', 'is_active']
     list_filter = ['level', 'has_paper', 'is_active']
     search_fields = ['name', 'code']
-    inlines = [TimetableSlotInline, TopicInline]
+    inlines = [TopicInline]
 
 
 @admin.register(Topic)
@@ -43,14 +47,51 @@ class TopicAdmin(admin.ModelAdmin):
     search_fields = ['name', 'chapter', 'subject__name']
 
 
-@admin.register(TimetableSlot)
-class TimetableSlotAdmin(admin.ModelAdmin):
-    list_display = ['subject', 'day_of_week', 'start_time', 'end_time']
-    list_filter = ['day_of_week']
+# Scheduling rows are written through academics.scheduling (clash checks,
+# session generation, history). The admin is for looking, not editing.
 
 
-@admin.register(LessonPlan)
-class LessonPlanAdmin(admin.ModelAdmin):
-    list_display = ['week_start', 'subject', 'topic', 'updated_by', 'updated_at']
-    list_filter = ['subject', 'week_start']
-    date_hierarchy = 'week_start'
+class TimetableSlotInline(admin.TabularInline):
+    model = TimetableSlot
+    extra = 0
+    can_delete = False
+    readonly_fields = ['weekday', 'start_time', 'end_time']
+
+
+class ReadOnlyAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(StudentSubject)
+class StudentSubjectAdmin(ReadOnlyAdmin):
+    list_display = ['student', 'subject', 'tutor', 'planned_sessions', 'start_date', 'confirmed_end_date', 'status']
+    list_filter = ['status', 'mode', 'subject__level']
+    search_fields = ['student__full_name', 'subject__name', 'tutor__user__full_name']
+    inlines = [TimetableSlotInline]
+
+
+@admin.register(Session)
+class SessionAdmin(ReadOnlyAdmin):
+    list_display = ['date', 'start_time', 'end_time', 'student_subject', 'status', 'logged_by']
+    list_filter = ['status', 'date']
+    date_hierarchy = 'date'
+    search_fields = ['student_subject__student__full_name', 'student_subject__subject__name']
+
+
+@admin.register(SessionLogEvent)
+class SessionLogEventAdmin(ReadOnlyAdmin):
+    list_display = ['created_at', 'session', 'action', 'from_status', 'to_status', 'actor']
+    list_filter = ['action']
+
+
+@admin.register(SessionChangeRequest)
+class SessionChangeRequestAdmin(ReadOnlyAdmin):
+    list_display = ['created_at', 'session', 'kind', 'status', 'requested_by', 'reviewed_by']
+    list_filter = ['status', 'kind']

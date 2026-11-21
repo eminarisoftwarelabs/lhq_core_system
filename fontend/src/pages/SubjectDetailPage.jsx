@@ -7,17 +7,11 @@ import { useToast } from '../components/toast/useToast'
 import { useAuth } from '../auth/useAuth'
 import { academicsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
-import { dayLabel, formatTime } from '../lib/constants'
 import { tutorNames } from '../lib/tutorTeaching'
 import { usePageTitle } from '../lib/usePageTitle'
 
-function timetableLabel(slot) {
-  return slot ? `${dayLabel(slot.day_of_week)} ${formatTime(slot.start_time)}–${formatTime(slot.end_time)}` : 'No timetable slot'
-}
-
 // Catalog fields only. Who teaches the subject is set on each tutor's
-// profile (TutorSubject), and the timetable slot on the Timetable page -
-// omitting `timetable_slot` from the PATCH leaves it untouched.
+// profile (TutorSubject); lesson times belong to each student's booking.
 function EditForm({ subject, levels, onSaved, onCancel }) {
   const { showToast } = useToast()
   const [name, setName] = useState(subject.name)
@@ -299,10 +293,6 @@ export function SubjectDetailPage() {
           </span>
         )}
         {!isStaffLevel && subject.taught_by_me && <span className="stage-badge taught-badge">You teach this</span>}
-        <span className="detail-header__parent">
-          <CalendarClock size={14} strokeWidth={1.75} aria-hidden="true" />
-          {timetableLabel(subject.timetable_slot)}
-        </span>
       </div>
 
       <div className="form-card">

@@ -43,7 +43,6 @@ const baseSubject = {
   is_active: true,
   taught_by_me: false,
   tutors: [{ id: 9, name: 'Tam Tutor' }],
-  timetable_slot: { day_of_week: 1, start_time: '14:00:00', end_time: '15:00:00' },
 }
 
 const chapters = [
@@ -87,7 +86,7 @@ afterEach(() => {
 })
 
 describe('SubjectDetailPage', () => {
-  it('shows name, level and code, the Core / Extended flag, status, tutors and timetable', async () => {
+  it('shows name, level and code, the Core / Extended flag, status, tutors and a timetable link', async () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Mathematics' })).toBeInTheDocument()
@@ -95,7 +94,6 @@ describe('SubjectDetailPage', () => {
     expect(screen.getByText('Core / Extended')).toBeInTheDocument()
     expect(screen.getByText('Active')).toBeInTheDocument()
     expect(screen.getByText('Tam Tutor', { selector: '.detail-header__parent' })).toBeInTheDocument()
-    expect(screen.getByText('Tuesday 14:00–15:00')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Manage timetable' })).toHaveAttribute('href', '/timetable?subject=1')
   })
 

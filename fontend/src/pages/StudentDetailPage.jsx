@@ -1,17 +1,20 @@
-import { BookOpen, CalendarClock, GraduationCap, Phone, Plus, Users } from 'lucide-react'
+import { BookOpen, CalendarPlus, GraduationCap, Layers, Phone, Plus, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { StudentAssessments } from '../components/assessments/StudentAssessments'
-import { clientsApi, enrollmentsApi } from '../lib/api'
+import { EnrolledOn } from '../components/students/EnrolledOn'
+import { SessionHistory, UpcomingSessions } from '../components/students/StudentSessions'
+import { StudentSubjectCard } from '../components/timetable/StudentSubjectCard'
+import { clientsApi, enrollmentsApi, studentSubjectsApi } from '../lib/api'
 import { ApiError } from '../lib/apiClient'
-import { dayLabel, ENROLLMENT_STATUS_LABELS, formatTime, LEARNING_MODE_LABELS, yearGroupLabel } from '../lib/constants'
+import { ENROLLMENT_STATUS_LABELS, LEARNING_MODE_LABELS, yearGroupLabel } from '../lib/constants'
 import { initials } from '../lib/initials'
 import { usePageTitle } from '../lib/usePageTitle'
 
 export function StudentDetailPage() {
   const { id } = useParams()
   const [student, setStudent] = useState(null)
-  const [timetable, setTimetable] = useState([])
+  const [studentSubjects, setStudentSubjects] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -23,13 +26,13 @@ export function StudentDetailPage() {
     setLoading(true)
     setError(null)
     try {
-      const [studentRes, timetableRes, enrollmentsRes] = await Promise.all([
+      const [studentRes, subjectsRes, enrollmentsRes] = await Promise.all([
         clientsApi.getStudent(id),
-        clientsApi.getStudentTimetable(id),
+        studentSubjectsApi.listForStudent(id),
         enrollmentsApi.listForStudent(id),
       ])
       setStudent(studentRes)
-      setTimetable(timetableRes)
+      setStudentSubjects(subjectsRes)
       setEnrollments(enrollmentsRes.results)
     } catch (err) {
       setError(err instanceof ApiError && err.status === 404 ? 'not_found' : 'load_failed')
@@ -106,9 +109,40 @@ export function StudentDetailPage() {
             {student.email}
           </span>
         )}
+        <EnrolledOn student={student} onChanged={(updated) => setStudent(updated)} />
       </div>
 
       <div className="form-card">
+        <div className="detail-section">
+          <div className="detail-section__header">
+            <span className="icon-badge">
+              <Layers size={16} strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            Subjects
+            <Link className="button button--secondary button--compact detail-section__action" to={`/student-subjects/new?student=${student.id}`}>
+              <CalendarPlus size={14} strokeWidth={1.75} aria-hidden="true" />
+              Add a subject
+            </Link>
+          </div>
+          {studentSubjects.length === 0 && <p className="form-note">Not booked for any subject yet.</p>}
+          {studentSubjects.length > 0 && (
+            <div className="ss-list">
+              {studentSubjects.map((ss) => (
+                <StudentSubjectCard
+                  key={ss.id}
+                  ss={ss}
+                  canManage
+                  onChanged={(updated) =>
+                    setStudentSubjects((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <UpcomingSessions studentId={student.id} />
+
         <div className="detail-section">
           <div className="detail-section__header">
             <span className="icon-badge">
@@ -141,39 +175,7 @@ export function StudentDetailPage() {
           )}
         </div>
 
-        <div className="detail-section">
-          <div className="detail-section__header">
-            <span className="icon-badge">
-              <CalendarClock size={16} strokeWidth={1.75} aria-hidden="true" />
-            </span>
-            Timetable
-          </div>
-          {timetable.length === 0 && <p className="form-note">No active subjects.</p>}
-          {timetable.length > 0 && (
-            <div className="table-scroll">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Subject</th>
-                    <th>Day</th>
-                    <th>Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {timetable.map((entry) => (
-                    <tr key={entry.subject_id}>
-                      <td>{entry.subject_name}</td>
-                      <td>{entry.day_of_week !== null ? dayLabel(entry.day_of_week) : 'Not set'}</td>
-                      <td>
-                        {entry.start_time ? `${formatTime(entry.start_time)}–${formatTime(entry.end_time)}` : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <SessionHistory studentId={student.id} studentSubjects={studentSubjects} />
 
         <div className="detail-section">
           <div className="detail-section__header">

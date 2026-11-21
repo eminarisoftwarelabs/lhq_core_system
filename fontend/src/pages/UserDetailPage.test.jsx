@@ -12,6 +12,9 @@ vi.mock('../components/tutors/TutorTeachingPanel', () => ({
     <div data-testid="teaching-panel" data-tutor={tutorId} data-mode={mode} />
   ),
 }))
+vi.mock('../components/tutors/TutorHoursCard', () => ({
+  TutorHoursCard: ({ tutorId }) => <div data-testid="hours-card" data-tutor={tutorId} />,
+}))
 
 
 const mockGet = vi.fn()
@@ -95,6 +98,7 @@ describe('UserDetailPage', () => {
   it('shows the subjects and working hours panel for a teaching account, in direct mode', async () => {
     renderAt('/users/2')
     const panel = await screen.findByTestId('teaching-panel')
+    expect(screen.getByTestId('hours-card')).toHaveAttribute('data-tutor', '44')
     expect(panel).toHaveAttribute('data-tutor', '44')
     expect(panel).toHaveAttribute('data-mode', 'direct')
   })

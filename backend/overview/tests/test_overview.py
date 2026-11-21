@@ -3,6 +3,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.test import TestCase
+from django.utils import timezone as django_timezone
 from rest_framework.test import APITestCase
 
 from academics.testing import make_subject
@@ -153,10 +154,15 @@ class MoneyTests(TestCase):
         self.assertEqual(this_year['collected'], Decimal('350.00'))
 
     def test_period_edges_are_start_inclusive_end_exclusive(self):
-        make_invoice('10.00', datetime(2026, 10, 1, 0, 0, tzinfo=dt_timezone.utc))
-        make_invoice('20.00', datetime(2026, 11, 1, 0, 0, tzinfo=dt_timezone.utc))
-        make_invoice('40.00', datetime(2026, 9, 30, 23, 59, 59, tzinfo=dt_timezone.utc))
-        self.assertEqual(self._money('this_month')['invoiced'], Decimal('10.00'))
+        # Month edges are local (settings.TIME_ZONE, Africa/Blantyre), not
+        # UTC: midnight in Lilongwe on the 1st starts the month.
+        local = django_timezone.get_default_timezone()
+        make_invoice('10.00', datetime(2026, 10, 1, 0, 0, tzinfo=local))
+        make_invoice('20.00', datetime(2026, 11, 1, 0, 0, tzinfo=local))
+        make_invoice('40.00', datetime(2026, 9, 30, 23, 59, 59, tzinfo=local))
+        # 23:00 UTC on 30 September is already 1 October in Lilongwe.
+        make_invoice('5.00', datetime(2026, 9, 30, 23, 0, tzinfo=dt_timezone.utc))
+        self.assertEqual(self._money('this_month')['invoiced'], Decimal('15.00'))
 
     def test_outstanding_and_overdue_are_as_of_today_whatever_the_period(self):
         old = make_invoice('1000.00', at(2025, 3, 1), due=date(2025, 4, 1))  # overdue, part paid

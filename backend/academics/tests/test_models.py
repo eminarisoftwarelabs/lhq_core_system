@@ -3,7 +3,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
 
-from academics.models import Level, School, TimetableSlot, Topic
+from academics.models import Level, School, Topic
 from academics.testing import make_subject
 from accounts.models import Role, TutorProfile, User
 
@@ -80,40 +80,6 @@ class SubjectModelTests(TestCase):
 
     def test_display_name_includes_the_level(self):
         self.assertEqual(str(make_subject('Physics')), 'IGCSE Physics')
-
-
-class TimetableSlotModelTests(TestCase):
-    def test_requires_start_before_end(self):
-        subject = make_subject('Chemistry')
-        slot = TimetableSlot(subject=subject, day_of_week=1, start_time='14:00', end_time='13:00')
-        with self.assertRaises(ValidationError):
-            slot.clean()
-
-    def test_requires_day_of_week_in_range(self):
-        subject = make_subject('Biology')
-        slot = TimetableSlot(subject=subject, day_of_week=7, start_time='13:00', end_time='14:00')
-        with self.assertRaises(ValidationError):
-            slot.clean()
-
-    def test_weekend_days_rejected(self):
-        # The centre timetables Monday-Friday only.
-        subject = make_subject('Art')
-        for day in (5, 6):
-            slot = TimetableSlot(subject=subject, day_of_week=day, start_time='13:00', end_time='14:00')
-            with self.assertRaises(ValidationError, msg=f'day {day} should be rejected'):
-                slot.clean()
-
-    def test_friday_accepted(self):
-        subject = make_subject('Music')
-        TimetableSlot(subject=subject, day_of_week=4, start_time='13:00', end_time='14:00').clean()
-
-    def test_valid_slot(self):
-        subject = make_subject('English')
-        slot = TimetableSlot.objects.create(
-            subject=subject, day_of_week=0, start_time='13:00', end_time='14:00'
-        )
-        slot.full_clean()
-        self.assertEqual(subject.timetable_slot, slot)
 
 
 class TopicModelTests(TestCase):

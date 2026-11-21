@@ -1,23 +1,14 @@
-from django.db import transaction
-from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import generics, status
+from django.db.models import Count, Q
+from drf_spectacular.utils import extend_schema
+from rest_framework import generics
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import LessonPlan, Level, School, Subject, Topic
-from .serializers import (
-    ChapterSerializer,
-    CopyWeekSerializer,
-    LessonPlanRangeSerializer,
-    LessonPlanSerializer,
-    LessonPlanWriteSerializer,
-    LevelSerializer,
-    SchoolSerializer,
-    SubjectSerializer,
-)
-from .services import plannable_subjects, taught_subjects, topics_by_chapter
+from .models import Level, School, StudentSubjectStatus, Subject, Topic
+from .serializers import ChapterSerializer, LevelSerializer, SchoolSerializer, SubjectSerializer
+from .services import taught_subjects, topics_by_chapter
 
 
 class SchoolListView(generics.ListAPIView):
@@ -50,7 +41,20 @@ def _truthy(value):
 
 
 def subject_queryset():
-    return Subject.objects.select_related('level', 'timetable_slot').prefetch_related('tutor_links__tutor__user')
+    # Counts for the staff thumbnail view, annotated in the same query so a
+    # list of subjects stays one round trip (no per-subject counting).
+    return (
+        Subject.objects.select_related('level')
+        .prefetch_related('tutor_links__tutor__user')
+        .annotate(
+            tutor_count=Count('tutor_links', distinct=True),
+            active_student_count=Count(
+                'student_subjects',
+                filter=Q(student_subjects__status=StudentSubjectStatus.ACTIVE),
+                distinct=True,
+            ),
+        )
+    )
 
 
 class SubjectListCreateView(generics.ListCreateAPIView):
@@ -128,96 +132,3 @@ class SubjectTopicsView(APIView):
             raise NotFound()
         topics = Topic.objects.filter(subject_id=subject_id).order_by('order', 'id')
         return Response(ChapterSerializer(topics_by_chapter(topics), many=True).data)
-
-
-def _plannable_subject(request, subject_id):
-    """The Subject a user may read or write lesson plans for: staff any,
-    anyone else only a subject they teach (404 otherwise)."""
-    subject = plannable_subjects(request.user).filter(pk=subject_id).first()
-    if subject is None:
-        raise NotFound()
-    return subject
-
-
-class LessonPlanListView(APIView):
-    """GET /lesson-plans/?from=<monday>[&to=<monday>] - every plan in that
-    range of weeks (inclusive) the user can see: staff all, a Tutor only
-    their own subjects'. Unpaginated; the range is capped at a year."""
-
-    permission_classes = [IsAuthenticated]
-
-    @extend_schema(
-        parameters=[
-            OpenApiParameter('from', str, required=True, description='First week (a Monday, YYYY-MM-DD).'),
-            OpenApiParameter('to', str, description='Last week (a Monday), inclusive. Defaults to `from`.'),
-        ],
-        responses=LessonPlanSerializer(many=True),
-    )
-    def get(self, request):
-        params = LessonPlanRangeSerializer(data=request.query_params)
-        params.is_valid(raise_exception=True)
-        subjects = plannable_subjects(request.user)
-        plans = LessonPlan.objects.select_related('topic', 'updated_by').filter(
-            subject__in=subjects,
-            week_start__gte=params.validated_data['from_week'],
-            week_start__lte=params.validated_data['to_week'],
-        )
-        return Response(LessonPlanSerializer(plans, many=True).data)
-
-
-class LessonPlanWeekView(APIView):
-    """PUT /subjects/{id}/lesson-plans/{week_start}/ body {topic} sets or
-    changes that week's plan (upsert); {topic: null} clears it (204).
-    Staff, or the Subject's own Tutor."""
-
-    permission_classes = [IsAuthenticated]
-
-    @extend_schema(request=LessonPlanWriteSerializer, responses={200: LessonPlanSerializer, 204: None})
-    def put(self, request, subject_id, week_start):
-        subject = _plannable_subject(request, subject_id)
-        payload = LessonPlanWriteSerializer(
-            data={'week_start': week_start, 'topic': request.data.get('topic')}, context={'subject': subject}
-        )
-        payload.is_valid(raise_exception=True)
-        week = payload.validated_data['week_start']
-        topic = payload.validated_data['topic']
-
-        if topic is None:
-            LessonPlan.objects.filter(subject=subject, week_start=week).delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        plan, _ = LessonPlan.objects.update_or_create(
-            subject=subject, week_start=week, defaults={'topic': topic, 'updated_by': request.user}
-        )
-        return Response(LessonPlanSerializer(plan).data)
-
-
-class LessonPlanCopyWeekView(APIView):
-    """POST /lesson-plans/copy-week/ body {from_week, to_week}: re-use one
-    week's topics for another. Only fills subjects with no plan yet in
-    to_week - it never overwrites something already planned. A Tutor
-    copies only their own subjects. Returns {copied, skipped}."""
-
-    permission_classes = [IsAuthenticated]
-
-    @extend_schema(request=CopyWeekSerializer, responses={200: dict})
-    def post(self, request):
-        payload = CopyWeekSerializer(data=request.data)
-        payload.is_valid(raise_exception=True)
-        source, target = payload.validated_data['from_week'], payload.validated_data['to_week']
-        subjects = plannable_subjects(request.user)
-
-        copied = skipped = 0
-        with transaction.atomic():
-            already = set(
-                LessonPlan.objects.filter(subject__in=subjects, week_start=target).values_list('subject_id', flat=True)
-            )
-            for plan in LessonPlan.objects.filter(subject__in=subjects, week_start=source):
-                if plan.subject_id in already:
-                    skipped += 1
-                    continue
-                LessonPlan.objects.create(
-                    subject_id=plan.subject_id, week_start=target, topic_id=plan.topic_id, updated_by=request.user
-                )
-                copied += 1
-        return Response({'copied': copied, 'skipped': skipped})

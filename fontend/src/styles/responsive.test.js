@@ -41,7 +41,9 @@ const files = sourceFiles(SRC).map((path) => ({ path, lines: readFileSync(path, 
 describe('responsive: tables', () => {
   it('finds the data tables it is meant to guard', () => {
     const count = files.flatMap((f) => f.lines).filter((line) => /<table className="data-table/.test(line)).length
-    expect(count).toBeGreaterThanOrEqual(5)
+    // Four since Feature 2 replaced the student page's timetable table
+    // with subject cards.
+    expect(count).toBeGreaterThanOrEqual(4)
   })
 
   it('wraps every .data-table in a .table-scroll container', () => {

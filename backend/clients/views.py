@@ -1,92 +1,71 @@
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics, serializers
-from rest_framework.exceptions import NotFound
+from rest_framework import generics
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from academics.models import Subject
+from academics.models import StudentSubject, StudentSubjectStatus, Subject
+from academics.scheduling.times import fmt_time
 from academics.services import teaches
 from accounts.permissions import IsStaffLevel
-from enrollments.models import Enrollment, EnrollmentStatus
 
 from .models import Student
-from .serializers import StudentSerializer
+from .serializers import StudentEnrolledOnSerializer, StudentSerializer
 
 
 class StudentListView(generics.ListAPIView):
-    """?q= searches by name or student_number. Registered under both
-    /students/ and /students/search/ - the handover doc names both paths
-    for the same "returning student" lookup."""
+    """?q= searches by name or student_number. ?ordering= takes
+    enrolled_on, -enrolled_on (default) or full_name, -full_name. Registered
+    under both /students/ and /students/search/ - the handover doc names
+    both paths for the same "returning student" lookup."""
 
     serializer_class = StudentSerializer
     permission_classes = [IsStaffLevel]
+
+    ORDERINGS = {
+        'enrolled_on': ('enrolled_on', 'full_name'),
+        '-enrolled_on': ('-enrolled_on', 'full_name'),
+        'full_name': ('full_name',),
+        '-full_name': ('-full_name',),
+    }
 
     def get_queryset(self):
         qs = Student.objects.prefetch_related('guardianships__parent')
-        q = self.request.query_params.get('q')
+        params = self.request.query_params
+        q = params.get('q')
         if q:
             qs = qs.filter(Q(full_name__icontains=q) | Q(student_number__icontains=q))
-        return qs
+        ordering = params.get('ordering', '-enrolled_on')
+        if ordering not in self.ORDERINGS:
+            raise ValidationError({'ordering': [f"Must be one of: {', '.join(self.ORDERINGS)}."]})
+        return qs.order_by(*self.ORDERINGS[ordering], 'id')
 
 
-class StudentDetailView(generics.RetrieveAPIView):
-    serializer_class = StudentSerializer
+class StudentDetailView(generics.RetrieveUpdateAPIView):
+    """GET a student. PATCH (staff) changes only `enrolled_on`."""
+
     permission_classes = [IsStaffLevel]
     queryset = Student.objects.prefetch_related('guardianships__parent')
+    http_method_names = ['get', 'patch', 'head', 'options']
 
+    def get_serializer_class(self):
+        return StudentEnrolledOnSerializer if self.request.method == 'PATCH' else StudentSerializer
 
-class TimetableEntrySerializer(serializers.Serializer):
-    subject_id = serializers.IntegerField()
-    subject_name = serializers.CharField()
-    day_of_week = serializers.IntegerField(allow_null=True)
-    start_time = serializers.TimeField(allow_null=True)
-    end_time = serializers.TimeField(allow_null=True)
-
-
-class StudentTimetableView(APIView):
-    """Derived read: student -> active enrollment(s) -> subjects ->
-    timetable_slot. No stored data - see onboarding_apps_handover.md."""
-
-    permission_classes = [IsStaffLevel]
-
-    @extend_schema(responses=TimetableEntrySerializer(many=True))
-    def get(self, request, pk):
-        try:
-            student = Student.objects.get(pk=pk)
-        except Student.DoesNotExist:
-            raise NotFound()
-
-        entries = []
-        seen_subject_ids = set()
-        active_enrollments = Enrollment.objects.filter(
-            student=student, status=EnrollmentStatus.ACTIVE
-        ).prefetch_related('subjects__timetable_slot')
-        for enrollment in active_enrollments:
-            for subject in enrollment.subjects.all():
-                if subject.id in seen_subject_ids:
-                    continue
-                seen_subject_ids.add(subject.id)
-                slot = getattr(subject, 'timetable_slot', None)
-                entries.append(
-                    {
-                        'subject_id': subject.id,
-                        'subject_name': subject.name,
-                        'day_of_week': slot.day_of_week if slot else None,
-                        'start_time': slot.start_time if slot else None,
-                        'end_time': slot.end_time if slot else None,
-                    }
-                )
-        return Response(TimetableEntrySerializer(entries, many=True).data)
+    def update(self, request, *args, **kwargs):
+        super().update(request, *args, **kwargs)
+        # Reply with the full student, not just the edited field.
+        student = self.get_queryset().get(pk=kwargs['pk'])
+        return Response(StudentSerializer(student).data)
 
 
 class SubjectRosterView(APIView):
-    """GET /api/subjects/{id}/students/ - class roster: active students
-    enrolled in this subject. Staff see any subject's roster; a Tutor sees
-    only the roster of a subject they teach (the "tutor's class roster" the
-    handover doc describes), 404 otherwise - same existence-hiding
-    convention as academics.SubjectDetailView."""
+    """GET /api/subjects/{id}/students/ - who is learning this subject: one
+    item per ACTIVE student subject, each a student plus the tutor, mode and
+    weekly times. Staff see every student on the subject; a Tutor sees only
+    their own students, and only on a subject they teach (404 otherwise,
+    the existence-hiding convention of academics.SubjectDetailView)."""
 
     permission_classes = [IsAuthenticated]
 
@@ -101,9 +80,31 @@ class SubjectRosterView(APIView):
         if not user.is_staff_level and not teaches(user, subject):
             raise NotFound()
 
-        students = (
-            Student.objects.filter(enrollments__subjects=subject, enrollments__status=EnrollmentStatus.ACTIVE)
-            .distinct()
-            .prefetch_related('guardianships__parent')
+        links = (
+            StudentSubject.objects.filter(subject=subject, status=StudentSubjectStatus.ACTIVE)
+            .select_related('student', 'tutor__user')
+            .prefetch_related('slots', 'student__guardianships__parent')
         )
-        return Response(StudentSerializer(students, many=True).data)
+        if not user.is_staff_level:
+            links = links.filter(tutor=user.tutor_profile)
+
+        rows = []
+        for link in links:
+            row = StudentSerializer(link.student).data
+            row.update(
+                {
+                    'student_subject_id': link.pk,
+                    'tutor': {'id': link.tutor_id, 'name': link.tutor.user.full_name or link.tutor.user.email},
+                    'mode': link.mode,
+                    'slots': [
+                        {
+                            'weekday': slot.weekday,
+                            'start_time': fmt_time(slot.start_time),
+                            'end_time': fmt_time(slot.end_time),
+                        }
+                        for slot in link.slots.all()
+                    ],
+                }
+            )
+            rows.append(row)
+        return Response(rows)
